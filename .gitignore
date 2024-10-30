@@ -1,0 +1,5 @@
+**/llama_config_local.yaml
+**/*.swp
+
+*.DS_Store
+**/__pycache__/
