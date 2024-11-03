@@ -1,0 +1,14 @@
+name: cray
+help: Cray CLI
+version: 0.1.0
+
+
+commands:
+
+- name: build-image
+  help: |
+    Build image from dockerfile
+
+- name: up
+  help: |
+    Start the container

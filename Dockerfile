@@ -47,3 +47,5 @@ RUN --mount=type=cache,target=/root/.cache/pip \
     VLLM_TARGET_DEVICE=cpu python3 ${INSTALL_ROOT}/setup.py bdist_wheel && \
     pip install ${INSTALL_ROOT}/dist/*.whl && \
     rm -rf ${INSTALL_ROOT}/dist
+
+ENTRYPOINT ["python3", "-m", "vllm.entrypoints.openai.api_server"]

@@ -1,0 +1,21 @@
+services:
+
+    vllm:
+        command:
+          - --model
+          - lamini/tiny-random-llama
+        build:
+            context: .
+            dockerfile: Dockerfile
+        volumes:
+            - type: bind
+              source: ./models
+              target: /root/.cache/huggingface
+        networks:
+            - cray-network
+
+
+networks:
+  cray-network:
+    name: cray_network
+

@@ -1,0 +1,68 @@
+# All settings are optional (with their default values provided below), and
+# can also be set with an environment variable with the same name, capitalized
+# and prefixed by `BASHLY_` - for example: BASHLY_SOURCE_DIR
+#
+# When setting environment variables, you can use:
+# - "0", "false" or "no" to represent false
+# - "1", "true" or "yes" to represent true
+#
+# If you wish to change the path to this file, set the environment variable
+# BASHLY_SETTINGS_PATH.
+
+# The path containing the bashly source files
+source_dir: cmd
+
+# The path to bashly.yml
+config_path: "%{source_dir}/bashly.yml"
+
+# The path to use for creating the bash script
+target_dir: /app/scripts
+
+# The path to use for common library files, relative to source_dir
+lib_dir: lib
+
+# The path to use for command files, relative to source_dir
+# When set to nil (~), command files will be placed directly under source_dir
+# When set to any other string, command files will be placed under this
+# directory, and each command will get its own subdirectory
+commands_dir: ~
+
+# Configure the bash options that will be added to the initialize function:
+# strict: true       Bash strict mode (set -euo pipefail)
+# strict: false      Only exit on errors (set -e)
+# strict: ''         Do not add any 'set' directive
+# strict: <string>   Add any other custom 'set' directive
+strict: false
+
+# When true, the generated script will use tab indentation instead of spaces
+# (every 2 leading spaces will be converted to a tab character)
+tab_indent: false
+
+# When true, the generated script will consider any argument in the form of
+# `-abc` as if it is `-a -b -c`.
+compact_short_flags: true
+
+# When true, the generated script will consider any argument in the form of
+# `--flag=value` and `-f=value` as if it is `--flag value` and `-f value`
+# respectively.
+conjoined_flag_args: true
+
+# Set to 'production' or 'development':
+# env: production    Generate a smaller script, without file markers
+# env: development   Generate with file markers
+env: development
+
+# The extension to use when reading/writing partial script snippets
+partials_extension: sh
+
+# Display various usage elements in color by providing the name of the color
+# function. The value for each property is a name of a function that is
+# available in your script, for example: `green` or `bold`.
+# You can run `bashly add colors` to add a standard colors library.
+# This option cannot be set via environment variables.
+usage_colors:
+  caption: ~
+  command: ~
+  arg: ~
+  flag: ~
+  environment_variable: ~
