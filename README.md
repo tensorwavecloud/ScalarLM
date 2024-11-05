@@ -10,7 +10,9 @@
 4. Read through the short tutorials: 
 
 https://modal.com/playground/get_started
+
 https://modal.com/playground/custom_container
+
 https://modal.com/playground/scaling_out
 
 
