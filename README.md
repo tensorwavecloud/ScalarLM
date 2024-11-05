@@ -4,10 +4,11 @@
 1. You should have received an invite to modal. Accept the invite to create an account.
 2. Login into modal.com
 3. Go to the workspace apps page (https://modal.com/apps/smi-workspace/main) and click on "Quickstart Guide" near the search bar and follow the instructions to setup the modal CLI on your laptop.
-4. Read through the short tutorials:
-  1. https://modal.com/playground/get_started
-  2. https://modal.com/playground/custom_container
-  3. https://modal.com/playground/scaling_out
+4. Read through the short, in-browser tutorials:
+
+* https://modal.com/playground/get_started
+* https://modal.com/playground/custom_container
+* https://modal.com/playground/scaling_out
 
 
 ## Example: Text-to-sql Fine-tuning 
