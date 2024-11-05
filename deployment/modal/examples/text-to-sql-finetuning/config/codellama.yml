@@ -1,0 +1,69 @@
+base_model: codellama/CodeLlama-7b-Instruct-hf
+
+load_in_8bit: false
+strict: false
+
+datasets:
+  # This will be the path used for the data when it is saved to the Volume in the cloud.
+  - path: data.jsonl
+    ds_type: json
+    type:
+      # JSONL file contains question, context, answer fields per line.
+      # This gets mapped to instruction, input, output axolotl tags.
+      field_instruction: question
+      field_input: context
+      field_output: answer
+      # Format is used by axolotl to generate the prompt.
+      format: |-
+        [INST] Using the schema context below, generate a SQL query that answers the question.
+        {input}
+        {instruction} [/INST]
+
+tokens:
+  - "[INST]"
+  - " [/INST]"
+  - "[SQL]"
+  - " [/SQL]"
+
+dataset_prepared_path: last_run_prepared
+val_set_size: 0.05
+output_dir: ./lora-out
+
+sequence_len: 4096
+sample_packing: false
+eval_sample_packing: false
+pad_to_sequence_len: false
+
+adapter: lora
+lora_r: 16
+lora_alpha: 32 # alpha = 2 x rank is a good starting point.
+lora_dropout: 0.05
+lora_target_linear: true # target all linear layers
+lora_modules_to_save: # required when adding new tokens to LLaMA/Mistral
+  - embed_tokens
+  - lm_head
+
+gradient_accumulation_steps: 1
+micro_batch_size: 32
+num_epochs: 4
+optimizer: adamw_torch
+lr_scheduler: cosine
+learning_rate: 0.0001
+
+train_on_inputs: false
+group_by_length: false
+bf16: auto
+fp16: false
+tf32: false
+
+gradient_checkpointing: true
+auto_resume_from_checkpoints: true
+local_rank:
+logging_steps: 1
+xformers_attention:
+flash_attention: true
+
+warmup_steps: 10
+eval_steps: 0.05
+deepspeed: /workspace/axolotl/deepspeed_configs/zero3_bf16.json
+weight_decay: 0.0
