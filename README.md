@@ -49,7 +49,7 @@ App: infra
 3. Run this command to check that the vault is set up correctly:
 
 ```
-❯ hcp vault-secrets run --app infra -- python deployment/hasicorp/vault_test.py
+❯ hcp vault-secrets run --app infra -- python deployment/hashicorp/vault_test.py
 vault configured successfully
 ```
 

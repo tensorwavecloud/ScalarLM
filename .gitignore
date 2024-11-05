@@ -4,3 +4,4 @@ models
 *.DS_Store
 **/__pycache__/
 .env
+.idea
