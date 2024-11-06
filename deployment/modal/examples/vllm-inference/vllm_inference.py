@@ -1,44 +1,28 @@
 import modal
 import os
 
-MODELS_DIR = "/llamas"
-MODEL_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
-MODEL_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
+import modal
 
 vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "vllm==0.6.3post1", "fastapi[standard]==0.115.4"
 )
 
+MODELS_DIR = "/llamas"
+MODEL_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
+MODEL_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
+
 try:
-    volume = modal.Volume.lookup("llamas", create_if_missing=False)
+    volume = modal.Volume.lookup("llamas", create_if_missing=True)
 except modal.exception.NotFoundError:
     raise Exception("Download models first with modal run download_llama.py")
 
 app = modal.App("example-vllm-openai-compatible")
 
+N_GPU = 1  # tip: for best results, first upgrade to more powerful GPUs, and only then increase GPU count
+TOKEN = os.environ.get("MODAL_OPENAI_API_KEY") # auth token. for production use, replace with a modal.Secret
+
 MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
-N_GPU = 1  # tip: for best results, first upgrade to more powerful GPUs, and only then increase GPU count
-
-def get_model_config(engine):
-    import asyncio
-
-    try:  # adapted from vLLM source --
-        # https://github.com/vllm-project/vllm/blob/507ef787d85dec24490069ffceacbd6b161f4f72/vllm/entrypoints/openai
-        # /api_server.py#L235C1-L247C1
-        event_loop = asyncio.get_running_loop()
-    except RuntimeError:
-        event_loop = None
-
-    if event_loop is not None and event_loop.is_running():
-        # If the current is instanced by Ray Serve,
-        # there is already a running event loop
-        model_config = event_loop.run_until_complete(engine.get_model_config())
-    else:
-        # When using single vLLM without engine_use_ray
-        model_config = asyncio.run(engine.get_model_config())
-
-    return model_config
 
 
 @app.function(
@@ -48,7 +32,6 @@ def get_model_config(engine):
     timeout=24 * HOURS,
     allow_concurrent_inputs=1000,
     volumes={MODELS_DIR: volume},
-    secrets=[modal.Secret.from_name("MODAL_OPENAI_API_KEY")]
 )
 @modal.asgi_app()
 def serve():
@@ -87,8 +70,6 @@ def serve():
         allow_headers=["*"],
     )
 
-    TOKEN = os.environ["MODAL_OPENAI_API_KEY"]
-
     # security: inject dependency on authed routes
     async def is_authenticated(api_key: str = fastapi.Security(http_bearer)):
         if api_key.credentials != TOKEN:
@@ -110,7 +91,7 @@ def serve():
         tensor_parallel_size=N_GPU,
         gpu_memory_utilization=0.90,
         max_model_len=8096,
-        enforce_eager=False,  # capture the graph for faster vllm-inference, but slower cold starts (30s > 20s)
+        enforce_eager=False,  # capture the graph for faster inference, but slower cold starts (30s > 20s)
     )
 
     engine = AsyncLLMEngine.from_engine_args(
@@ -145,3 +126,21 @@ def serve():
     )
 
     return web_app
+
+def get_model_config(engine):
+    import asyncio
+
+    try:  # adapted from vLLM source -- https://github.com/vllm-project/vllm/blob/507ef787d85dec24490069ffceacbd6b161f4f72/vllm/entrypoints/openai/api_server.py#L235C1-L247C1
+        event_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        event_loop = None
+
+    if event_loop is not None and event_loop.is_running():
+        # If the current is instanced by Ray Serve,
+        # there is already a running event loop
+        model_config = event_loop.run_until_complete(engine.get_model_config())
+    else:
+        # When using single vLLM without engine_use_ray
+        model_config = asyncio.run(engine.get_model_config())
+
+    return model_config
