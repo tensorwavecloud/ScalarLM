@@ -8,13 +8,12 @@ vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
 )
 
 MODELS_DIR = "/llamas"
-MODEL_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-quantized.w4a16"
-MODEL_REVISION = "a7c09948d9a632c2c840722f519672cd94af885d"
+MODEL_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8"
 
 try:
-    volume = modal.Volume.lookup("llamas", create_if_missing=True)
+    volume = modal.Volume.lookup("llamas", create_if_missing=False)
 except modal.exception.NotFoundError:
-    raise Exception("Download models first with modal run download_llama.py")
+    raise Exception("Download models first with modal run vllm_download.py")
 
 app = modal.App("example-vllm-openai-compatible")
 
@@ -87,7 +86,7 @@ def serve():
     web_app.include_router(router)
 
     engine_args = AsyncEngineArgs(
-        model=MODELS_DIR + "/" + MODEL_NAME,
+        model=MODEL_NAME,
         tensor_parallel_size=N_GPU,
         gpu_memory_utilization=0.90,
         max_model_len=8096,

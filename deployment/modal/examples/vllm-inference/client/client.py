@@ -1,10 +1,10 @@
 """This simple script shows how to interact with an OpenAI-compatible server from a client."""
 
 import argparse
+import os
 
 import modal
 from openai import OpenAI
-
 
 class Colors:
     """ANSI color codes"""
@@ -50,7 +50,7 @@ def main():
     parser.add_argument(
         "--model",
         type=str,
-        default=None,
+        default="neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8",
         help="The model to use for completion, defaults to the first available model",
     )
     parser.add_argument(
@@ -74,13 +74,13 @@ def main():
     parser.add_argument(
         "--api-key",
         type=str,
-        default="super-secret-token",
+        default=os.environ.get("MODAL_OPENAI_API_KEY"),
         help="The API key to use for authentication, set in your api.py",
     )
 
     # Completion parameters
     parser.add_argument("--max-tokens", type=int, default=None)
-    parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument("--temperature", type=float, default=0.0)
     parser.add_argument("--top-p", type=float, default=0.9)
     parser.add_argument("--top-k", type=int, default=0)
     parser.add_argument("--frequency-penalty", type=float, default=0)
