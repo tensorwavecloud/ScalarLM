@@ -28,6 +28,7 @@ cray_usage() {
   printf "%s\n" "Commands:"
   printf "  %s   Build image from dockerfile\n" "build-image"
   printf "  %s   Start the container\n" "up         "
+  printf "  %s   Run tests in the container\n" "test       "
   echo
 
   # :command.long_usage
@@ -47,12 +48,7 @@ cray_usage() {
 
 # :command.usage
 cray_build_image_usage() {
-  if [[ -n $long_usage ]]; then
-    printf "cray build-image\n\n"
-    printf "  Build image from dockerfile\n\n"
-  else
-    printf "cray build-image - Build image from dockerfile\n\n"
-  fi
+  printf "cray build-image - Build image from dockerfile\n\n"
 
   printf "%s\n" "Usage:"
   printf "  cray build-image\n"
@@ -73,12 +69,7 @@ cray_build_image_usage() {
 
 # :command.usage
 cray_up_usage() {
-  if [[ -n $long_usage ]]; then
-    printf "cray up\n\n"
-    printf "  Start the container\n\n"
-  else
-    printf "cray up - Start the container\n\n"
-  fi
+  printf "cray up - Start the container\n\n"
 
   printf "%s\n" "Usage:"
   printf "  cray up\n"
@@ -92,6 +83,56 @@ cray_up_usage() {
     # :command.usage_fixed_flags
     printf "  %s\n" "--help, -h"
     printf "    Show this help\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_test_usage() {
+  printf "cray test - Run tests in the container\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray test [TEST-PATH] [OPTIONS]\n"
+  printf "  cray test --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_flags
+    # :flag.usage
+    printf "  %s\n" "--coverage-path COVERAGE-PATH"
+    printf "    Absolute path to a directory to write coverage results into\n"
+    printf "    %s\n" "Default: /tmp/cray/coverage"
+    echo
+
+    # :flag.usage
+    printf "  %s\n" "--verbose VERBOSE"
+    printf "    Prints out DEBUG logs as the test is running.\n"
+    printf "    %s\n" "Allowed: yes, no"
+    printf "    %s\n" "Default: no"
+    echo
+
+    # :flag.usage
+    printf "  %s\n" "--workers WORKERS"
+    printf "    Number of workers, default is auto\n"
+    printf "    %s\n" "Default: auto"
+    echo
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "TEST-PATH"
+    printf "    Relative path to the directory or file with test cases\n"
+    printf "    %s\n" "Default: test/infra/*"
     echo
 
   fi
@@ -208,7 +249,7 @@ cray_build_image_command() {
   # cmd/build_image_command.sh
   inspect_args
 
-  docker build -t cray:latest .
+  docker build -t cray:latest --shm-size=8g .
 
   echo $(green_bold Successfully built image)
 
@@ -220,6 +261,74 @@ cray_up_command() {
   #inspect_args
 
   docker compose -f docker-compose.yaml up --build
+
+}
+
+# :command.function
+cray_test_command() {
+  # cmd/test_command.sh
+  inspect_args
+
+  test_path=${args[test-path]}
+  tag=${args[--tag]}
+  verbose=${args[--verbose]}
+  workers=${args[--workers]}
+
+  if [ -z "$tag" ]; then
+    tag="cray:latest"
+  fi
+
+  ./cray build-image
+
+  declare -a start_slurm_command_parts
+
+  start_slurm_command_parts=(
+      "./scripts/start_slurm.sh" ";"
+  )
+
+  declare -a pytest_command_parts
+  pytest_command_parts=(
+        "${start_slurm_command_parts[*]}"
+        "python" "-m" "pytest" "-rF" "--dist=loadgroup" "--color=yes"
+        "--durations=10" "--durations-min=10.0" "--forked" "--verbose" "-vv"
+        "-o" "log_cli=true" "-o" "log_cli_level=DEBUG")
+
+  if [ "yes" == "$verbose" ]; then
+    pytest_command_parts+=("-rP")
+  fi
+
+  pytest_command_parts+=($test_path)
+  pytest_command="${pytest_command_parts[*]}"
+
+  TTY=-t
+  if test -t 0; then
+    TTY=-it
+  fi
+
+  echo "Test path: $test_path"
+  echo $command
+  echo $tag
+
+  # Remove the trailing * from the test path, if it exists
+  base_test_path=${test_path%\*}
+
+  if [ ! -e $base_test_path ]; then
+    echo $(red_bold "File or does directory exists:  $base_test_path")
+    exit 1
+  fi
+
+  declare -a docker_command_parts
+
+  docker_command_parts=("docker" "run" "--rm" "--init" )
+
+  docker_command_parts+=("-e" "PY_FORCE_COLOR=1"
+              "-e" "PY_COLORS=1"
+              "-e" "FORCE_COLOR=1"
+              "$TTY" "$tag" "sh" "-c" "'$pytest_command'")
+
+  docker_command="${docker_command_parts[*]}"
+  echo $docker_command
+  eval $docker_command
 
 }
 
@@ -263,6 +372,13 @@ parse_requirements() {
       action="up"
       shift
       cray_up_parse_requirements "$@"
+      shift $#
+      ;;
+
+    test)
+      action="test"
+      shift
+      cray_test_parse_requirements "$@"
       shift $#
       ;;
 
@@ -390,6 +506,109 @@ cray_up_parse_requirements() {
 
 }
 
+# :command.parse_requirements
+cray_test_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    case "${1:-}" in
+      --help | -h)
+        long_usage=yes
+        cray_test_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="test"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      # :flag.case
+      --coverage-path)
+
+        # :flag.case_arg
+        if [[ -n ${2+x} ]]; then
+          args['--coverage-path']="$2"
+          shift
+          shift
+        else
+          printf "%s\n" "--coverage-path requires an argument: --coverage-path COVERAGE-PATH" >&2
+          exit 1
+        fi
+        ;;
+
+      # :flag.case
+      --verbose)
+
+        # :flag.case_arg
+        if [[ -n ${2+x} ]]; then
+          args['--verbose']="$2"
+          shift
+          shift
+        else
+          printf "%s\n" "--verbose requires an argument: --verbose VERBOSE" >&2
+          exit 1
+        fi
+        ;;
+
+      # :flag.case
+      --workers)
+
+        # :flag.case_arg
+        if [[ -n ${2+x} ]]; then
+          args['--workers']="$2"
+          shift
+          shift
+        else
+          printf "%s\n" "--workers requires an argument: --workers WORKERS" >&2
+          exit 1
+        fi
+        ;;
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        # :argument.case
+        if [[ -z ${args['test-path']+x} ]]; then
+          args['test-path']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
+
+        ;;
+
+    esac
+  done
+
+  # :command.default_assignments
+  [[ -n ${args['test-path']:-} ]] || args['test-path']="test/infra/*"
+  [[ -n ${args['--coverage-path']:-} ]] || args['--coverage-path']="/tmp/cray/coverage"
+  [[ -n ${args['--verbose']:-} ]] || args['--verbose']="no"
+  [[ -n ${args['--workers']:-} ]] || args['--workers']="auto"
+
+  # :command.whitelist_filter
+  if [[ ${args['--verbose']:-} ]] && [[ ! ${args['--verbose']:-} =~ ^(yes|no)$ ]]; then
+    printf "%s\n" "--verbose must be one of: yes, no" >&2
+    exit 1
+  fi
+
+}
+
 # :command.initialize
 initialize() {
   version="0.1.0"
@@ -411,6 +630,7 @@ run() {
   case "$action" in
     "build-image") cray_build_image_command ;;
     "up") cray_up_command ;;
+    "test") cray_test_command ;;
   esac
 }
 

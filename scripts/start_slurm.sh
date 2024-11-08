@@ -12,8 +12,11 @@ set -Eeuoxa pipefail
 # Get the directory of this script
 LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-# Refresh the bashly command
-$LOCAL_DIRECTORY/cmd/bashly.sh generate
+# Run the slurm discovery service
+python $LOCAL_DIRECTORY/../infra/cray_infra/slurm/discovery/discover_clusters.py
 
-# Call the generated CLI script
-$LOCAL_DIRECTORY/scripts/cray "$@"
+service munge start
+
+slurmctld
+slurmd
+

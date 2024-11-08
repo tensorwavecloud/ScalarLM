@@ -1,0 +1,10 @@
+pytest
+pytest-cov
+pytest-xdist
+pytest-forked
+pytest-asyncio
+pytest-dotenv
+pytest-mock
+pytest-rerunfailures
+pytest-timeout
+codecov

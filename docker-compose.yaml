@@ -2,18 +2,21 @@ services:
 
     vllm:
         command:
-          - --model
-          - lamini/tiny-random-llama
+            - "python3"
+            - "-m"
+            - "cray_infra.one_server.main"
         build:
             context: .
             dockerfile: Dockerfile
+        ports:
+            - "8000:8000"
+            - "8001:8001"
         volumes:
             - type: bind
               source: ./models
               target: /root/.cache/huggingface
         networks:
             - cray-network
-
 
 networks:
   cray-network:

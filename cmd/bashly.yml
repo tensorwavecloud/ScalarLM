@@ -6,9 +6,30 @@ version: 0.1.0
 commands:
 
 - name: build-image
-  help: |
-    Build image from dockerfile
+  help: Build image from dockerfile
 
 - name: up
-  help: |
-    Start the container
+  help: Start the container
+
+- name: test
+  help: Run tests in the container
+  args:
+    - name: test-path
+      default: "test/infra/*"
+      help: Relative path to the directory or file with test cases
+  flags:
+    - long: --coverage-path
+      arg: coverage-path
+      help: Absolute path to a directory to write coverage results into
+      default: /tmp/cray/coverage
+
+    - long: --verbose
+      help: Prints out DEBUG logs as the test is running.
+      arg: verbose
+      allowed: ["yes", "no"]
+      default: "no"
+
+    - long: --workers
+      arg: workers
+      help: Number of workers, default is auto
+      default: "auto"
