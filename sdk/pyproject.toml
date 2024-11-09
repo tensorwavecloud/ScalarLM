@@ -3,12 +3,12 @@ requires = ["setuptools>=65.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "supermi"
+name = "masint"
 version = "0.0.1"
 authors = [
   { name="Greg Diamos", email="gregory.diamos@gmail.com" },
 ]
-description = "Supermassive intellgent AI"
+description = "Supermassive Intellgence"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -17,21 +17,13 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 dependencies = [
-    "lamini-configuration[yaml]",
-    "requests",
-    "tqdm",
-    "numpy<2.0.0",
-    "jsonlines",
-    "pandas",
-    "azure-storage-blob",
-    "scikit-learn",
     "aiohttp",
 ]
 
 [tool.setuptools]
 packages = [
-    "supermi",
-    "supermi.api",
+    "masint",
+    "masint.api",
 ]
 
 [tool.autopep8]

@@ -145,9 +145,9 @@ endif()
 
 
 #
-# For cuda we want to be able to control which architectures we compile for on 
+# For cuda we want to be able to control which architectures we compile for on
 # a per-file basis in order to cut down on compile time. So here we extract
-# the set of architectures we want to compile for and remove the from the 
+# the set of architectures we want to compile for and remove the from the
 # CMAKE_CUDA_FLAGS so that they are not applied globally.
 #
 if(VLLM_GPU_LANG STREQUAL "CUDA")
@@ -248,78 +248,78 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
   # Only build Marlin kernels if we are building for at least some compatible archs.
   # Keep building Marlin for 9.0 as there are some group sizes and shapes that
   # are not supported by Machete yet.
-  cuda_archs_loose_intersection(MARLIN_ARCHS "8.0;8.6;8.9;9.0" ${CUDA_ARCHS})
-  if (MARLIN_ARCHS)
-    set(MARLIN_SRCS 
-       "csrc/quantization/fp8/fp8_marlin.cu"
-       "csrc/quantization/marlin/dense/marlin_cuda_kernel.cu"
-       "csrc/quantization/marlin/sparse/marlin_24_cuda_kernel.cu"
-       "csrc/quantization/marlin/qqq/marlin_qqq_gemm_kernel.cu"
-       "csrc/quantization/gptq_marlin/gptq_marlin.cu"
-       "csrc/quantization/gptq_marlin/gptq_marlin_repack.cu"
-       "csrc/quantization/gptq_marlin/awq_marlin_repack.cu")
-    set_gencode_flags_for_srcs(
-      SRCS "${MARLIN_SRCS}"
-      CUDA_ARCHS "${MARLIN_ARCHS}")
-    list(APPEND VLLM_EXT_SRC "${MARLIN_SRCS}")
-    message(STATUS "Building Marlin kernels for archs: ${MARLIN_ARCHS}")
-  else()
-    message(STATUS "Not building Marlin kernels as no compatible archs found"
-                   "in CUDA target architectures")
-  endif()
+  #cuda_archs_loose_intersection(MARLIN_ARCHS "8.0;8.6;8.9;9.0" ${CUDA_ARCHS})
+  #if (MARLIN_ARCHS)
+  #  set(MARLIN_SRCS
+  #     "csrc/quantization/fp8/fp8_marlin.cu"
+  #     "csrc/quantization/marlin/dense/marlin_cuda_kernel.cu"
+  #     "csrc/quantization/marlin/sparse/marlin_24_cuda_kernel.cu"
+  #     "csrc/quantization/marlin/qqq/marlin_qqq_gemm_kernel.cu"
+  #     "csrc/quantization/gptq_marlin/gptq_marlin.cu"
+  #     "csrc/quantization/gptq_marlin/gptq_marlin_repack.cu"
+  #     "csrc/quantization/gptq_marlin/awq_marlin_repack.cu")
+  #  set_gencode_flags_for_srcs(
+  #    SRCS "${MARLIN_SRCS}"
+  #    CUDA_ARCHS "${MARLIN_ARCHS}")
+  #  list(APPEND VLLM_EXT_SRC "${MARLIN_SRCS}")
+  #  message(STATUS "Building Marlin kernels for archs: ${MARLIN_ARCHS}")
+  #else()
+  #  message(STATUS "Not building Marlin kernels as no compatible archs found"
+  #                 "in CUDA target architectures")
+  #endif()
 
   #
   # The cutlass_scaled_mm kernels for Hopper (c3x, i.e. CUTLASS 3.x) require
   # CUDA 12.0 or later (and only work on Hopper, 9.0/9.0a for now).
-  cuda_archs_loose_intersection(SCALED_MM_3X_ARCHS "9.0;9.0a" "${CUDA_ARCHS}")
-  if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0 AND SCALED_MM_3X_ARCHS)
-    set(SRCS "csrc/quantization/cutlass_w8a8/scaled_mm_c3x.cu")
-    set_gencode_flags_for_srcs(
-      SRCS "${SRCS}"
-      CUDA_ARCHS "${SCALED_MM_3X_ARCHS}")
-    list(APPEND VLLM_EXT_SRC "${SRCS}")
-    list(APPEND VLLM_GPU_FLAGS "-DENABLE_SCALED_MM_C3X=1")
-    message(STATUS "Building scaled_mm_c3x for archs: ${SCALED_MM_3X_ARCHS}")
-  else()
-    # clear SCALED_MM_3X_ARCHS so the scaled_mm_c2x kernels know we didn't 
-    # build any 3x kernels
-    set(SCALED_MM_3X_ARCHS)
+  #cuda_archs_loose_intersection(SCALED_MM_3X_ARCHS "9.0;9.0a" "${CUDA_ARCHS}")
+  #if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0 AND SCALED_MM_3X_ARCHS)
+  #  set(SRCS "csrc/quantization/cutlass_w8a8/scaled_mm_c3x.cu")
+  #  set_gencode_flags_for_srcs(
+  #    SRCS "${SRCS}"
+  #    CUDA_ARCHS "${SCALED_MM_3X_ARCHS}")
+  #  list(APPEND VLLM_EXT_SRC "${SRCS}")
+  #  list(APPEND VLLM_GPU_FLAGS "-DENABLE_SCALED_MM_C3X=1")
+  #  message(STATUS "Building scaled_mm_c3x for archs: ${SCALED_MM_3X_ARCHS}")
+  #else()
+  #  # clear SCALED_MM_3X_ARCHS so the scaled_mm_c2x kernels know we didn't
+  #  # build any 3x kernels
+  #  set(SCALED_MM_3X_ARCHS)
 
-    if (NOT ${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0 AND SCALED_MM_3X_ARCHS)
-      message(STATUS "Not building scaled_mm_c3x as CUDA Compiler version is "
-                     "not >= 12.0, we recommend upgrading to CUDA 12.0 or "
-                     "later if you intend on running FP8 quantized models on "
-                     "Hopper.")
-    else()
-      message(STATUS "Not building scaled_mm_c3x as no compatible archs found "
-                     "in CUDA target architectures")
-    endif()
-  endif()
+  #  if (NOT ${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0 AND SCALED_MM_3X_ARCHS)
+  #    message(STATUS "Not building scaled_mm_c3x as CUDA Compiler version is "
+  #                   "not >= 12.0, we recommend upgrading to CUDA 12.0 or "
+  #                   "later if you intend on running FP8 quantized models on "
+  #                   "Hopper.")
+  #  else()
+  #    message(STATUS "Not building scaled_mm_c3x as no compatible archs found "
+  #                   "in CUDA target architectures")
+  #  endif()
+  #endif()
 
-  #
-  # For the cutlass_scaled_mm kernels we want to build the c2x (CUTLASS 2.x)
-  # kernels for the remaining archs that are not already built for 3x.
-  cuda_archs_loose_intersection(SCALED_MM_2X_ARCHS 
-    "7.5;8.0;8.6;8.9;9.0;9.0a" "${CUDA_ARCHS}")
-  # subtract out the archs that are already built for 3x
-  list(REMOVE_ITEM SCALED_MM_2X_ARCHS ${SCALED_MM_3X_ARCHS})
-  if (SCALED_MM_2X_ARCHS)
-    set(SRCS "csrc/quantization/cutlass_w8a8/scaled_mm_c2x.cu")
-    set_gencode_flags_for_srcs(
-      SRCS "${SRCS}"
-      CUDA_ARCHS "${SCALED_MM_2X_ARCHS}")
-    list(APPEND VLLM_EXT_SRC "${SRCS}")
-    list(APPEND VLLM_GPU_FLAGS "-DENABLE_SCALED_MM_C2X=1")
-    message(STATUS "Building scaled_mm_c2x for archs: ${SCALED_MM_2X_ARCHS}")
-  else()
-    if (SCALED_MM_3X_ARCHS)
-      message(STATUS "Not building scaled_mm_c2x as all archs are already built"
-                     " for and covered by scaled_mm_c3x")
-    else()
-      message(STATUS "Not building scaled_mm_c2x as no compatible archs found "
-                    "in CUDA target architectures")
-    endif()
-  endif()
+  ##
+  ## For the cutlass_scaled_mm kernels we want to build the c2x (CUTLASS 2.x)
+  ## kernels for the remaining archs that are not already built for 3x.
+  #cuda_archs_loose_intersection(SCALED_MM_2X_ARCHS
+  #  "7.5;8.0;8.6;8.9;9.0;9.0a" "${CUDA_ARCHS}")
+  ## subtract out the archs that are already built for 3x
+  #list(REMOVE_ITEM SCALED_MM_2X_ARCHS ${SCALED_MM_3X_ARCHS})
+  #if (SCALED_MM_2X_ARCHS)
+  #  set(SRCS "csrc/quantization/cutlass_w8a8/scaled_mm_c2x.cu")
+  #  set_gencode_flags_for_srcs(
+  #    SRCS "${SRCS}"
+  #    CUDA_ARCHS "${SCALED_MM_2X_ARCHS}")
+  #  list(APPEND VLLM_EXT_SRC "${SRCS}")
+  #  list(APPEND VLLM_GPU_FLAGS "-DENABLE_SCALED_MM_C2X=1")
+  #  message(STATUS "Building scaled_mm_c2x for archs: ${SCALED_MM_2X_ARCHS}")
+  #else()
+  #  if (SCALED_MM_3X_ARCHS)
+  #    message(STATUS "Not building scaled_mm_c2x as all archs are already built"
+  #                   " for and covered by scaled_mm_c3x")
+  #  else()
+  #    message(STATUS "Not building scaled_mm_c2x as no compatible archs found "
+  #                  "in CUDA target architectures")
+  #  endif()
+  #endif()
 
 
   #
@@ -327,70 +327,70 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
 
   # The machete kernels only work on hopper and require CUDA 12.0 or later.
   # Only build Machete kernels if we are building for something compatible with sm90a
-  cuda_archs_loose_intersection(MACHETE_ARCHS "9.0a" "${CUDA_ARCHS}")
-  if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0 AND MACHETE_ARCHS)
-    #
-    # For the Machete kernels we automatically generate sources for various 
-    # preselected input type pairs and schedules.
-    # Generate sources:
-    set(MACHETE_GEN_SCRIPT 
-      ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/machete/generate.py)
-    file(MD5 ${MACHETE_GEN_SCRIPT} MACHETE_GEN_SCRIPT_HASH)
+  #cuda_archs_loose_intersection(MACHETE_ARCHS "9.0a" "${CUDA_ARCHS}")
+  #if(${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0 AND MACHETE_ARCHS)
+  #  #
+  #  # For the Machete kernels we automatically generate sources for various
+  #  # preselected input type pairs and schedules.
+  #  # Generate sources:
+  #  set(MACHETE_GEN_SCRIPT
+  #    ${CMAKE_CURRENT_SOURCE_DIR}/csrc/quantization/machete/generate.py)
+  #  file(MD5 ${MACHETE_GEN_SCRIPT} MACHETE_GEN_SCRIPT_HASH)
 
-    message(STATUS "Machete generation script hash: ${MACHETE_GEN_SCRIPT_HASH}")
-    message(STATUS "Last run machete generate script hash: $CACHE{MACHETE_GEN_SCRIPT_HASH}")
+  #  message(STATUS "Machete generation script hash: ${MACHETE_GEN_SCRIPT_HASH}")
+  #  message(STATUS "Last run machete generate script hash: $CACHE{MACHETE_GEN_SCRIPT_HASH}")
 
-    if (NOT DEFINED CACHE{MACHETE_GEN_SCRIPT_HASH}
-        OR NOT $CACHE{MACHETE_GEN_SCRIPT_HASH} STREQUAL ${MACHETE_GEN_SCRIPT_HASH})
-      execute_process(
-        COMMAND ${CMAKE_COMMAND} -E env 
-        PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/csrc/cutlass_extensions/:${CUTLASS_DIR}/python/:${VLLM_PYTHON_PATH}:$PYTHONPATH 
-          ${Python_EXECUTABLE} ${MACHETE_GEN_SCRIPT}
-        RESULT_VARIABLE machete_generation_result
-        OUTPUT_VARIABLE machete_generation_output
-        OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/machete_generation.log
-        ERROR_FILE ${CMAKE_CURRENT_BINARY_DIR}/machete_generation.log
-      )
+  #  if (NOT DEFINED CACHE{MACHETE_GEN_SCRIPT_HASH}
+  #      OR NOT $CACHE{MACHETE_GEN_SCRIPT_HASH} STREQUAL ${MACHETE_GEN_SCRIPT_HASH})
+  #    execute_process(
+  #      COMMAND ${CMAKE_COMMAND} -E env
+  #      PYTHONPATH=${CMAKE_CURRENT_SOURCE_DIR}/csrc/cutlass_extensions/:${CUTLASS_DIR}/python/:${VLLM_PYTHON_PATH}:$PYTHONPATH
+  #        ${Python_EXECUTABLE} ${MACHETE_GEN_SCRIPT}
+  #      RESULT_VARIABLE machete_generation_result
+  #      OUTPUT_VARIABLE machete_generation_output
+  #      OUTPUT_FILE ${CMAKE_CURRENT_BINARY_DIR}/machete_generation.log
+  #      ERROR_FILE ${CMAKE_CURRENT_BINARY_DIR}/machete_generation.log
+  #    )
 
-      if (NOT machete_generation_result EQUAL 0)
-        message(FATAL_ERROR "Machete generation failed."
-                            " Result: \"${machete_generation_result}\"" 
-                            "\nCheck the log for details: "
-                            "${CMAKE_CURRENT_BINARY_DIR}/machete_generation.log")
-      else()
-        set(MACHETE_GEN_SCRIPT_HASH ${MACHETE_GEN_SCRIPT_HASH} 
-            CACHE STRING "Last run machete generate script hash" FORCE)
-        message(STATUS "Machete generation completed successfully.")
-      endif()
-    else()
-      message(STATUS "Machete generation script has not changed, skipping generation.")
-    endif()
+  #    if (NOT machete_generation_result EQUAL 0)
+  #      message(FATAL_ERROR "Machete generation failed."
+  #                          " Result: \"${machete_generation_result}\""
+  #                          "\nCheck the log for details: "
+  #                          "${CMAKE_CURRENT_BINARY_DIR}/machete_generation.log")
+  #    else()
+  #      set(MACHETE_GEN_SCRIPT_HASH ${MACHETE_GEN_SCRIPT_HASH}
+  #          CACHE STRING "Last run machete generate script hash" FORCE)
+  #      message(STATUS "Machete generation completed successfully.")
+  #    endif()
+  #  else()
+  #    message(STATUS "Machete generation script has not changed, skipping generation.")
+  #  endif()
 
-    # Add machete generated sources
-    file(GLOB MACHETE_GEN_SOURCES "csrc/quantization/machete/generated/*.cu")
-    list(APPEND VLLM_EXT_SRC ${MACHETE_GEN_SOURCES})
+  #  # Add machete generated sources
+  #  file(GLOB MACHETE_GEN_SOURCES "csrc/quantization/machete/generated/*.cu")
+  #  list(APPEND VLLM_EXT_SRC ${MACHETE_GEN_SOURCES})
 
-    # forward compatible
-    set_gencode_flags_for_srcs(
-      SRCS "${MACHETE_GEN_SOURCES}"
-      CUDA_ARCHS "${MACHETE_ARCHS}")
+  #  # forward compatible
+  #  set_gencode_flags_for_srcs(
+  #    SRCS "${MACHETE_GEN_SOURCES}"
+  #    CUDA_ARCHS "${MACHETE_ARCHS}")
 
-    list(APPEND VLLM_EXT_SRC
-      csrc/quantization/machete/machete_pytorch.cu)
+  #  list(APPEND VLLM_EXT_SRC
+  #    csrc/quantization/machete/machete_pytorch.cu)
 
-    message(STATUS "Building Machete kernels for archs: ${MACHETE_ARCHS}")
-  else()
-    if (NOT ${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0 
-        AND MACHETE_ARCHS)
-      message(STATUS "Not building Machete kernels as CUDA Compiler version is "
-                     "not >= 12.0, we recommend upgrading to CUDA 12.0 or "
-                     "later if you intend on running w4a16 quantized models on "
-                     "Hopper.")
-    else()
-      message(STATUS "Not building Machete kernels as no compatible archs "
-                     "found in CUDA target architectures")
-    endif()
-  endif()
+  #  message(STATUS "Building Machete kernels for archs: ${MACHETE_ARCHS}")
+  #else()
+  #  if (NOT ${CMAKE_CUDA_COMPILER_VERSION} VERSION_GREATER 12.0
+  #      AND MACHETE_ARCHS)
+  #    message(STATUS "Not building Machete kernels as CUDA Compiler version is "
+  #                   "not >= 12.0, we recommend upgrading to CUDA 12.0 or "
+  #                   "later if you intend on running w4a16 quantized models on "
+  #                   "Hopper.")
+  #  else()
+  #    message(STATUS "Not building Machete kernels as no compatible archs "
+  #                   "found in CUDA target architectures")
+  #  endif()
+  #endif()
 # if CUDA endif
 endif()
 
@@ -406,8 +406,8 @@ define_gpu_extension_target(
   USE_SABI 3
   WITH_SOABI)
 
-# If CUTLASS is compiled on NVCC >= 12.5, it by default uses 
-# cudaGetDriverEntryPointByVersion as a wrapper to avoid directly calling the 
+# If CUTLASS is compiled on NVCC >= 12.5, it by default uses
+# cudaGetDriverEntryPointByVersion as a wrapper to avoid directly calling the
 # driver API. This causes problems when linking with earlier versions of CUDA.
 # Setting this variable sidesteps the issue by calling the driver directly.
 target_compile_definitions(_C PRIVATE CUTLASS_ENABLE_DIRECT_CUDA_DRIVER_CALL=1)
@@ -484,9 +484,9 @@ if (NOT VLLM_TARGET_DEVICE STREQUAL "cuda")
   return()
 endif ()
 
-# vLLM flash attention requires VLLM_GPU_ARCHES to contain the set of target  
-# arches in the CMake syntax (75-real, 89-virtual, etc), since we clear the 
-# arches in the CUDA case (and instead set the gencodes on a per file basis) 
+# vLLM flash attention requires VLLM_GPU_ARCHES to contain the set of target
+# arches in the CMake syntax (75-real, 89-virtual, etc), since we clear the
+# arches in the CUDA case (and instead set the gencodes on a per file basis)
 # we need to manually set VLLM_GPU_ARCHES here.
 if(VLLM_GPU_LANG STREQUAL "CUDA")
   foreach(_ARCH ${CUDA_ARCHS})

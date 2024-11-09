@@ -271,6 +271,12 @@ async def health(raw_request: Request) -> Response:
     await engine_client(raw_request).check_health()
     return Response(status_code=200)
 
+@router.get("/health2")
+async def health2(raw_request: Request) -> Response:
+    """Health check."""
+    await engine_client(raw_request).check_health()
+    return Response(status_code=200)
+
 
 @router.post("/tokenize")
 async def tokenize(request: TokenizeRequest, raw_request: Request):
@@ -311,6 +317,8 @@ async def show_version():
 @router.post("/v1/chat/completions")
 async def create_chat_completion(request: ChatCompletionRequest,
                                  raw_request: Request):
+    logger.info(f"Received request: {request.dict()}")
+    logger.info(f"Received raw request: {raw_request.json()}")
 
     generator = await chat(raw_request).create_chat_completion(
         request, raw_request)
@@ -371,41 +379,37 @@ if envs.VLLM_TORCH_PROFILER_DIR:
         return Response(status_code=200)
 
 
-if envs.VLLM_ALLOW_RUNTIME_LORA_UPDATING:
-    logger.warning(
-        "Lora dynamic loading & unloading is enabled in the API server. "
-        "This should ONLY be used for local development!")
 
-    @router.post("/v1/load_lora_adapter")
-    async def load_lora_adapter(request: LoadLoraAdapterRequest,
-                                raw_request: Request):
-        response = await chat(raw_request).load_lora_adapter(request)
-        if isinstance(response, ErrorResponse):
-            return JSONResponse(content=response.model_dump(),
-                                status_code=response.code)
+@router.post("/v1/load_lora_adapter")
+async def load_lora_adapter(request: LoadLoraAdapterRequest,
+                            raw_request: Request):
+    logger.info(f"Received request: {request.dict()}")
+    response = await chat(raw_request).load_lora_adapter(request)
+    if isinstance(response, ErrorResponse):
+        return JSONResponse(content=response.model_dump(),
+                            status_code=response.code)
 
-        response = await completion(raw_request).load_lora_adapter(request)
-        if isinstance(response, ErrorResponse):
-            return JSONResponse(content=response.model_dump(),
-                                status_code=response.code)
+    response = await completion(raw_request).load_lora_adapter(request)
+    if isinstance(response, ErrorResponse):
+        return JSONResponse(content=response.model_dump(),
+                            status_code=response.code)
 
-        return Response(status_code=200, content=response)
+    return Response(status_code=200, content=response)
 
-    @router.post("/v1/unload_lora_adapter")
-    async def unload_lora_adapter(request: UnloadLoraAdapterRequest,
-                                  raw_request: Request):
-        response = await chat(raw_request).unload_lora_adapter(request)
-        if isinstance(response, ErrorResponse):
-            return JSONResponse(content=response.model_dump(),
-                                status_code=response.code)
+@router.post("/v1/unload_lora_adapter")
+async def unload_lora_adapter(request: UnloadLoraAdapterRequest,
+                              raw_request: Request):
+    response = await chat(raw_request).unload_lora_adapter(request)
+    if isinstance(response, ErrorResponse):
+        return JSONResponse(content=response.model_dump(),
+                            status_code=response.code)
 
-        response = await completion(raw_request).unload_lora_adapter(request)
-        if isinstance(response, ErrorResponse):
-            return JSONResponse(content=response.model_dump(),
-                                status_code=response.code)
+    response = await completion(raw_request).unload_lora_adapter(request)
+    if isinstance(response, ErrorResponse):
+        return JSONResponse(content=response.model_dump(),
+                            status_code=response.code)
 
-        return Response(status_code=200, content=response)
-
+    return Response(status_code=200, content=response)
 
 def build_app(args: Namespace) -> FastAPI:
     if args.disable_fastapi_docs:

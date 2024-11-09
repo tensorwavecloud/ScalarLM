@@ -1,10 +1,7 @@
 services:
 
     vllm:
-        command:
-            - "python3"
-            - "-m"
-            - "cray_infra.one_server.main"
+        command: /app/cray/scripts/start_one_server.sh
         build:
             context: .
             dockerfile: Dockerfile
@@ -15,8 +12,18 @@ services:
             - type: bind
               source: ./models
               target: /root/.cache/huggingface
+            - type: bind
+              source: ./infra
+              target: /app/cray/infra
+            - type: bind
+              source: ./scripts
+              target: /app/cray/scripts
+            - type: bind
+              source: ./ml
+              target: /app/cray/ml
         networks:
             - cray-network
+        privileged: true
 
 networks:
   cray-network:
