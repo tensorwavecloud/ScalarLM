@@ -1,8 +1,0 @@
-[package]
-name = "nsvm"
-version = "0.1.0"
-edition = "2021"
-
-[dependencies]
-kuzu = "0.6.1"
-openai_api_rust = "0.1.9"
