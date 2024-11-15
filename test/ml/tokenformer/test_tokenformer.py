@@ -2,7 +2,7 @@ import pytest
 import torch
 from transformers import LlamaForCausalLM, LlamaTokenizer
 
-from ml.tokenformer.llama_tokenformer_model import create_llama_transformer_model
+from ml.tokenformer.llama_tokenformer_model import create_llama_tokenformer_model
 
 @pytest.fixture(scope="module")
 def model_setup():
@@ -10,7 +10,7 @@ def model_setup():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = LlamaTokenizer.from_pretrained(model_name)
     model1 = LlamaForCausalLM.from_pretrained(model_name).to(device)
-    model2 = create_llama_transformer_model(model_name).to(device)
+    model2 = create_llama_tokenformer_model(model_name).to(device)
     return model1, model2, tokenizer, device
 
 def compare_model_outputs(model1, model2, tokenizer, input_text, device):

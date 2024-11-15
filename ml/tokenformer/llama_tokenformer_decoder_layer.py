@@ -51,8 +51,7 @@ class LlamaTokenformerDecoderLayer(LlamaDecoderLayer):
         
         tokenformer_hidden_states = torch.nn.functional.scaled_dot_product_attention(
             ffn_input_hidden_states, self.ffn_tokenformer_key, self.ffn_tokenformer_value,
-            attn_mask=attention_mask, # is this correct? 
-            is_causal=False
+            is_causal=False # should be false for tokenformer
         )
         
         hidden_states = residual + hidden_states + tokenformer_hidden_states

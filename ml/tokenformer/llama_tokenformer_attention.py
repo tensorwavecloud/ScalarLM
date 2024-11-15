@@ -92,9 +92,8 @@ class LlamaTokenformerAttention(LlamaSdpaAttention):
             tokenformer_input_query_states,
             self.tokenformer_key,
             self.tokenformer_value,
-            attn_mask=causal_mask,
             dropout_p=self.attention_dropout if self.training else 0.0,
-            is_causal=is_causal,
+            is_causal=False,
         )
 
         attn_output = attn_output + tokenformer_attn_output

@@ -11,7 +11,7 @@ def replace_decoder_layers(model, custom_layer_class):
     return model
         
 
-def create_llama_transformer_model(model_id):
+def create_llama_tokenformer_model(model_id):
     model = LlamaForCausalLM.from_pretrained(model_id)
     model.config.architectures = ["LlamaTokenformerModel"]
     return replace_decoder_layers(model, LlamaTokenformerDecoderLayer)
