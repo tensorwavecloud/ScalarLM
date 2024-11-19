@@ -17,6 +17,6 @@ python $LOCAL_DIRECTORY/../infra/cray_infra/slurm/discovery/discover_clusters.py
 
 service munge start
 
-slurmctld
-slurmd
+slurmctld &
+slurmd &
 

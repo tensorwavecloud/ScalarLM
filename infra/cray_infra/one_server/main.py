@@ -10,6 +10,7 @@ import sys
 
 logger = logging.getLogger(__name__)
 
+logging.basicConfig(level=logging.DEBUG)
 
 def main():
     try:
@@ -28,7 +29,7 @@ def run_server_with_autoreload():
         port=8000,
         log_level="info",
         reload_dirs=[
-            "/app/cray/cray_infra"
+            "/app/cray/infra/cray_infra"
         ],
         reload_excludes=["**/jobs/**/*.yaml"],
         reload=True,

@@ -1,11 +1,11 @@
-import logging
+from cray_infra.one_server.start_cray_server import start_cray_server
+from cray_infra.util.get_config import get_config
 
 import aiohttp
 import unittest
 import pytest
 
-from cray_infra.one_server.start_cray_server import start_cray_server
-from cray_infra.util.get_config import get_config
+import logging
 
 logger = logging.getLogger(__name__)
 
@@ -21,7 +21,7 @@ class TestHealth(unittest.IsolatedAsyncioTestCase):
 
         logger.debug(f"Server started: {self.app}")
 
-    async def test_webserver_get(self):
+    async def test_health(self):
         logger.debug("Testing health endpoint")
         health_status = await get_health()
 

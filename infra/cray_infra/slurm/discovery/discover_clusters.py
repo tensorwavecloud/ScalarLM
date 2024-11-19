@@ -85,7 +85,12 @@ def load_slurm_conf_values():
             if "=" not in line:
                 continue
 
-            key, value = line.split("=")
+            key_and_value = line.split("=")
+
+            if len(key_and_value) != 2:
+                continue
+
+            key, value = key_and_value[0], key_and_value[1]
             slurm_conf_values[key] = value.strip()
     return slurm_conf_values
 

@@ -7,6 +7,10 @@ commands:
 
 - name: build-image
   help: Build image from dockerfile
+  args:
+    - name: target
+      required: true
+      allowed: ["cpu", "nvidia"]
 
 - name: up
   help: Start the container

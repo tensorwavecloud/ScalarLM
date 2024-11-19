@@ -422,9 +422,9 @@ def get_requirements() -> List[str]:
         return resolved_requirements
 
     if _no_device():
-        requirements = _read_requirements("requirements-cuda.txt")
+        requirements = _read_requirements("requirements.txt")
     elif _is_cuda():
-        requirements = _read_requirements("requirements-cuda.txt")
+        requirements = _read_requirements("requirements.txt")
         cuda_major, cuda_minor = torch.version.cuda.split(".")
         modified_requirements = []
         for req in requirements:
@@ -444,7 +444,7 @@ def get_requirements() -> List[str]:
     elif _is_tpu():
         requirements = _read_requirements("requirements-tpu.txt")
     elif _is_cpu():
-        requirements = _read_requirements("requirements-cpu.txt")
+        requirements = _read_requirements("requirements.txt")
     elif _is_xpu():
         requirements = _read_requirements("requirements-xpu.txt")
     else:
