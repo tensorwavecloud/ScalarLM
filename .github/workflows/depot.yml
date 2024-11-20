@@ -1,3 +1,37 @@
+name: Build CPU image using depot
+
+on:
+  workflow_dispatch:
+
+
+jobs:
+  docker-image:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v3
+
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
+
+      - name: Login to DockerHub
+        uses: docker/login-action@v2
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push
+        uses: depot/build-push-action@v1
+        with:
+          # if no depot.json file is at the root of your repo, you must specify the project id
+          project: 39xfdrxfqt
+          push: true
+          tags: gdiamos/masint-cpu:latest
+
+
 permissions:
   # allow issuing OIDC tokens for this workflow run
   id-token: write
