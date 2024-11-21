@@ -128,5 +128,6 @@ def run_this_on_container_startup():
 
     #logger.info(f"Output from start_slurm.sh: {output}")
 
-    modal.forward(6817, unencrypted=True)
-    modal.forward(6818, unencrypted=True)
+    #modal.forward(6817, unencrypted=True)
+    #modal.forward(6818, unencrypted=True)
+    pass
