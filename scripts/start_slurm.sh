@@ -15,6 +15,8 @@ LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd
 # Run the slurm discovery service
 python $LOCAL_DIRECTORY/../infra/cray_infra/slurm/discovery/discover_clusters.py
 
-slurmctld &
-slurmd &
+chmod 400 /app/cray/infra/slurm_configs/slurm.key
+
+slurmctld -Dvvv &
+slurmd -Dvvv &
 
