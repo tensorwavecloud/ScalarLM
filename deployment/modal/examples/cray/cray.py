@@ -43,7 +43,7 @@ with cray_image.imports():
     from vllm.entrypoints.openai import api_server
 
 
-@app.function(image=cray_image)
+@app.function(image=cray_image, container_idle_timeout=5 * 60)
 @modal.asgi_app()
 def fastapi_app():
     run_this_on_container_startup()

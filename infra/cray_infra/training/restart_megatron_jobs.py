@@ -1,7 +1,10 @@
 from cray_infra.training.training_job_status import TrainingJobStatus
 from cray_infra.training.launch_training_job import start_slurm_job
 
+from cray_infra.api.fastapi.aiohttp.get_global_session import get_global_session
+
 from cray_infra.util.get_config import get_config
+
 
 import os
 import json
@@ -28,6 +31,13 @@ async def restart_megatron_jobs():
     async for job in jobs:
         await restart_job(job)
 
+    # Get slurm jobs that are running again
+    slurm_job_names = await get_slurm_jobs()
+
+    # If any are still running, keep the server alive
+    if slurm_job_names:
+        logger.info("Jobs are still running, keeping the server alive")
+        await keep_alive()
 
 async def get_running_jobs():
     config = get_config()
@@ -79,3 +89,12 @@ async def restart_job(job):
         config = yaml.safe_load(f)
 
     start_slurm_job(config)
+
+async def keep_alive():
+    config = get_config()
+    session = get_global_session()
+    try:
+        async with session.get(config["api_url"] + "/health") as resp:
+            assert resp.status == 200
+    except Exception as e:
+        logger.error(f"Error keeping the server alive: {e}")
