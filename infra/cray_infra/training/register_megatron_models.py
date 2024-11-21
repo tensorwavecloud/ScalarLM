@@ -34,8 +34,9 @@ async def get_models():
 
 
 async def get_registered_models():
+    config = get_config()
     session = get_global_session()
-    async with session.get("http://localhost:8001/v1/models") as resp:
+    async with session.get(config["vllm_api_url"] + "/v1/models") as resp:
         request_data = await resp.json()
 
     logger.info(f"Registered models: {request_data['data']}")
@@ -48,7 +49,7 @@ async def register_model(model):
     config = get_config()
     path = os.path.join(config["training_job_directory"], model, "saved_model")
     async with session.post(
-        "http://localhost:8001/v1/load_lora_adapter",
+        config["vllm_api_url"] + "/v1/load_lora_adapter",
         json={"lora_name": model, "lora_path": path},
     ) as resp:
         if resp.status != 200:

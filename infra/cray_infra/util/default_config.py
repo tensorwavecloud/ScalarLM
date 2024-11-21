@@ -18,3 +18,5 @@ class Config(BaseModel):
 
     megatron_refresh_period: int = 30 # seconds
 
+    vllm_api_url: str = "http://localhost:8001"
+

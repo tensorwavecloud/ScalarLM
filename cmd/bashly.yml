@@ -11,6 +11,7 @@ commands:
     - name: target
       required: true
       allowed: ["cpu", "nvidia"]
+      default: "cpu"
 
 - name: up
   help: Start the container

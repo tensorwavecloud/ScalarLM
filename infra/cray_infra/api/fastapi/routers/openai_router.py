@@ -5,6 +5,7 @@ from vllm.entrypoints.openai.protocol import (
 )
 
 from cray_infra.api.fastapi.aiohttp.get_global_session import get_global_session
+from cray_infra.util.get_config import get_config
 
 from fastapi import APIRouter, Request
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -19,9 +20,10 @@ openai_router = APIRouter(prefix="/openai")
 @openai_router.post("/tokenize")
 async def tokenize(request: TokenizeRequest, raw_request: Request):
     session = get_global_session()
+    config = get_config()
 
     async with session.post(
-        "http://localhost:8001/tokenize", json=request.dict()
+        config["vllm_api_url"] + "/tokenize", json=request.dict()
     ) as resp:
         assert resp.status == 200
         return await resp.json()
@@ -51,9 +53,11 @@ async def create_chat_completion(request: ChatCompletionRequest, raw_request: Re
 
     logger.info(f"Sending request: {params}")
 
+    config = get_config()
+
     async def generator():
         async with session.post(
-            "http://localhost:8001/v1/chat/completions",
+            config["vllm_api_url"] + "/v1/chat/completions",
             json=params,
         ) as resp:
             assert resp.status == 200

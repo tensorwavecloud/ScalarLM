@@ -20,7 +20,7 @@ async def get_health():
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.get("http://localhost:8001/health") as response:
+            async with session.get(config["vllm_api_url"] + "/health") as response:
                 return response.status
     except Exception as e:
         logger.error(f"Error getting health: {e}")

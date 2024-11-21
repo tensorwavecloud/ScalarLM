@@ -1,6 +1,15 @@
 from cray_infra.util.default_config import Config
 
+import os
+import yaml
 
 def get_config():
-    # Convert the pydantic model to a dictionary
-    return Config().dict()
+    loaded_config = {}
+
+    config_path = "/app/cray/cray-config.yaml"
+
+    if os.path.exists(config_path):
+        with open(config_path, "r") as stream:
+            config = yaml.safe_load(stream)
+
+    return Config().dict(**config)

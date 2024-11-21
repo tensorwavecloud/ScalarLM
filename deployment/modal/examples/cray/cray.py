@@ -1,5 +1,6 @@
 import modal
 import os
+import subprocess
 
 import logging
 
@@ -7,16 +8,22 @@ logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO)
 
-cray_image = (modal.Image.from_registry(
-    "gdiamos/masint-cpu:latest",
-    secret=modal.Secret.from_dict(
-        {
-            "REGISTRY_USERNAME": "gdiamos",
-            "REGISTRY_PASSWORD": "dckr_pat_q2mAHptoFmIW43E1_d6STXF65t0",
-        }
-    ),
-)
-.pip_install("fastapi >= 0.107.0", "pydantic >= 2.9")
+local_config_path = os.path.join(os.path.dirname(__file__), "cpu-deployment.yaml")
+
+cray_image = (
+    modal.Image.from_registry(
+        "gdiamos/masint-cpu:latest",
+        secret=modal.Secret.from_dict(
+            {
+                "REGISTRY_USERNAME": "gdiamos",
+                "REGISTRY_PASSWORD": "dckr_pat_q2mAHptoFmIW43E1_d6STXF65t0",
+            }
+        ),
+    )
+    .pip_install("fastapi >= 0.107.0", "pydantic >= 2.9")
+    .copy_local_file(
+        local_path=local_config_path, remote_path="/app/cray/cray-config.yaml"
+    )
 )
 
 app = modal.App()
@@ -33,13 +40,15 @@ with cray_image.imports():
     from vllm.entrypoints.openai.cli_args import make_arg_parser
     from vllm.utils import FlexibleArgumentParser
 
-
     from vllm.entrypoints.openai import api_server
+
 
 @app.function(image=cray_image)
 @modal.asgi_app()
 def fastapi_app():
+    run_this_on_container_startup()
     return web_app
+
 
 @app.function(image=cray_image)
 @modal.asgi_app()
@@ -48,7 +57,8 @@ def vllm_app():
     os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     parser = FlexibleArgumentParser(
-        description="vLLM OpenAI-Compatible RESTful API server.")
+        description="vLLM OpenAI-Compatible RESTful API server."
+    )
     parser = make_arg_parser(parser)
     args = parser.parse_args(args=["--enable-lora"])
 
@@ -66,6 +76,7 @@ def vllm_app():
     init_app_state(engine_client, model_config, vllm_app.state, args)
 
     return vllm_app
+
 
 def get_model_config(engine):
     import asyncio
@@ -85,6 +96,7 @@ def get_model_config(engine):
 
     return model_config
 
+
 def get_engine_client(args):
     import asyncio
 
@@ -103,6 +115,15 @@ def get_engine_client(args):
 
     return engine_client
 
+
 async def get_async_engine_client(args):
     async with build_async_engine_client(args) as engine_client:
         return engine_client
+
+
+def run_this_on_container_startup():
+    output = subprocess.check_output(
+        ["/app/cray/scripts/start_slurm.sh"], stderr=subprocess.STDOUT, shell=True
+    )
+
+    logger.info(f"Output from start_slurm.sh: {output}")
