@@ -103,5 +103,4 @@ COPY ./test ${INSTALL_ROOT}/test
 COPY ./cray ${INSTALL_ROOT}/cray
 COPY ./ml ${INSTALL_ROOT}/ml
 COPY ./scripts ${INSTALL_ROOT}/scripts
-COPY ./infra/slurm_configs/munge.key /etc/munge/munge.key
 

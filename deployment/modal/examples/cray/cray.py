@@ -122,11 +122,11 @@ async def get_async_engine_client(args):
 
 
 def run_this_on_container_startup():
-    output = subprocess.check_output(
-        ["/app/cray/scripts/start_slurm.sh"], stderr=subprocess.STDOUT, shell=True
-    )
+    #output = subprocess.check_output(
+    #    ["/app/cray/scripts/start_slurm.sh"], stderr=subprocess.STDOUT, shell=True
+    #)
 
-    logger.info(f"Output from start_slurm.sh: {output}")
+    #logger.info(f"Output from start_slurm.sh: {output}")
 
     modal.forward(6817, unencrypted=True)
     modal.forward(6818, unencrypted=True)
