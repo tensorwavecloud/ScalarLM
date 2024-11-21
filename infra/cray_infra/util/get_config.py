@@ -12,4 +12,4 @@ def get_config():
         with open(config_path, "r") as stream:
             config = yaml.safe_load(stream)
 
-    return Config().dict(**config)
+    return Config(**config).dict()
