@@ -18,6 +18,6 @@ python $LOCAL_DIRECTORY/../infra/cray_infra/slurm/discovery/discover_clusters.py
 chmod 400 /app/cray/infra/slurm_configs/slurm.key
 mkdir -p /var/spool/slurmctld
 
-slurmctld
+slurmctld -D &
 slurmd -D &
 
