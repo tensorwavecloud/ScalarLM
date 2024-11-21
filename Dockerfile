@@ -104,3 +104,5 @@ COPY ./cray ${INSTALL_ROOT}/cray
 COPY ./ml ${INSTALL_ROOT}/ml
 COPY ./scripts ${INSTALL_ROOT}/scripts
 
+RUN chmod 400 ${INSTALL_ROOT}/infra/slurm_configs/slurm.key
+
