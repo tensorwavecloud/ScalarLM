@@ -7,9 +7,6 @@ on:
 jobs:
   docker-image:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      id-token: write
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -25,6 +22,8 @@ jobs:
 
       - name: Build and push
         uses: depot/build-push-action@v1
+        env:
+          DEPOT_TOKEN: ${{ secrets.DEPOT_TOKEN }}
         with:
           # if no depot.json file is at the root of your repo, you must specify the project id
           project: 39xfdrxfqt
