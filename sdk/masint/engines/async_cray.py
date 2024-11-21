@@ -18,6 +18,18 @@ class AsyncCray:
 
             return await upload_async(data_file_path, api_url, train_args)
 
+    async def health(self):
+        api_url = make_api_url("v1/health")
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as resp:
+                return await resp.json()
+
+    async def generate(self, prompts):
+        api_url = make_api_url("v1/generate")
+        async with aiohttp.ClientSession() as session:
+            async with session.post(api_url, json={"prompts" : prompts}) as resp:
+                return await resp.json()
+
 
 async def upload_async(data_file_path, api_url, train_args):
     async with aiohttp.ClientSession() as session:
@@ -38,7 +50,7 @@ async def upload_async(data_file_path, api_url, train_args):
 
 
 async def file_sender(file_path):
-    chunk_size = 64 * 1024 # 64 KB
+    chunk_size = 64 * 1024  # 64 KB
 
     async with aiofiles.open(file_path, "rb") as f:
         chunk = await f.read(chunk_size)

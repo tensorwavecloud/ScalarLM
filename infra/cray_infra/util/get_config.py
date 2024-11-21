@@ -10,6 +10,6 @@ def get_config():
 
     if os.path.exists(config_path):
         with open(config_path, "r") as stream:
-            config = yaml.safe_load(stream)
+            loaded_config = yaml.safe_load(stream)
 
-    return Config(**config).dict()
+    return Config(**loaded_config).dict()

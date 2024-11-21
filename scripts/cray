@@ -51,7 +51,7 @@ cray_build_image_usage() {
   printf "cray build-image - Build image from dockerfile\n\n"
 
   printf "%s\n" "Usage:"
-  printf "  cray build-image TARGET\n"
+  printf "  cray build-image [TARGET]\n"
   printf "  cray build-image --help | -h\n"
   echo
 
@@ -71,6 +71,7 @@ cray_build_image_usage() {
     printf "  %s\n" "TARGET"
     printf "\n"
     printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Default: cpu"
     echo
 
   fi
@@ -498,12 +499,8 @@ cray_build_image_parse_requirements() {
     esac
   done
 
-  # :command.required_args_filter
-  if [[ -z ${args['target']+x} ]]; then
-    printf "missing required argument: TARGET\nusage: cray build-image TARGET\n" >&2
-
-    exit 1
-  fi
+  # :command.default_assignments
+  [[ -n ${args['target']:-} ]] || args['target']="cpu"
 
   # :command.whitelist_filter
   if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then

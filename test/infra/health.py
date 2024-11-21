@@ -1,6 +1,8 @@
 from cray_infra.one_server.start_cray_server import start_cray_server
 from cray_infra.util.get_config import get_config
 
+import masint
+
 import aiohttp
 import unittest
 import pytest
@@ -26,6 +28,15 @@ class TestHealth(unittest.IsolatedAsyncioTestCase):
         health_status = await get_health()
 
         self.assertEqual(health_status["api"], "up")
+
+    async def test_health_client(self):
+        logger.debug("Testing health endpoint with client")
+
+        llm = masint.AsyncSupermassiveIntelligence()
+
+        status = await llm.health()
+
+        self.assertEqual(status["api"], "up")
 
     async def asyncTearDown(self):
         logger.debug("Shutting down server")

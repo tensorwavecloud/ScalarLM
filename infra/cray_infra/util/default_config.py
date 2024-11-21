@@ -20,3 +20,5 @@ class Config(BaseModel):
 
     vllm_api_url: str = "http://localhost:8001"
 
+    generate_batch_size: int = 4
+

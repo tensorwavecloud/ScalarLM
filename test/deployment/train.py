@@ -1,5 +1,6 @@
 import masint
-import asyncio
+
+masint.api_url = "https://greg1232--deployment-modal-examples-cray-cray-py-fas-f8ed38-dev.modal.run"
 
 def get_dataset():
     dataset = []
@@ -13,12 +14,11 @@ def get_dataset():
 
     return dataset
 
-llm = masint.AsyncSupermassiveIntelligence()
+llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-for i in range(10):
-    status = asyncio.run(llm.train(dataset, train_args={"max_steps": 1000 + i}))
+status = llm.train(dataset, train_args={"max_steps": 100})
 
 print(status)
 

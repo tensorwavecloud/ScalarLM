@@ -9,7 +9,6 @@ commands:
   help: Build image from dockerfile
   args:
     - name: target
-      required: true
       allowed: ["cpu", "nvidia"]
       default: "cpu"
 

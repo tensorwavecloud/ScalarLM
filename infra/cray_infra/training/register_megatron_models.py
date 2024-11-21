@@ -1,5 +1,7 @@
 from cray_infra.api.fastapi.aiohttp.get_global_session import get_global_session
 
+from cray_infra.one_server.wait_for_vllm import get_vllm_health
+
 from cray_infra.util.get_config import get_config
 
 import os
@@ -8,8 +10,13 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 async def register_megatron_models():
     logger.info("Registering Megatron models")
+
+    if not await is_vllm_ready():
+        logger.info("VLLM is not ready. Skipping model registration")
+        return
 
     # Get all the models that are in the model directory
     models = get_models()
@@ -31,6 +38,12 @@ async def get_models():
         if "adapter_config.json" in files:
             yield os.path.basename(os.path.split(root)[0])
 
+
+async def is_vllm_ready():
+    health_status = await get_vllm_health()
+    if health_status == 200:
+        return True
+    return False
 
 
 async def get_registered_models():
