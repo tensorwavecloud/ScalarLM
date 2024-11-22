@@ -10,7 +10,7 @@ class Config(BaseModel):
 
     data_directory: str = "/app/cray/datasets"
 
-    train_job_entrypoint: str = "train_job_entrypoint.sh"
+    train_job_entrypoint: str = "/app/cray/scripts/train_job_entrypoint.sh"
     training_job_directory: str = "/app/cray/jobs"
 
     max_train_time: int = 15 * 60

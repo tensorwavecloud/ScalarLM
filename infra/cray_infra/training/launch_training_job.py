@@ -7,6 +7,7 @@ import yaml
 import subprocess
 import datetime
 import re
+import shutil
 import logging
 
 from typing import Dict
@@ -36,8 +37,7 @@ def get_job_directory(train_args: Dict):
 
     config = get_config()
 
-    job_directory = os.path.join(
-        config["training_job_directory"], hash_id)
+    job_directory = os.path.join(config["training_job_directory"], hash_id)
 
     return job_directory
 
@@ -101,15 +101,36 @@ def create_slurm_run_command(train_args):
     logger.info(f"job_name: {train_args['job_directory']}")
 
     config_path = os.path.join(get_training_job_directory(train_args), "config.yaml")
-    run_command += [
-        "--export=ALL,CRAY_TRAINING_JOB_CONFIG_PATH=" + config_path,
-    ]
+    train_job_entrypoint = get_train_job_entrypoint(train_args)
 
-    config = get_config()
-    train_job_entrypoint = config["train_job_entrypoint"]
     run_command += [train_job_entrypoint]
 
     return run_command
+
+
+def get_train_job_entrypoint(train_args: Dict):
+    config = get_config()
+    train_job_entrypoint_script = config["train_job_entrypoint"]
+
+    # Copy the script to the job directory
+    job_directory = get_training_job_directory(train_args)
+
+    train_job_entrypoint = os.path.join(job_directory, "train_job_entrypoint.sh")
+
+    shutil.copyfile(train_job_entrypoint_script, train_job_entrypoint)
+
+    # Replace the REPLACE_CONFIG_PATH with the config path within the job directory
+    with open(train_job_entrypoint, "r") as f:
+        entrypoint_script = f.read()
+
+    entrypoint_script = entrypoint_script.replace(
+        "REPLACE_CONFIG_PATH", os.path.join(job_directory, "config.yaml")
+    )
+
+    with open(train_job_entrypoint, "w") as f:
+        f.write(entrypoint_script)
+
+    return train_job_entrypoint
 
 
 def get_tasks_per_node(train_args: Dict):
@@ -220,11 +241,13 @@ def run_sbatch(run_command, train_args):
 
     logger.info(f"sbatch run_command: {' '.join(run_command)}")
 
+    logger.info(f"cwd: {get_training_job_directory(train_args)}")
+
     result = subprocess.run(
         run_command,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
-        cwd="/app/cray/scripts",
+        cwd=get_training_job_directory(train_args),
         env=clean_environs,
     )
 
@@ -260,5 +283,7 @@ def get_existing_job_info(train_args):
     ) as f:
         job_info = json.load(f)
         job_info["job_directory"] = get_training_job_directory(train_args)
-        job_info["model_name"] = os.path.basename(get_training_job_directory(train_args))
+        job_info["model_name"] = os.path.basename(
+            get_training_job_directory(train_args)
+        )
         return job_info
