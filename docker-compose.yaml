@@ -23,7 +23,6 @@ services:
               target: /app/cray/ml
         networks:
             - cray-network
-        privileged: true
 
 networks:
   cray-network:

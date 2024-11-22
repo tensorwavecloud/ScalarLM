@@ -83,11 +83,15 @@ WORKDIR ${INSTALL_ROOT}
 FROM vllm AS infra
 
 RUN apt-get update -y  \
-    && apt-get install -y slurm-wlm \
+    && apt-get install -y slurm-wlm libslurm-dev \
     mariadb-server build-essential munge libmunge-dev \
     less curl wget net-tools vim iputils-ping \
     openmpi-bin libopenmpi-dev libpmix-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# Build SLURM
+COPY ./infra/slurm_src ${INSTALL_ROOT}/infra/slurm_src
+RUN /app/cray/infra/slurm_src/compile.sh
 
 # Copy slurm config templates
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/infra"

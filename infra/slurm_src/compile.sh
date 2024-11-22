@@ -12,11 +12,13 @@ set -Eeuoxa pipefail
 # Get the directory of this script
 LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
-# Run the slurm discovery service
-python $LOCAL_DIRECTORY/../infra/cray_infra/slurm/discovery/discover_clusters.py
+SOURCE_FILE=$LOCAL_DIRECTORY/cgroup_docker.c
+INCLUDE_PATH=/usr/include
 
-#chmod 400 /app/cray/infra/slurm_configs/slurm.key
+# Compile the cgroup_docker.c file into a shared object file
+gcc -I$INCLUDE_PATH -Wall -fPIC -shared -o $LOCAL_DIRECTORY/cgroup_docker.so $SOURCE_FILE
 
-slurmctld
-slurmd
+# Copy the shared object file to the /usr/lib directory
+cp /app/cray/infra/slurm_src/cgroup_docker.so /usr/lib/aarch64-linux-gnu/slurm-wlm/cgroup_docker.so
+
 
