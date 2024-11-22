@@ -18,7 +18,17 @@ INCLUDE_PATH=/usr/include
 # Compile the cgroup_docker.c file into a shared object file
 gcc -I$INCLUDE_PATH -Wall -fPIC -shared -o $LOCAL_DIRECTORY/cgroup_docker.so $SOURCE_FILE
 
+# Determine if the target is an x86_64 or aarch64 machine
+if [ "$(uname -m)" == "x86_64" ]; then
+    TARGET="x86_64-linux-gnu"
+elif [ "$(uname -m)" == "aarch64" ]; then
+    TARGET="aarch64-linux-gnu"
+else
+    echo "Unsupported architecture"
+    exit 1
+fi
+
 # Copy the shared object file to the /usr/lib directory
-cp /app/cray/infra/slurm_src/cgroup_docker.so /usr/lib/aarch64-linux-gnu/slurm-wlm/cgroup_docker.so
+cp /app/cray/infra/slurm_src/cgroup_docker.so /usr/lib/$TARGET/slurm-wlm/cgroup_docker.so
 
 
