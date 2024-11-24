@@ -1,4 +1,5 @@
 **/*.swp
+**/*.so
 models
 
 *.DS_Store

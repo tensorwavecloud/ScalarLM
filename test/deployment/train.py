@@ -1,6 +1,6 @@
 import masint
 
-#masint.api_url = "https://greg1232--deployment-modal-examples-cray-cray-py-fas-f8ed38-dev.modal.run"
+masint.api_url = "https://greg1232--cray-cpu-llama-3-2-1b-fastapi-app.modal.run"
 
 def get_dataset():
     dataset = []

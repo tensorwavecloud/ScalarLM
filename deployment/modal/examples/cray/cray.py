@@ -43,14 +43,15 @@ with cray_image.imports():
     from vllm.entrypoints.openai import api_server
 
 
-@app.function(image=cray_image, container_idle_timeout=5 * 60)
+@app.function(image=cray_image, container_idle_timeout=5 * 60, allow_concurrent_inputs=32)
 @modal.asgi_app()
 def fastapi_app():
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
     run_this_on_container_startup()
     return web_app
 
 
-@app.function(image=cray_image)
+@app.function(image=cray_image, allow_concurrent_inputs=32, memory=4 * 1024)
 @modal.asgi_app()
 def vllm_app():
     os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"

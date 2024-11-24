@@ -72,7 +72,7 @@ ARG VLLM_TARGET_DEVICE=cpu
 # Build vllm python package
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/ccache \
-    MAX_JOBS=4 TORCH_CUDA_ARCH_LIST=9.0 VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} python3 ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
+    MAX_JOBS=8 TORCH_CUDA_ARCH_LIST=7.5 VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} python3 ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
     pip install ${INSTALL_ROOT}/infra/cray_infra/dist/*.whl && \
     rm -rf ${INSTALL_ROOT}/infra/cray_infra/dist
 
