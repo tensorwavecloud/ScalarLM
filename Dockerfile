@@ -2,7 +2,7 @@ ARG BASE_NAME=cpu
 
 ###############################################################################
 # NVIDIA BASE IMAGE
-FROM nvcr.io/nvidia/pytorch:23.05-py3@sha256:d5aa1e516e68afab9cd3ecaaeac3dd2178618bd26cd7ad96762ed53e32e9e0bd AS nvidia
+FROM nvcr.io/nvidia/pytorch:24.11-py3 AS nvidia
 
 RUN apt-get update -y && apt-get install -y python3-venv
 

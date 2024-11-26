@@ -1,0 +1,3 @@
+model: meta-llama/Llama-3.2-1B
+api_url: https://greg1232--cray-cpu-llama-3-2-1b-fastapi-app.modal.run
+vllm_api_url: https://greg1232--cray-cpu-llama-3-2-1b-vllm-app.modal.run
