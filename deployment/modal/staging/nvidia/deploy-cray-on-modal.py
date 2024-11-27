@@ -11,6 +11,16 @@ logging.basicConfig(level=logging.INFO)
 
 local_config_path = os.path.join(os.path.dirname(__file__), "cray-config.yaml")
 
+try:
+    volume = modal.Volume.lookup("models", create_if_missing=True)
+except modal.exception.NotFoundError:
+    raise Exception("Missing volume 'models'")
+
+try:
+    jobs_volume = modal.Volume.lookup("jobs", create_if_missing=True)
+except modal.exception.NotFoundError:
+    raise Exception("Missing volume 'jobs'")
+
 cray_image = (
     modal.Image.from_registry(
         "gdiamos/masint-nvidia:latest",
@@ -21,7 +31,7 @@ cray_image = (
             }
         ),
     )
-    .pip_install("fastapi >= 0.107.0", "pydantic >= 2.9")
+    .pip_install("fastapi >= 0.107.0", "pydantic >= 2.9", "protobuf==3.19")
     .copy_local_file(
         local_path=local_config_path, remote_path="/app/cray/cray-config.yaml"
     )
@@ -45,7 +55,10 @@ with cray_image.imports():
 
 
 @app.function(
-    image=cray_image, container_idle_timeout=5 * 60, allow_concurrent_inputs=32
+    image=cray_image,
+    container_idle_timeout=5 * 60,
+    allow_concurrent_inputs=32,
+    volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
 )
 @modal.asgi_app()
 def fastapi_app():
@@ -57,8 +70,10 @@ def fastapi_app():
 @app.function(
     image=cray_image,
     allow_concurrent_inputs=32,
-    memory=4 * 1024,
+    memory=4 * 1024,  # 4 GB
+    timeout=24 * 60 * 60,  # 24 hours
     gpu=modal.gpu.T4(count=1),
+    volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
 )
 @modal.asgi_app()
 def vllm_app():
@@ -69,7 +84,9 @@ def vllm_app():
         description="vLLM OpenAI-Compatible RESTful API server."
     )
     parser = make_arg_parser(parser)
-    args = parser.parse_args(args=["--enable-lora"])
+    args = parser.parse_args(
+        args=["--dtype=half", "--max-model-len=32768"]  # "--enable-lora",
+    )
 
     config = get_config()
     args.model = config["model"]

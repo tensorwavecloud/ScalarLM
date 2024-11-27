@@ -3,6 +3,7 @@ import os
 import torch
 
 slurm_config_path = "/app/cray/infra/slurm_configs/slurm.conf"
+gres_config_path = "/app/cray/infra/slurm_configs/gres.conf"
 
 
 def discover_clusters():
@@ -121,7 +122,16 @@ def write_partition_config(partition):
 
 
 def write_gres_config(cluster_info):
-    pass
+    """
+    NodeName=41ad10a2cba0 Name=gpu File=/dev/nvidia0
+    """
+    for node in cluster_info["all_nodes"]:
+        gres_config = ""
+        for index in range(node["gpu_count"]):
+            gres_config += f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
+
+        with open(gres_config_path, "a") as f:
+            f.write(gres_config)
 
 
 discover_clusters()
