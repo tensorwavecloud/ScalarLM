@@ -12,6 +12,13 @@ commands:
       allowed: ["cpu", "nvidia"]
       default: "cpu"
 
+- name: depot-build
+  help: Build image from dockerfile and push to depot
+  args:
+    - name: target
+      allowed: ["cpu", "nvidia"]
+      default: "cpu"
+
 - name: up
   help: Start the container
 
@@ -37,3 +44,17 @@ commands:
       arg: workers
       help: Number of workers, default is auto
       default: "auto"
+
+- name: deploy
+  help: Deploy the cray platform to modal
+  args:
+    - name: target
+      allowed: ["cpu", "nvidia"]
+      default: "cpu"
+
+- name: serve
+  help: Serve the cray platform using modal
+  args:
+    - name: target
+      allowed: ["cpu", "nvidia"]
+      default: "cpu"

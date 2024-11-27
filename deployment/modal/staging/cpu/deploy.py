@@ -1,6 +1,7 @@
 import modal
 import os
 import subprocess
+import asyncio
 
 import logging
 
@@ -8,17 +9,22 @@ logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.INFO)
 
-local_config_path = os.path.join(os.path.dirname(__file__), "cpu-deployment.yaml")
+local_config_path = os.path.join(os.path.dirname(__file__), "cray-config.yaml")
+
+try:
+    volume = modal.Volume.lookup("models", create_if_missing=True)
+except modal.exception.NotFoundError:
+    raise Exception("Missing volume 'models'")
+
+try:
+    jobs_volume = modal.Volume.lookup("jobs", create_if_missing=True)
+except modal.exception.NotFoundError:
+    raise Exception("Missing volume 'jobs'")
 
 cray_image = (
     modal.Image.from_registry(
         "gdiamos/masint-cpu:latest",
-        secret=modal.Secret.from_dict(
-            {
-                "REGISTRY_USERNAME": "gdiamos",
-                "REGISTRY_PASSWORD": "dckr_pat_q2mAHptoFmIW43E1_d6STXF65t0",
-            }
-        ),
+        secret=modal.Secret.from_name("dockerhub-credentials"),
     )
     .pip_install("fastapi >= 0.107.0", "pydantic >= 2.9")
     .copy_local_file(
@@ -43,19 +49,29 @@ with cray_image.imports():
     from vllm.entrypoints.openai import api_server
 
 
-@app.function(image=cray_image, container_idle_timeout=5 * 60, allow_concurrent_inputs=32)
+@app.function(
+    image=cray_image,
+    container_idle_timeout=5 * 60,
+    allow_concurrent_inputs=32,
+    secrets=[modal.Secret.from_name("huggingface-credentials")],
+    volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
+)
 @modal.asgi_app()
 def fastapi_app():
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
     run_this_on_container_startup()
     return web_app
 
 
-@app.function(image=cray_image, allow_concurrent_inputs=32, memory=4 * 1024)
+@app.function(
+    image=cray_image,
+    allow_concurrent_inputs=32,
+    memory=4 * 1024,
+    secrets=[modal.Secret.from_name("huggingface-credentials")],
+    volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
+)
 @modal.asgi_app()
 def vllm_app():
     os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     parser = FlexibleArgumentParser(
         description="vLLM OpenAI-Compatible RESTful API server."
@@ -80,41 +96,11 @@ def vllm_app():
 
 
 def get_model_config(engine):
-    import asyncio
-
-    try:  # adapted from vLLM source -- https://github.com/vllm-project/vllm/blob/507ef787d85dec24490069ffceacbd6b161f4f72/vllm/entrypoints/openai/api_server.py#L235C1-L247C1
-        event_loop = asyncio.get_running_loop()
-    except RuntimeError:
-        event_loop = None
-
-    if event_loop is not None and event_loop.is_running():
-        # If the current is instanced by Ray Serve,
-        # there is already a running event loop
-        model_config = event_loop.run_until_complete(engine.get_model_config())
-    else:
-        # When using single vLLM without engine_use_ray
-        model_config = asyncio.run(engine.get_model_config())
-
-    return model_config
+    return asyncio.run(engine.get_model_config())
 
 
 def get_engine_client(args):
-    import asyncio
-
-    try:  # adapted from vLLM source -- https://github.com/vllm-project/vllm/blob/507ef787d85dec24490069ffceacbd6b161f4f72/vllm/entrypoints/openai/api_server.py#L235C1-L247C1
-        event_loop = asyncio.get_running_loop()
-    except RuntimeError:
-        event_loop = None
-
-    if event_loop is not None and event_loop.is_running():
-        # If the current is instanced by Ray Serve,
-        # there is already a running event loop
-        engine_client = event_loop.run_until_complete(get_async_engine_client(args))
-    else:
-        # When using single vLLM without engine_use_ray
-        engine_client = asyncio.run(get_async_engine_client(args))
-
-    return engine_client
+    return asyncio.run(get_async_engine_client(args))
 
 
 async def get_async_engine_client(args):

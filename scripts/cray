@@ -27,8 +27,11 @@ cray_usage() {
   # :command.usage_commands
   printf "%s\n" "Commands:"
   printf "  %s   Build image from dockerfile\n" "build-image"
+  printf "  %s   Build image from dockerfile and push to depot\n" "depot-build"
   printf "  %s   Start the container\n" "up         "
   printf "  %s   Run tests in the container\n" "test       "
+  printf "  %s   Deploy the cray platform to modal\n" "deploy     "
+  printf "  %s   Serve the cray platform using modal\n" "serve      "
   echo
 
   # :command.long_usage
@@ -53,6 +56,37 @@ cray_build_image_usage() {
   printf "%s\n" "Usage:"
   printf "  cray build-image [TARGET]\n"
   printf "  cray build-image --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "TARGET"
+    printf "\n"
+    printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Default: cpu"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_depot_build_usage() {
+  printf "cray depot-build - Build image from dockerfile and push to depot\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray depot-build [TARGET]\n"
+  printf "  cray depot-build --help | -h\n"
   echo
 
   # :command.long_usage
@@ -143,6 +177,68 @@ cray_test_usage() {
     printf "  %s\n" "TEST-PATH"
     printf "    Relative path to the directory or file with test cases\n"
     printf "    %s\n" "Default: test/infra/*"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_deploy_usage() {
+  printf "cray deploy - Deploy the cray platform to modal\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray deploy [TARGET]\n"
+  printf "  cray deploy --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "TARGET"
+    printf "\n"
+    printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Default: cpu"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_serve_usage() {
+  printf "cray serve - Serve the cray platform using modal\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray serve [TARGET]\n"
+  printf "  cray serve --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "TARGET"
+    printf "\n"
+    printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Default: cpu"
     echo
 
   fi
@@ -285,6 +381,36 @@ cray_build_image_command() {
 }
 
 # :command.function
+cray_depot_build_command() {
+
+  # cmd/depot_build_command.sh
+  inspect_args
+
+  target=${args[target]}
+
+  declare -a vllm_target_device
+  declare -a docker_platform
+
+  # If target is cpu, build the image with the cpu base image
+  if [ "$target" == "cpu" ]; then
+      vllm_target_device=("cpu")
+      docker_platform=("linux/amd64")
+  else
+      vllm_target_device=("cuda")
+      docker_platform=("linux/amd64")
+  fi
+
+  docker_build_command="depot build --platform ${docker_platform} --build-arg BASE_NAME=${target} --build-arg VLLM_TARGET_DEVICE=${vllm_target_device} -t gdiamos/masint-$target:latest --push ."
+
+  # Run docker build command
+  echo $(green_bold Building image with command: ${docker_build_command})
+  eval $docker_build_command
+
+  echo $(green_bold Successfully built image)
+
+}
+
+# :command.function
 cray_up_command() {
 
   # cmd/up_command.sh
@@ -363,6 +489,79 @@ cray_test_command() {
 
 }
 
+# :command.function
+cray_deploy_command() {
+
+  # cmd/deploy_command.sh
+  inspect_args
+
+  target=${args[target]}
+
+  declare -a deployment_name
+  declare -a deployment_script
+
+  # If target is cpu, build the image with the cpu base image
+  if [ "$target" == "cpu" ]; then
+      deployment_name=("cray-cpu-llama-3.2-1b-instruct")
+      deployment_script=("deployment/modal/staging/cpu/deploy.py")
+  else
+      deployment_name=("cray-nvidia-llama-3.2-3b-instruct")
+      deployment_script=("deployment/modal/staging/nvidia/deploy.py")
+  fi
+
+  # Get the directory of this script
+  LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+  # Set cwd to the project root directory
+  ROOT_DIRECTORY=$LOCAL_DIRECTORY/..
+
+  cd $ROOT_DIRECTORY
+
+  modal_deploy_command="modal deploy --name $deployment_name $ROOT_DIRECTORY/$deployment_script"
+
+  # Run docker build command
+  echo $(green_bold Deploying image with command: ${modal_deploy_command})
+  eval $modal_deploy_command
+
+  echo $(green_bold Successfully deployed image)
+
+}
+
+# :command.function
+cray_serve_command() {
+
+  # cmd/serve_command.sh
+  inspect_args
+
+  target=${args[target]}
+
+  declare -a deployment_script
+
+  # If target is cpu, build the image with the cpu base image
+  if [ "$target" == "cpu" ]; then
+      deployment_script=("deployment/modal/staging/cpu/deploy.py")
+  else
+      deployment_script=("deployment/modal/staging/nvidia/deploy.py")
+  fi
+
+  # Get the directory of this script
+  LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+  # Set cwd to the project root directory
+  ROOT_DIRECTORY=$LOCAL_DIRECTORY/..
+
+  cd $ROOT_DIRECTORY
+
+  modal_serve_command="modal serve $ROOT_DIRECTORY/$deployment_script"
+
+  # Run docker build command
+  echo $(green_bold Deploying image with command: ${modal_serve_command})
+  eval $modal_serve_command
+
+  echo $(green_bold Successfully served image)
+
+}
+
 # :command.parse_requirements
 parse_requirements() {
   # :command.fixed_flags_filter
@@ -400,6 +599,13 @@ parse_requirements() {
       shift $#
       ;;
 
+    depot-build)
+      action="depot-build"
+      shift
+      cray_depot_build_parse_requirements "$@"
+      shift $#
+      ;;
+
     up)
       action="up"
       shift
@@ -411,6 +617,20 @@ parse_requirements() {
       action="test"
       shift
       cray_test_parse_requirements "$@"
+      shift $#
+      ;;
+
+    deploy)
+      action="deploy"
+      shift
+      cray_deploy_parse_requirements "$@"
+      shift $#
+      ;;
+
+    serve)
+      action="serve"
+      shift
+      cray_serve_parse_requirements "$@"
       shift $#
       ;;
 
@@ -471,6 +691,66 @@ cray_build_image_parse_requirements() {
 
   # :command.command_filter
   action="build-image"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        # :argument.case
+        if [[ -z ${args['target']+x} ]]; then
+          args['target']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
+
+        ;;
+
+    esac
+  done
+
+  # :command.default_assignments
+  [[ -n ${args['target']:-} ]] || args['target']="cpu"
+
+  # :command.whitelist_filter
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia" >&2
+    exit 1
+  fi
+
+}
+
+# :command.parse_requirements
+cray_depot_build_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_depot_build_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="depot-build"
 
   # :command.parse_requirements_while
   while [[ $# -gt 0 ]]; do
@@ -659,6 +939,126 @@ cray_test_parse_requirements() {
 
 }
 
+# :command.parse_requirements
+cray_deploy_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_deploy_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="deploy"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        # :argument.case
+        if [[ -z ${args['target']+x} ]]; then
+          args['target']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
+
+        ;;
+
+    esac
+  done
+
+  # :command.default_assignments
+  [[ -n ${args['target']:-} ]] || args['target']="cpu"
+
+  # :command.whitelist_filter
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia" >&2
+    exit 1
+  fi
+
+}
+
+# :command.parse_requirements
+cray_serve_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_serve_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="serve"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        # :argument.case
+        if [[ -z ${args['target']+x} ]]; then
+          args['target']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
+
+        ;;
+
+    esac
+  done
+
+  # :command.default_assignments
+  [[ -n ${args['target']:-} ]] || args['target']="cpu"
+
+  # :command.whitelist_filter
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia" >&2
+    exit 1
+  fi
+
+}
+
 # :command.initialize
 initialize() {
   version="0.1.0"
@@ -679,8 +1079,11 @@ run() {
 
   case "$action" in
     "build-image") cray_build_image_command ;;
+    "depot-build") cray_depot_build_command ;;
     "up") cray_up_command ;;
     "test") cray_test_command ;;
+    "deploy") cray_deploy_command ;;
+    "serve") cray_serve_command ;;
   esac
 }
 

@@ -24,12 +24,7 @@ except modal.exception.NotFoundError:
 cray_image = (
     modal.Image.from_registry(
         "gdiamos/masint-nvidia:latest",
-        secret=modal.Secret.from_dict(
-            {
-                "REGISTRY_USERNAME": "gdiamos",
-                "REGISTRY_PASSWORD": "dckr_pat_q2mAHptoFmIW43E1_d6STXF65t0",
-            }
-        ),
+        secret=modal.Secret.from_name("dockerhub-credentials"),
     )
     .pip_install("fastapi >= 0.107.0", "pydantic >= 2.9", "protobuf==3.19")
     .copy_local_file(
@@ -58,11 +53,11 @@ with cray_image.imports():
     image=cray_image,
     container_idle_timeout=5 * 60,
     allow_concurrent_inputs=32,
+    secrets=[modal.Secret.from_name("huggingface-credentials")],
     volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
 )
 @modal.asgi_app()
 def fastapi_app():
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
     run_this_on_container_startup()
     return web_app
 
@@ -73,12 +68,12 @@ def fastapi_app():
     memory=4 * 1024,  # 4 GB
     timeout=24 * 60 * 60,  # 24 hours
     gpu=modal.gpu.T4(count=1),
+    secrets=[modal.Secret.from_name("huggingface-credentials")],
     volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
 )
 @modal.asgi_app()
 def vllm_app():
     os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     parser = FlexibleArgumentParser(
         description="vLLM OpenAI-Compatible RESTful API server."
