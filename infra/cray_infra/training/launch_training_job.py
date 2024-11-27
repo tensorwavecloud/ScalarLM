@@ -51,9 +51,14 @@ def job_already_exists(train_args: Dict):
 
 
 def make_training_directory(train_args: Dict):
+    config = get_config()
+
+    if not "llm_name" in train_args:
+        train_args["llm_name"] = config["model"]
+
     job_directory = get_training_job_directory(train_args)
 
-    os.makedirs(job_directory)
+    os.makedirs(job_directory, exist_ok=True)
 
     with open(os.path.join(job_directory, "config.yaml"), "w") as f:
         yaml.dump(train_args, f)
@@ -97,8 +102,8 @@ def create_slurm_run_command(train_args):
     )
     run_command += [f"--output={slurm_log_file}"]
 
-    run_command += [f"--job-name", train_args["job_directory"]]
-    logger.info(f"job_name: {train_args['job_directory']}")
+    run_command += [f"--job-name", os.path.basename(train_args["job_directory"])]
+    logger.info(f"job_name: {os.path.basename(train_args['job_directory'])}")
 
     config_path = os.path.join(get_training_job_directory(train_args), "config.yaml")
     train_job_entrypoint = get_train_job_entrypoint(train_args)

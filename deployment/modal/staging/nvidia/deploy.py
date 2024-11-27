@@ -25,6 +25,7 @@ cray_image = (
     modal.Image.from_registry(
         "gdiamos/masint-nvidia:latest",
         secret=modal.Secret.from_name("dockerhub-credentials"),
+        force_build=True,
     )
     .pip_install("fastapi >= 0.107.0", "pydantic >= 2.9", "protobuf==3.19")
     .copy_local_file(
@@ -49,10 +50,12 @@ with cray_image.imports():
     from vllm.entrypoints.openai import api_server
 
 
+
 @app.function(
     image=cray_image,
     container_idle_timeout=5 * 60,
     allow_concurrent_inputs=32,
+    gpu=modal.gpu.T4(count=1),
     secrets=[modal.Secret.from_name("huggingface-credentials")],
     volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
 )

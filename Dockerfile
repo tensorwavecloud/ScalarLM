@@ -11,6 +11,10 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN python -m venv $VIRTUAL_ENV
 RUN . $VIRTUAL_ENV/bin/activate
 
+# Put HPC-X MPI in the PATH, i.e. mpirun
+ENV PATH=/opt/hpcx/ompi/bin:$PATH
+ENV LD_LIBRARY_PATH=/opt/hpcx/ompi/lib:$LD_LIBRARY_PATH
+
 ARG TORCH_VERSION="2.4.0"
 
 RUN pip install uv
@@ -22,7 +26,8 @@ FROM ubuntu:24.04 AS cpu
 
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update -y \
-    && apt-get install -y python3 python3-pip python3-venv
+    && apt-get install -y python3 python3-pip python3-venv \
+    openmpi-bin libopenmpi-dev libpmix-dev
 
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -85,9 +90,8 @@ FROM vllm AS infra
 
 RUN apt-get update -y  \
     && apt-get install -y slurm-wlm libslurm-dev \
-    mariadb-server build-essential munge libmunge-dev \
+    build-essential \
     less curl wget net-tools vim iputils-ping \
-    openmpi-bin libopenmpi-dev libpmix-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Build SLURM
@@ -99,7 +103,6 @@ ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/infra"
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/sdk"
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/ml"
 
-ENV PATH=$PATH:${INSTALL_ROOT}/usr/bin
 ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
 
 COPY ./infra ${INSTALL_ROOT}/infra

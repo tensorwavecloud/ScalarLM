@@ -12,3 +12,7 @@ health_router = APIRouter(prefix="/health")
 @health_router.get("")
 async def health():
     return await check_health()
+
+@health_router.get("/keepalive")
+async def health():
+    return {"status": "ok"}
