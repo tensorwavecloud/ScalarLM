@@ -16,8 +16,10 @@ class AsyncSupermassiveIntelligence:
     async def health(self):
         return await self.engine.health()
 
-    async def generate(self, prompts):
-        return await self.engine.generate(prompts)
+    async def generate(self, prompts, model_name=None, max_tokens=None):
+        return await self.engine.generate(
+            prompts=prompts, model_name=model_name, max_tokens=max_tokens
+        )
 
     async def learn_docs(self, docs):
         assert False, "Not implemented yet."

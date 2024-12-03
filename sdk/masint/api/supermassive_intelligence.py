@@ -14,8 +14,12 @@ class SupermassiveIntelligence:
             )
         )
 
-    def generate(self, prompts):
-        return asyncio.run(self.async_api.generate(prompts=prompts))
+    def generate(self, prompts, model_name=None, max_tokens=None):
+        return asyncio.run(
+            self.async_api.generate(
+                prompts=prompts, model_name=model_name, max_tokens=max_tokens
+            )
+        )
 
     def health(self):
         return asyncio.run(self.async_api.health())

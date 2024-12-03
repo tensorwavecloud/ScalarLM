@@ -24,10 +24,18 @@ class AsyncCray:
             async with session.get(api_url) as resp:
                 return await resp.json()
 
-    async def generate(self, prompts):
+    async def generate(self, prompts, model_name, max_tokens):
         api_url = make_api_url("v1/generate")
         async with aiohttp.ClientSession() as session:
-            async with session.post(api_url, json={"prompts" : prompts}) as resp:
+            params = {"prompts" : prompts }
+
+            if model_name is not None:
+                params["model"] = model_name
+
+            if max_tokens is not None:
+                params["max_tokens"] = max_tokens
+
+            async with session.post(api_url, json=params) as resp:
                 return await resp.json()
 
 
