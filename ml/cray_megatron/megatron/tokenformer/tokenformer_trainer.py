@@ -101,11 +101,13 @@ class TokenformerTrainer:
 
     def training_step(self, batch):
 
+        device = self.training_state.model_info["distribution_strategy"]["device"]
+
         # forward pass
         loss = self.training_state.model_info["model"](
-            input_ids=batch["input_ids"],
-            attention_mask=batch["attention_mask"],
-            labels=batch["labels"],
+            input_ids=batch["input_ids"].to(device),
+            attention_mask=batch["attention_mask"].to(device),
+            labels=batch["labels"].to(device),
         ).loss
 
         logger.info(

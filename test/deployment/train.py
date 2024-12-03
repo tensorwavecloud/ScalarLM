@@ -19,7 +19,7 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-status = llm.train(dataset, train_args={"max_steps": 11})
+status = llm.train(dataset, train_args={"max_steps": 51})
 
 print(status)
 

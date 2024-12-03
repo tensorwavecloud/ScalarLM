@@ -23,6 +23,7 @@ async def generate(request: GenerateRequest):
 
     prompts = request.prompts
     model = request.model
+    max_tokens = request.max_tokens
 
     config = get_config()
 
@@ -40,7 +41,7 @@ async def generate(request: GenerateRequest):
     try:
         responses = []
         for prompt_batch in prompt_batches:
-            response_batch = await async_submit_generate_request(prompt_batch, model)
+            response_batch = await async_submit_generate_request(prompt_batch, model, max_tokens)
 
             responses.extend(response_batch)
 
@@ -51,7 +52,7 @@ async def generate(request: GenerateRequest):
     return GenerateResponse(responses=responses)
 
 
-async def async_submit_generate_request(prompts, model):
+async def async_submit_generate_request(prompts, model, max_tokens):
     config = get_config()
     url = f"{config['api_url']}/v1/openai/completions"
 
@@ -61,6 +62,9 @@ async def async_submit_generate_request(prompts, model):
     session = get_global_session()
     for prompt in prompts:
         json_request = {"prompt": prompt, "model": model}
+
+        if max_tokens is not None:
+            json_request["max_tokens"] = max_tokens
 
         logger.info(f"Sending request: {json_request}")
         async with session.post(url, json=json_request) as resp:

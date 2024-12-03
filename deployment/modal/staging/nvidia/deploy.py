@@ -50,12 +50,11 @@ with cray_image.imports():
     from vllm.entrypoints.openai import api_server
 
 
-
 @app.function(
     image=cray_image,
     container_idle_timeout=5 * 60,
     allow_concurrent_inputs=32,
-    gpu=modal.gpu.T4(count=1),
+    gpu=modal.gpu.L4(count=1),
     secrets=[modal.Secret.from_name("huggingface-credentials")],
     volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
 )
@@ -83,7 +82,11 @@ def vllm_app():
     )
     parser = make_arg_parser(parser)
     args = parser.parse_args(
-        args=["--dtype=half", "--max-model-len=32768"]  # "--enable-lora",
+        args=[
+            "--dtype=half",
+            "--max-model-len=32768",
+            "--max-seq-len-to-capture=32768",
+        ]  # "--enable-lora",
     )
 
     config = get_config()

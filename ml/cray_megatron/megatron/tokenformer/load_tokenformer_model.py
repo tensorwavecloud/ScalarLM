@@ -8,6 +8,12 @@ from transformers import AutoModelForCausalLM
 
 from peft import LoraConfig, get_peft_model
 
+import torch
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 def load_tokenformer_model():
     model_info = load_model_config()
@@ -48,10 +54,22 @@ def apply_tokenformer_adapter(model_info):
 
 
 def load_distribution_strategy():
-    return None
+    device = get_device()
+
+    return {
+        "device": device,
+    }
+
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.cuda.current_device()
+    else:
+        return torch.device("cpu")
 
 
 def apply_distribution_strategy(model_info, distribution_strategy):
+    model_info["distribution_strategy"] = distribution_strategy
     return model_info
 
 
@@ -65,7 +83,9 @@ def materialize_model(model_info):
 
     model_info["model"] = get_peft_model(model_info["model"], lora_config)
 
-    print(model_info["model"])
+    logger.info(model_info["model"])
+
+    model_info["model"].to(model_info["distribution_strategy"]["device"])
 
     return model_info
 
