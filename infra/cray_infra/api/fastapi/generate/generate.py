@@ -3,7 +3,11 @@ from cray_infra.api.fastapi.routers.request_types.generate_request import (
 )
 from cray_infra.api.fastapi.routers.request_types.generate_response import (
     GenerateResponse,
+    Result,
 )
+
+from cray_infra.api.work_queue.inference_work_queue import get_inference_work_queue
+from cray_infra.api.fastapi.generate.poll_for_responses import poll_for_responses
 
 from cray_infra.util.get_config import get_config
 
@@ -12,6 +16,7 @@ from cray_infra.api.fastapi.aiohttp.get_global_session import get_global_session
 from fastapi import HTTPException
 
 import json
+import traceback
 
 import logging
 
@@ -19,11 +24,15 @@ logger = logging.getLogger(__name__)
 
 
 async def generate(request: GenerateRequest):
-    logger.info(f"Received generate request: {request}")
 
     prompts = request.prompts
     model = request.model
     max_tokens = request.max_tokens
+
+    logger.info(
+        f"Received generate request: prompts={truncate_list(prompts)}, "
+        f"model={model}, max_tokens={max_tokens}"
+    )
 
     config = get_config()
 
@@ -31,52 +40,47 @@ async def generate(request: GenerateRequest):
         model = config["model"]
         logger.info(f"Using default model: {model}")
 
-    # Group the prompts into batches
-    prompt_batches = []
+    inference_work_queue = get_inference_work_queue()
 
-    for i in range(0, len(prompts), config["generate_batch_size"]):
-        prompt_batches.append(prompts[i : i + config["generate_batch_size"]])
+    request_ids = []
 
-    # Generate the responses
     try:
-        responses = []
-        for prompt_batch in prompt_batches:
-            response_batch = await async_submit_generate_request(prompt_batch, model, max_tokens)
+        for prompt in prompts:
+            request_id = inference_work_queue.put(
+                {"prompt": prompt, "model": model, "max_tokens": max_tokens}
+            )
 
-            responses.extend(response_batch)
+            request_ids.append(request_id)
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        logger.error(f"Error generating responses: {e}")
+        logger.error(traceback.format_exc())
+        raise HTTPException(status_code=500, detail=f"Error generating responses: {e}")
+
+    logger.info(f"Generated request_ids: {request_ids}")
+
+    try:
+        responses = await poll_for_responses(request_ids)
+    except Exception as e:
+        logger.error(f"Error generating responses: {e}")
+        logger.error(traceback.format_exc())
+        responses = GenerateResponse(
+            results=[
+                Result(request_id=request_id, response=None)
+                for request_id in request_ids
+            ]
+        )
 
     logger.info(f"Generated responses: {responses}")
-    return GenerateResponse(responses=responses)
-
-
-async def async_submit_generate_request(prompts, model, max_tokens):
-    config = get_config()
-    url = f"{config['api_url']}/v1/openai/completions"
-
-    logger.info(f"Submitting generate request to {url}")
-
-    responses = []
-    session = get_global_session()
-    for prompt in prompts:
-        json_request = {"prompt": prompt, "model": model}
-
-        if max_tokens is not None:
-            json_request["max_tokens"] = max_tokens
-
-        logger.info(f"Sending request: {json_request}")
-        async with session.post(url, json=json_request) as resp:
-            response_text = ""
-            async for chunk in resp.content.iter_any():
-                logger.info(f"Received chunk: {chunk}")
-                response_text += chunk.decode("utf-8")
-
-            logger.info(f"Received response: {response_text}")
-
-            response = json.loads(response_text)
-
-            responses.append(response["choices"][0]["text"])
-
     return responses
+
+
+def truncate_list(list_of_strings):
+    return [truncate_string(s) for s in list_of_strings]
+
+
+def truncate_string(s):
+    if len(s) > 100:
+        return s[:100] + "..."
+    else:
+        return s

@@ -25,9 +25,16 @@ class AsyncCray:
                 return await resp.json()
 
     async def generate(self, prompts, model_name, max_tokens):
+        result = await self.submit_generate(prompts, model_name, max_tokens)
+
+        final_result = await poll_for_responses(result)
+
+        return [response["response"] for response in final_result["results"]]
+
+    async def submit_generate(self, prompts, model_name, max_tokens):
         api_url = make_api_url("v1/generate")
         async with aiohttp.ClientSession() as session:
-            params = {"prompts" : prompts }
+            params = {"prompts": prompts}
 
             if model_name is not None:
                 params["model"] = model_name
@@ -36,7 +43,28 @@ class AsyncCray:
                 params["max_tokens"] = max_tokens
 
             async with session.post(api_url, json=params) as resp:
+                assert resp.status == 200
                 return await resp.json()
+
+    async def get_results(self, request_ids):
+        async with aiohttp.ClientSession() as session:
+            api_url = make_api_url("v1/generate/get_results")
+            async with session.post(api_url, json={"request_ids": request_ids}) as resp:
+                assert resp.status == 200
+                return await resp.json()
+
+
+async def poll_for_responses(result):
+    api_url = make_api_url("v1/generate/get_results")
+
+    async with aiohttp.ClientSession() as session:
+        while any(response["response"] is None for response in result["results"]):
+            request_ids = [response["request_id"] for response in result["results"]]
+            async with session.post(api_url, json={"request_ids": request_ids}) as resp:
+                assert resp.status == 200
+                result = await resp.json()
+
+    return result
 
 
 async def upload_async(data_file_path, api_url, train_args):

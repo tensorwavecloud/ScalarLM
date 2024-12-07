@@ -1,6 +1,5 @@
 from cray_infra.util.get_config import get_config
 
-import hashlib
 import json
 import os
 import yaml
@@ -16,9 +15,6 @@ logger = logging.getLogger(__name__)
 
 
 async def launch_training_job(train_args: Dict):
-    job_directory = get_job_directory(train_args)
-
-    train_args["job_directory"] = job_directory
 
     if job_already_exists(train_args):
         logging.info(f"Job already exists: {job_directory}")
@@ -29,17 +25,6 @@ async def launch_training_job(train_args: Dict):
     start_slurm_job(train_args)
 
     return get_existing_job_info(train_args)
-
-
-def get_job_directory(train_args: Dict):
-    contents = json.dumps(train_args)
-    hash_id = hashlib.sha256(contents.encode()).hexdigest()
-
-    config = get_config()
-
-    job_directory = os.path.join(config["training_job_directory"], hash_id)
-
-    return job_directory
 
 
 def job_already_exists(train_args: Dict):

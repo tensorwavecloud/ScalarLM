@@ -7,6 +7,9 @@ import re
 import signal
 import socket
 import tempfile
+import traceback
+import typing
+import json
 from argparse import Namespace
 from contextlib import asynccontextmanager
 from functools import partial
@@ -59,6 +62,10 @@ from vllm.usage.usage_lib import UsageContext
 from vllm.utils import FlexibleArgumentParser, get_open_zmq_ipc_path
 from vllm.version import __version__ as VLLM_VERSION
 
+from cray_infra.util.get_config import get_config
+from cray_infra.api.fastapi.aiohttp.get_global_session import get_global_session
+
+
 TIMEOUT_KEEP_ALIVE = 5  # seconds
 
 prometheus_multiproc_dir: tempfile.TemporaryDirectory
@@ -72,6 +79,13 @@ _running_tasks: Set[asyncio.Task] = set()
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     try:
+
+        # Get work task
+        get_work_task = asyncio.create_task(get_work(app))
+        _running_tasks.add(get_work_task)
+        get_work_task.add_done_callback(_running_tasks.remove)
+
+        # Log stats task
         if app.state.log_stats:
             engine_client: EngineClient = app.state.engine_client
 
@@ -85,14 +99,94 @@ async def lifespan(app: FastAPI):
             task.add_done_callback(_running_tasks.remove)
         else:
             task = None
+
         try:
             yield
         finally:
             if task is not None:
                 task.cancel()
+            get_work_task.cancel()
     finally:
         # Ensure app state including engine ref is gc'd
         del app.state
+
+
+async def get_work(app: FastAPI):
+    while True:
+        try:
+            await get_work_step(app)
+        except Exception as e:
+            logger.error("Error in get_work_step: %s", e)
+            logger.error(traceback.format_exc())
+            await asyncio.sleep(10)
+
+
+async def get_work_step(app: FastAPI):
+    config = get_config()
+
+    batch_size = config["generate_batch_size"]
+
+    params = {
+        "batch_size": batch_size,
+    }
+
+    logger.info("Getting work with params: %s", params)
+
+    session = get_global_session()
+    async with session.post(
+        config["api_url"] + "/v1/generate/get_work",
+        json=params,
+    ) as resp:
+        assert resp.status == 200
+
+        data = await resp.json()
+
+    if len(data["requests"]) == 0:
+        logger.info("No work to do")
+        return
+
+    logger.info("Got work: %s", data)
+
+    completion_tasks = [
+        async_completion_task(request, app) for request in data["requests"]
+    ]
+
+    results = await asyncio.gather(*completion_tasks)
+
+    params = {
+        "requests": results,
+    }
+
+    logger.info("Sending finished inference results with params: %s", params)
+
+    async with session.post(
+        config["api_url"] + "/v1/generate/finish_work",
+        json=params,
+    ) as resp:
+        assert resp.status == 200
+
+async def pass_receive() -> typing.NoReturn:
+    return {"type": "http.request"}
+
+
+async def async_completion_task(request, app):
+    completion_request = CompletionRequest(
+        model=request["model"],
+        prompt=request["prompt"],
+        max_tokens=request["max_tokens"],
+    )
+
+    raw_request = Request(
+        scope={"app": app, "type": "http", "headers": {}, "path": "/v1/completions"},
+        receive=pass_receive,
+    )
+
+    response = await create_completion(completion_request, raw_request)
+
+    return {
+        "request_id": request["request_id"],
+        "response": json.loads(response.body.decode("utf-8"))["choices"][0]["text"],
+    }
 
 
 @asynccontextmanager
@@ -397,6 +491,7 @@ async def unload_lora_adapter(request: UnloadLoraAdapterRequest, raw_request: Re
 
 
 def build_app(args: Namespace) -> FastAPI:
+    logger.info("Building VLLM API server app")
     if args.disable_fastapi_docs:
         app = FastAPI(
             openapi_url=None, docs_url=None, redoc_url=None, lifespan=lifespan
@@ -512,6 +607,7 @@ def init_app_state(
 
 
 async def run_server(args, **uvicorn_kwargs) -> None:
+
     logger.info("vLLM API server version %s", VLLM_VERSION)
     logger.info("args: %s", args)
 
