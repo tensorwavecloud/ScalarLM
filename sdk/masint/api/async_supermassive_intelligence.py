@@ -21,6 +21,14 @@ class AsyncSupermassiveIntelligence:
             prompts=prompts, model_name=model_name, max_tokens=max_tokens
         )
 
+    async def submit_generate(self, prompts, model_name=None, max_tokens=None):
+        return await self.engine.submit_generate(
+            prompts=prompts, model_name=model_name, max_tokens=max_tokens
+        )
+
+    async def get_results(self, request_ids):
+        return await self.engine.get_results(request_ids)
+
     async def learn_docs(self, docs):
         assert False, "Not implemented yet."
 

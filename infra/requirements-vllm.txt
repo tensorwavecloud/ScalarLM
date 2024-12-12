@@ -24,3 +24,4 @@ einops # Required for Qwen2-VL.
 protobuf
 nvidia-ml-py # for pynvml package
 xformers == 0.0.27.post2; platform_system == 'Linux' and platform_machine == 'x86_64'  # Requires PyTorch 2.4.0
+persist-queue
