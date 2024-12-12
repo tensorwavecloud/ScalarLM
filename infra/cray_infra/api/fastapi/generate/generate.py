@@ -41,7 +41,9 @@ async def generate(request: GenerateRequest):
     try:
         responses = []
         for prompt_batch in prompt_batches:
-            response_batch = await async_submit_generate_request(prompt_batch, model, max_tokens)
+            response_batch = await async_submit_generate_request(
+                prompt_batch, model, max_tokens
+            )
 
             responses.extend(response_batch)
 

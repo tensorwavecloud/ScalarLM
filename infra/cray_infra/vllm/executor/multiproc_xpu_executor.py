@@ -1,6 +1,8 @@
 import vllm.envs as envs
 from vllm.executor.multiproc_gpu_executor import (
-    MultiprocessingGPUExecutor, MultiprocessingGPUExecutorAsync)
+    MultiprocessingGPUExecutor,
+    MultiprocessingGPUExecutorAsync,
+)
 from vllm.executor.xpu_executor import XPUExecutor
 from vllm.logger import init_logger
 from vllm.utils import make_async
@@ -15,11 +17,13 @@ class MultiprocessingXPUExecutor(MultiprocessingGPUExecutor, XPUExecutor):
         mp_method = envs.VLLM_WORKER_MULTIPROC_METHOD
         if mp_method != "spawn":
             raise RuntimeError(
-                "XPU multiprocess executor only support spawn as mp method")
+                "XPU multiprocess executor only support spawn as mp method"
+            )
 
 
-class MultiprocessingXPUExecutorAsync(MultiprocessingXPUExecutor,
-                                      MultiprocessingGPUExecutorAsync):
+class MultiprocessingXPUExecutorAsync(
+    MultiprocessingXPUExecutor, MultiprocessingGPUExecutorAsync
+):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)

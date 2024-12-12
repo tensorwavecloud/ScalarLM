@@ -1,16 +1,20 @@
 """ Attention layer with torch scaled_dot_product_attention
     and PagedAttention."""
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 
 from vllm._ipex_ops import ipex_ops
-from vllm.attention.backends.abstract import (AttentionBackend, AttentionImpl,
-                                              AttentionMetadata, AttentionType)
+from vllm.attention.backends.abstract import (
+    AttentionBackend,
+    AttentionImpl,
+    AttentionMetadata,
+    AttentionType,
+)
 from vllm.attention.backends.utils import CommonAttentionState
-from vllm.attention.ops.paged_attn import (PagedAttention,
-                                           PagedAttentionMetadata)
+from vllm.attention.ops.paged_attn import PagedAttention, PagedAttentionMetadata
 
 _PARTITION_SIZE = 512
 
@@ -40,8 +44,9 @@ class IpexAttnBackend(AttentionBackend):
         num_kv_heads: int,
         head_size: int,
     ) -> Tuple[int, ...]:
-        return PagedAttention.get_kv_cache_shape(num_blocks, block_size,
-                                                 num_kv_heads, head_size)
+        return PagedAttention.get_kv_cache_shape(
+            num_blocks, block_size, num_kv_heads, head_size
+        )
 
     @staticmethod
     def swap_blocks(
@@ -50,6 +55,7 @@ class IpexAttnBackend(AttentionBackend):
         src_to_dst: torch.Tensor,
     ) -> None:
         from vllm._ipex_ops import ipex_ops as ops
+
         ops.swap_blocks(src_kv_cache, dst_kv_cache, src_to_dst)
 
     @staticmethod
@@ -58,6 +64,7 @@ class IpexAttnBackend(AttentionBackend):
         src_to_dists: torch.Tensor,
     ) -> None:
         from vllm._ipex_ops import ipex_ops as ops
+
         key_caches = [kv_cache[0] for kv_cache in kv_caches]
         value_caches = [kv_cache[1] for kv_cache in kv_caches]
         ops.copy_blocks(key_caches, value_caches, src_to_dists)
@@ -65,8 +72,8 @@ class IpexAttnBackend(AttentionBackend):
 
 @dataclass
 class IpexAttnMetadata(AttentionMetadata, PagedAttentionMetadata):
-    """Metadata for IpexAttnBackend.
-    """
+    """Metadata for IpexAttnBackend."""
+
     # Currently, input sequences can only contain all prompts
     # or all decoding. True if all sequences are prompts.
     is_prompt: bool
@@ -117,8 +124,7 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
         logits_soft_cap: Optional[float] = None,
     ) -> None:
         if blocksparse_params is not None:
-            raise ValueError(
-                "IPEX backend does not support block-sparse attention.")
+            raise ValueError("IPEX backend does not support block-sparse attention.")
         if logits_soft_cap is not None:
             raise ValueError("IPEX backend does not support logits_soft_cap.")
         self.num_heads = num_heads
@@ -133,18 +139,21 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
 
         assert self.num_heads % self.num_kv_heads == 0
         self.num_queries_per_kv = self.num_heads // self.num_kv_heads
-        self.need_mask = (self.alibi_slopes is not None
-                          or self.sliding_window is not None)
+        self.need_mask = (
+            self.alibi_slopes is not None or self.sliding_window is not None
+        )
 
         supported_head_sizes = PagedAttention.get_supported_head_sizes()
         if head_size not in supported_head_sizes:
             raise ValueError(
                 f"Head size {head_size} is not supported by PagedAttention. "
-                f"Supported head sizes are: {supported_head_sizes}.")
+                f"Supported head sizes are: {supported_head_sizes}."
+            )
         if kv_cache_dtype != "auto":
             raise NotImplementedError(
                 "IPEX backend does not support FP8 KV cache. "
-                "Please use xFormers backend instead.")
+                "Please use xFormers backend instead."
+            )
 
     def split_kv_cache(
         self,
@@ -156,8 +165,7 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
         num_blocks = kv_cache.shape[1]
 
         key_cache = kv_cache[0]
-        key_cache = key_cache.view(num_blocks, num_kv_heads, head_size // x,
-                                   -1, x)
+        key_cache = key_cache.view(num_blocks, num_kv_heads, head_size // x, -1, x)
         value_cache = kv_cache[1]
         value_cache = value_cache.view(num_blocks, num_kv_heads, head_size, -1)
         return key_cache, value_cache
@@ -188,10 +196,12 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
         """
         assert k_scale == 1.0 and v_scale == 1.0
         if attn_type != AttentionType.DECODER:
-            raise NotImplementedError("Encoder self-attention and "
-                                      "encoder/decoder cross-attention "
-                                      "are not implemented for "
-                                      "IpexAttnBackendImpl")
+            raise NotImplementedError(
+                "Encoder self-attention and "
+                "encoder/decoder cross-attention "
+                "are not implemented for "
+                "IpexAttnBackendImpl"
+            )
         num_tokens, hidden_size = query.shape
         # Reshape the query, key, and value tensors.
         query = query.view(-1, self.num_heads, self.head_size)
@@ -200,7 +210,8 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
 
         if kv_cache.numel() > 0:
             key_cache, value_cache = self.split_kv_cache(
-                kv_cache, self.num_kv_heads, self.head_size)
+                kv_cache, self.num_kv_heads, self.head_size
+            )
             ipex_ops.reshape_and_cache(
                 key,
                 value,
@@ -214,49 +225,50 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
 
         if attn_metadata.is_prompt:
             assert attn_metadata.seq_lens is not None
-            if (kv_cache.numel() == 0
-                    or attn_metadata.block_tables.numel() == 0):
+            if kv_cache.numel() == 0 or attn_metadata.block_tables.numel() == 0:
                 if self.num_kv_heads != self.num_heads:
                     key = key.repeat_interleave(self.num_queries_per_kv, dim=1)
-                    value = value.repeat_interleave(self.num_queries_per_kv,
-                                                    dim=1)
+                    value = value.repeat_interleave(self.num_queries_per_kv, dim=1)
 
                 if attn_metadata.attn_bias is None:
                     if self.alibi_slopes is not None:
                         att_masks = _make_alibi_bias(
-                            self.alibi_slopes, query.dtype,
-                            attn_metadata.seq_lens)  # type: ignore
+                            self.alibi_slopes, query.dtype, attn_metadata.seq_lens
+                        )  # type: ignore
                     elif self.sliding_window is not None:
                         att_masks = _make_sliding_window_bias(
-                            attn_metadata.seq_lens, self.sliding_window,
-                            query.dtype)  # type: ignore
+                            attn_metadata.seq_lens, self.sliding_window, query.dtype
+                        )  # type: ignore
                     else:
                         att_masks = _make_sliding_window_bias(
-                            attn_metadata.seq_lens, None, dtype=query.dtype)
+                            attn_metadata.seq_lens, None, dtype=query.dtype
+                        )
                     attn_metadata.attn_bias = att_masks
 
                 output = torch.empty(
                     (num_tokens, self.num_heads, self.head_size),
                     dtype=query.dtype,
-                    device=query.device)
-                ipex_ops.varlen_attention(query,
-                                          key,
-                                          value,
-                                          output,
-                                          attn_metadata.seqlen_q,
-                                          attn_metadata.seqlen_q,
-                                          attn_metadata.max_seqlen,
-                                          attn_metadata.max_seqlen,
-                                          pdropout=0.0,
-                                          softmax_scale=self.scale,
-                                          zero_tensors=False,
-                                          is_causal=True,
-                                          return_softmax=False,
-                                          gen_=None)
+                    device=query.device,
+                )
+                ipex_ops.varlen_attention(
+                    query,
+                    key,
+                    value,
+                    output,
+                    attn_metadata.seqlen_q,
+                    attn_metadata.seqlen_q,
+                    attn_metadata.max_seqlen,
+                    attn_metadata.max_seqlen,
+                    pdropout=0.0,
+                    softmax_scale=self.scale,
+                    zero_tensors=False,
+                    is_causal=True,
+                    return_softmax=False,
+                    gen_=None,
+                )
             else:
                 # prefix-enabled attention
-                raise RuntimeError(
-                    "IPEX backend doesn't support prefix decoding.")
+                raise RuntimeError("IPEX backend doesn't support prefix decoding.")
 
         else:
             # Decoding run.
@@ -264,8 +276,7 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
             output = torch.empty_like(query)
             block_size = value_cache.shape[3]
             num_seqs, num_heads, head_size = query.shape
-            max_num_partitions = ((max_seq_len + _PARTITION_SIZE - 1) //
-                                  _PARTITION_SIZE)
+            max_num_partitions = (max_seq_len + _PARTITION_SIZE - 1) // _PARTITION_SIZE
             # NOTE(woosuk): We use a simple heuristic to decide whether to use
             # PagedAttention V1 or V2. If the number of partitions is 1, we use
             # V1 to avoid the overhead of reduction. Also, if the number of
@@ -274,8 +285,9 @@ class IpexAttnBackendImpl(AttentionImpl[IpexAttnMetadata]):
             # TODO(woosuk): Tune this heuristic.
             # For context len > 8192, use V2 kernel to avoid shared memory
             # shortage.
-            use_v1 = (max_seq_len <= 8192 and
-                      (max_num_partitions == 1 or num_seqs * num_heads > 512))
+            use_v1 = max_seq_len <= 8192 and (
+                max_num_partitions == 1 or num_seqs * num_heads > 512
+            )
             if use_v1:
                 # Run PagedAttention V1.
                 ipex_ops.paged_attention_v1(
@@ -350,10 +362,13 @@ def _make_alibi_bias(
         num_heads = alibi_slopes.shape[0]
         bias = bias[None, :].repeat((num_heads, 1, 1))
         bias.mul_(alibi_slopes[:, None, None])
-        inf_mask = torch.empty(
-            (1, seq_len, seq_len),
-            dtype=bias.dtype,
-            device=alibi_slopes.device).fill_(-torch.inf).triu_(diagonal=1)
+        inf_mask = (
+            torch.empty(
+                (1, seq_len, seq_len), dtype=bias.dtype, device=alibi_slopes.device
+            )
+            .fill_(-torch.inf)
+            .triu_(diagonal=1)
+        )
         attn_biases.append((bias + inf_mask).to(dtype))
 
     return attn_biases

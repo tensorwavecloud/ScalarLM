@@ -4,17 +4,14 @@ from typing import Callable, Optional
 import msgspec
 import torch
 
-from vllm.model_executor.layers.spec_decode_base_sampler import (
-    SpecDecodeBaseSampler)
+from vllm.model_executor.layers.spec_decode_base_sampler import SpecDecodeBaseSampler
 from vllm.utils import is_pin_memory_available
 
 
 class SpecDecodeWorkerMetrics(
-        msgspec.Struct,
-        omit_defaults=True,  # type: ignore[call-arg]
-        array_like=True):  # type: ignore[call-arg]
-    """Dataclass holding metrics emitted from the spec decode worker.
-    """
+    msgspec.Struct, omit_defaults=True, array_like=True  # type: ignore[call-arg]
+):  # type: ignore[call-arg]
+    """Dataclass holding metrics emitted from the spec decode worker."""
 
     # The empirical acceptance rate of the proposal method on a per-token basis.
     # This is useful for evaluating how well the proposal method aligns with the
@@ -53,10 +50,12 @@ class AsyncMetricsCollector:
     from the device to CPU on a non-default Torch stream.
     """
 
-    def __init__(self,
-                 spec_decode_sampler: SpecDecodeBaseSampler,
-                 timer: Optional[Timer] = None,
-                 collect_interval_s: float = 5.0):
+    def __init__(
+        self,
+        spec_decode_sampler: SpecDecodeBaseSampler,
+        timer: Optional[Timer] = None,
+        collect_interval_s: float = 5.0,
+    ):
         self.spec_decode_sampler = spec_decode_sampler
         self._timer = time.time if timer is None else timer
 
@@ -69,9 +68,11 @@ class AsyncMetricsCollector:
 
         pin_memory = is_pin_memory_available()
         self._aggregate_num_accepted_tokens = torch.tensor(
-            0, dtype=torch.long, device="cpu", pin_memory=pin_memory)
+            0, dtype=torch.long, device="cpu", pin_memory=pin_memory
+        )
         self._aggregate_num_emitted_tokens = torch.tensor(
-            0, dtype=torch.long, device="cpu", pin_memory=pin_memory)
+            0, dtype=torch.long, device="cpu", pin_memory=pin_memory
+        )
         self._aggregate_num_draft_tokens = 0
 
         self._rejsample_metrics_collect_interval_s = collect_interval_s
@@ -82,7 +83,8 @@ class AsyncMetricsCollector:
         self._copy_stream = torch.cuda.Stream()
 
     def maybe_collect_rejsample_metrics(
-            self, k: int) -> Optional[SpecDecodeWorkerMetrics]:
+        self, k: int
+    ) -> Optional[SpecDecodeWorkerMetrics]:
 
         # If a copy was initiated in the previous call, collect and return.
         if self._in_flight_copy is not None:
@@ -104,7 +106,10 @@ class AsyncMetricsCollector:
         if self._rank != 0:
             return False
 
-        return now - self._last_metrics_collect_time >= self._rejsample_metrics_collect_interval_s  # noqa: E501
+        return (
+            now - self._last_metrics_collect_time
+            >= self._rejsample_metrics_collect_interval_s
+        )  # noqa: E501
 
     def _copy_rejsample_metrics_async(self) -> torch.cuda.Event:
         """Copy rejection/typical-acceptance sampling metrics
@@ -117,14 +122,14 @@ class AsyncMetricsCollector:
 
         with torch.cuda.stream(self._copy_stream):
             self._aggregate_num_accepted_tokens.copy_(
-                self.spec_decode_sampler.num_accepted_tokens,
-                non_blocking=True)
+                self.spec_decode_sampler.num_accepted_tokens, non_blocking=True
+            )
             self._aggregate_num_emitted_tokens.copy_(
-                self.spec_decode_sampler.num_emitted_tokens, non_blocking=True)
+                self.spec_decode_sampler.num_emitted_tokens, non_blocking=True
+            )
             # Number of draft tokens is calculated on CPU, so no copy is
             # required.
-            self._aggregate_num_draft_tokens = (
-                self.spec_decode_sampler.num_draft_tokens)
+            self._aggregate_num_draft_tokens = self.spec_decode_sampler.num_draft_tokens
 
         aggregate_metrics_ready = torch.cuda.Event()
         aggregate_metrics_ready.record(self._copy_stream)
@@ -132,8 +137,8 @@ class AsyncMetricsCollector:
         return aggregate_metrics_ready
 
     def _collect_rejsample_metrics(
-            self, k: int,
-            ready_event: torch.cuda.Event) -> SpecDecodeWorkerMetrics:
+        self, k: int, ready_event: torch.cuda.Event
+    ) -> SpecDecodeWorkerMetrics:
         """Create metrics object from statistics copied asynchronously.
 
         Args:
@@ -152,8 +157,7 @@ class AsyncMetricsCollector:
         emitted_tokens = self._aggregate_num_emitted_tokens.item()
         draft_tokens = self._aggregate_num_draft_tokens
 
-        max_num_emitted_tokens = self.get_max_num_emitted_tokens(
-            draft_tokens, k)
+        max_num_emitted_tokens = self.get_max_num_emitted_tokens(draft_tokens, k)
 
         if draft_tokens > 0:
             draft_acceptance_rate = accepted_tokens / draft_tokens

@@ -1,4 +1,5 @@
 """Utils for model executor."""
+
 from typing import Any, Dict, Optional
 
 import torch
@@ -26,6 +27,5 @@ def set_weight_attrs(
     if weight_attrs is None:
         return
     for key, value in weight_attrs.items():
-        assert not hasattr(
-            weight, key), (f"Overwriting existing tensor attribute: {key}")
+        assert not hasattr(weight, key), f"Overwriting existing tensor attribute: {key}"
         setattr(weight, key, value)

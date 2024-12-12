@@ -7,6 +7,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class TestVLLMHealth(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
 
@@ -28,4 +29,3 @@ class TestVLLMHealth(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         logger.debug("Shutting down server")
         await self.app.shutdown()
-

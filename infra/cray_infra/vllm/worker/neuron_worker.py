@@ -1,23 +1,33 @@
 """A Neuron worker class."""
+
 from typing import List, Optional, Tuple
 
 import torch
 import torch.distributed
 
-from vllm.config import (CacheConfig, DeviceConfig, ModelConfig,
-                         ParallelConfig, SchedulerConfig)
-from vllm.distributed import (ensure_model_parallel_initialized,
-                              init_distributed_environment)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    ModelConfig,
+    ParallelConfig,
+    SchedulerConfig,
+)
+from vllm.distributed import (
+    ensure_model_parallel_initialized,
+    init_distributed_environment,
+)
 from vllm.model_executor import set_random_seed
 from vllm.sequence import ExecuteModelRequest
 from vllm.worker.neuron_model_runner import NeuronModelRunner
-from vllm.worker.worker_base import (LocalOrDistributedWorkerBase,
-                                     LoraNotSupportedWorkerBase, WorkerInput)
+from vllm.worker.worker_base import (
+    LocalOrDistributedWorkerBase,
+    LoraNotSupportedWorkerBase,
+    WorkerInput,
+)
 
 
 class NeuronWorker(LoraNotSupportedWorkerBase, LocalOrDistributedWorkerBase):
-    """A worker class that executes the model on a group of neuron cores.
-    """
+    """A worker class that executes the model on a group of neuron cores."""
 
     def __init__(
         self,
@@ -41,10 +51,12 @@ class NeuronWorker(LoraNotSupportedWorkerBase, LocalOrDistributedWorkerBase):
         if self.model_config.trust_remote_code:
             # note: lazy import to avoid importing torch before initializing
             from vllm.utils import init_cached_hf_modules
+
             init_cached_hf_modules()
 
         self.model_runner: NeuronModelRunner = NeuronModelRunner(
-            model_config, parallel_config, scheduler_config, device_config)
+            model_config, parallel_config, scheduler_config, device_config
+        )
         self.is_driver_worker = True
 
     def init_device(self) -> None:
@@ -73,10 +85,8 @@ class NeuronWorker(LoraNotSupportedWorkerBase, LocalOrDistributedWorkerBase):
 
         return num_gpu_blocks, num_cpu_blocks
 
-    def initialize_cache(self, num_gpu_blocks: int,
-                         num_cpu_blocks: int) -> None:
-        """Initialize the KV cache.
-        """
+    def initialize_cache(self, num_gpu_blocks: int, num_cpu_blocks: int) -> None:
+        """Initialize the KV cache."""
 
         # Different values are not tested.
         assert num_cpu_blocks == 0
@@ -95,9 +105,11 @@ class NeuronWorker(LoraNotSupportedWorkerBase, LocalOrDistributedWorkerBase):
 
     @torch.inference_mode()
     def prepare_worker_input(
-            self, execute_model_req: ExecuteModelRequest) -> WorkerInput:
-        return WorkerInput(num_seq_groups=len(
-            execute_model_req.seq_group_metadata_list), )
+        self, execute_model_req: ExecuteModelRequest
+    ) -> WorkerInput:
+        return WorkerInput(
+            num_seq_groups=len(execute_model_req.seq_group_metadata_list),
+        )
 
     def execute_worker(self, worker_input: WorkerInput) -> None:
         pass

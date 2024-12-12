@@ -27,10 +27,12 @@ class SpeculativeProposals:
     no_proposals: bool = False
 
     def __repr__(self):
-        return (f"SpeculativeProposals("
-                f"proposal_token_ids={self.proposal_token_ids}, "
-                f"proposal_probs={self.proposal_probs.shape}, "
-                f"proposal_lens={self.proposal_lens})")
+        return (
+            f"SpeculativeProposals("
+            f"proposal_token_ids={self.proposal_token_ids}, "
+            f"proposal_probs={self.proposal_probs.shape}, "
+            f"proposal_lens={self.proposal_lens})"
+        )
 
 
 @dataclass
@@ -55,9 +57,11 @@ class SpeculativeScores:
     hidden_states: Optional[torch.Tensor] = None
 
     def __repr__(self):
-        return (f"SpeculativeScores("
-                f"probs={self.probs.shape}, "
-                f"token_ids={self.token_ids.shape})")
+        return (
+            f"SpeculativeScores("
+            f"probs={self.probs.shape}, "
+            f"token_ids={self.token_ids.shape})"
+        )
 
 
 class SpeculativeProposer(ABC):
@@ -75,8 +79,7 @@ class SpeculativeProposer(ABC):
 
 class SpeculativeScorer(ABC):
 
-    def __init__(self, scorer_worker: WorkerBase, device: str,
-                 vocab_size: int):
+    def __init__(self, scorer_worker: WorkerBase, device: str, vocab_size: int):
         self._scorer_worker = scorer_worker
         self._device = device
         self._vocab_size = vocab_size

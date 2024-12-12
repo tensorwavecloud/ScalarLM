@@ -1,5 +1,5 @@
-
 from pydantic import BaseModel
+
 
 class TrainResponse(BaseModel):
     job_id: str
@@ -8,4 +8,3 @@ class TrainResponse(BaseModel):
     dataset_id: str
     job_directory: str
     model_name: str
-

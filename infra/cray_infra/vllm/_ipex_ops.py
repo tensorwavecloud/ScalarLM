@@ -16,7 +16,8 @@ class ipex_ops:
 
     @staticmethod
     def _reshape_activation_tensor(
-            x: torch.Tensor) -> Tuple[torch.Tensor, torch.Tensor]:
+        x: torch.Tensor,
+    ) -> Tuple[torch.Tensor, torch.Tensor]:
         num = x.size(0)
         d = x.size(1) // 2
         x = x.reshape(num, 2, d)
@@ -74,13 +75,17 @@ class ipex_ops:
         assert kv_cache_dtype == "auto"
         num_heads = out.size(1)
         num_queries_per_tokens = num_heads // num_kv_heads
-        head_mapping = torch.arange(
-            0,
-            num_kv_heads,
-            device=query.device,
-            dtype=torch.int32,
-        ).view(num_kv_heads,
-               1).repeat_interleave(num_queries_per_tokens).flatten()
+        head_mapping = (
+            torch.arange(
+                0,
+                num_kv_heads,
+                device=query.device,
+                dtype=torch.int32,
+            )
+            .view(num_kv_heads, 1)
+            .repeat_interleave(num_queries_per_tokens)
+            .flatten()
+        )
         # todo: ipex will refactor namespace
         torch.xpu.paged_attention_v1(  # type: ignore
             out,
@@ -124,13 +129,17 @@ class ipex_ops:
         assert kv_cache_dtype == "auto"
         num_heads = out.size(1)
         num_queries_per_tokens = num_heads // num_kv_heads
-        head_mapping = torch.arange(
-            0,
-            num_kv_heads,
-            dtype=torch.int32,
-            device=query.device,
-        ).view(num_kv_heads,
-               1).repeat_interleave(num_queries_per_tokens).flatten()
+        head_mapping = (
+            torch.arange(
+                0,
+                num_kv_heads,
+                dtype=torch.int32,
+                device=query.device,
+            )
+            .view(num_kv_heads, 1)
+            .repeat_interleave(num_queries_per_tokens)
+            .flatten()
+        )
         # todo: ipex will refactor namespace
         torch.xpu.paged_attention_v2(  # type: ignore
             out,
@@ -159,31 +168,48 @@ class ipex_ops:
         is_neox: bool,
     ) -> None:
         rot_dim = cos_sin_cache.size(1)
-        ipex.llm.functional.rotary_embedding_batched(positions, query, key,
-                                                     head_size, cos_sin_cache,
-                                                     is_neox, rot_dim)
+        ipex.llm.functional.rotary_embedding_batched(
+            positions, query, key, head_size, cos_sin_cache, is_neox, rot_dim
+        )
 
     @staticmethod
-    def batched_rotary_embedding(positions: torch.Tensor, query: torch.Tensor,
-                                 key: torch.Tensor, head_size: int,
-                                 cos_sin_cache: torch.Tensor, is_neox: bool,
-                                 rot_dim: int,
-                                 cos_sin_cache_offsets: torch.Tensor) -> None:
-        ipex.llm.functional.rotary_embedding_batched(positions, query, key,
-                                                     head_size, cos_sin_cache,
-                                                     is_neox, rot_dim,
-                                                     cos_sin_cache_offsets)
+    def batched_rotary_embedding(
+        positions: torch.Tensor,
+        query: torch.Tensor,
+        key: torch.Tensor,
+        head_size: int,
+        cos_sin_cache: torch.Tensor,
+        is_neox: bool,
+        rot_dim: int,
+        cos_sin_cache_offsets: torch.Tensor,
+    ) -> None:
+        ipex.llm.functional.rotary_embedding_batched(
+            positions,
+            query,
+            key,
+            head_size,
+            cos_sin_cache,
+            is_neox,
+            rot_dim,
+            cos_sin_cache_offsets,
+        )
 
     @staticmethod
-    def rms_norm(input: torch.Tensor, weight: torch.Tensor,
-                 epsilon: float) -> torch.Tensor:
+    def rms_norm(
+        input: torch.Tensor, weight: torch.Tensor, epsilon: float
+    ) -> torch.Tensor:
         return ipex.llm.functional.rms_norm(input, weight, epsilon)
 
     @staticmethod
-    def fused_add_rms_norm(input: torch.Tensor, residual: torch.Tensor,
-                           weight: torch.Tensor, epsilon: float) -> None:
-        tmp = ipex.llm.functional.add_rms_norm(residual, input, weight, None,
-                                               epsilon, True)
+    def fused_add_rms_norm(
+        input: torch.Tensor,
+        residual: torch.Tensor,
+        weight: torch.Tensor,
+        epsilon: float,
+    ) -> None:
+        tmp = ipex.llm.functional.add_rms_norm(
+            residual, input, weight, None, epsilon, True
+        )
         input.copy_(tmp)
 
     @staticmethod
@@ -203,14 +229,22 @@ class ipex_ops:
         return_softmax: bool,
         gen_: torch.Generator,
     ) -> None:
-        ipex.llm.functional.varlen_attention(query.contiguous(),
-                                             key.contiguous(),
-                                             value.contiguous(), out,
-                                             seqlen_q.int(), seqlen_k.int(),
-                                             max_seqlen_q, max_seqlen_k,
-                                             pdropout, softmax_scale,
-                                             zero_tensors, is_causal,
-                                             return_softmax, gen_)
+        ipex.llm.functional.varlen_attention(
+            query.contiguous(),
+            key.contiguous(),
+            value.contiguous(),
+            out,
+            seqlen_q.int(),
+            seqlen_k.int(),
+            max_seqlen_q,
+            max_seqlen_k,
+            pdropout,
+            softmax_scale,
+            zero_tensors,
+            is_causal,
+            return_softmax,
+            gen_,
+        )
 
     @staticmethod
     def reshape_and_cache(
@@ -225,12 +259,15 @@ class ipex_ops:
     ) -> None:
         assert kv_cache_dtype == "auto"
         ipex.llm.modules.PagedAttention.reshape_and_cache(
-            key, value, key_cache, value_cache, slot_mapping)
+            key, value, key_cache, value_cache, slot_mapping
+        )
 
     @staticmethod
-    def copy_blocks(key_caches: List[torch.Tensor],
-                    value_caches: List[torch.Tensor],
-                    block_mapping: torch.Tensor) -> None:
+    def copy_blocks(
+        key_caches: List[torch.Tensor],
+        value_caches: List[torch.Tensor],
+        block_mapping: torch.Tensor,
+    ) -> None:
         torch.xpu.copy_blocks(  # type: ignore
             key_caches,
             value_caches,
@@ -238,6 +275,7 @@ class ipex_ops:
         )
 
     @staticmethod
-    def swap_blocks(src: torch.Tensor, dst: torch.Tensor,
-                    block_mapping: torch.Tensor) -> None:
+    def swap_blocks(
+        src: torch.Tensor, dst: torch.Tensor, block_mapping: torch.Tensor
+    ) -> None:
         torch.xpu.swap_blocks(src, dst, block_mapping)  # type: ignore

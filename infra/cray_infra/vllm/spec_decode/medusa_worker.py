@@ -13,8 +13,7 @@ from vllm.worker.worker import Worker
 
 
 class MedusaWorker(NonLLMProposerWorkerBase, Worker):
-    """Worker for Medusa.
-    """
+    """Worker for Medusa."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -57,19 +56,24 @@ class MedusaWorker(NonLLMProposerWorkerBase, Worker):
 
         seq_group_metadata_list = execute_model_req.seq_group_metadata_list
 
-        seq_lens, query_lens = self._prepare_input_tensors(
-            seq_group_metadata_list)
+        seq_lens, query_lens = self._prepare_input_tensors(seq_group_metadata_list)
 
         generators = self.model_runner.get_generators(
-            execute_model_req.finished_requests_ids)
+            execute_model_req.finished_requests_ids
+        )
         sampling_metadata = SamplingMetadata.prepare(
-            seq_group_metadata_list, seq_lens, query_lens, self.device,
-            self.model_runner.pin_memory, generators)
+            seq_group_metadata_list,
+            seq_lens,
+            query_lens,
+            self.device,
+            self.model_runner.pin_memory,
+            generators,
+        )
 
         model_outputs = self.model_runner.model.generate_proposals(
-            previous_hidden_states=execute_model_req.previous_hidden_states.
-            hidden_states,
-            sampling_metadata=sampling_metadata)
+            previous_hidden_states=execute_model_req.previous_hidden_states.hidden_states,
+            sampling_metadata=sampling_metadata,
+        )
 
         return model_outputs, False
 
@@ -91,8 +95,8 @@ class MedusaWorker(NonLLMProposerWorkerBase, Worker):
                 if is_prompt:
                     context_len = seq_data.get_num_computed_tokens()
                     seq_len = min(
-                        seq_data_len,
-                        context_len + seq_group_metadata.token_chunk_size)
+                        seq_data_len, context_len + seq_group_metadata.token_chunk_size
+                    )
                     seq_lens.append(seq_len)
                     query_lens.append(seq_len - context_len)
                 else:
@@ -111,7 +115,8 @@ class MedusaWorker(NonLLMProposerWorkerBase, Worker):
         """
 
         return self._proposer.get_spec_proposals(
-            execute_model_req, seq_ids_with_bonus_token_in_last_step)
+            execute_model_req, seq_ids_with_bonus_token_in_last_step
+        )
 
     def _raise_if_unsupported(
         self,
@@ -120,17 +125,17 @@ class MedusaWorker(NonLLMProposerWorkerBase, Worker):
         """MedusaWorker does not yet implement support for cache swap
         operations or beam search.
         """
-        if any([
+        if any(
+            [
                 execute_model_req.blocks_to_swap_in,
                 execute_model_req.blocks_to_swap_out,
-                execute_model_req.blocks_to_copy
-        ]):
-            raise NotImplementedError(
-                "MedusaWorker does not support cache operations")
+                execute_model_req.blocks_to_copy,
+            ]
+        ):
+            raise NotImplementedError("MedusaWorker does not support cache operations")
 
         if any(
-                len(seq_group_metadata.seq_data.keys()) != 1
-                for seq_group_metadata in
-                execute_model_req.seq_group_metadata_list):
-            raise NotImplementedError(
-                "MedusaWorker does not support beam search.")
+            len(seq_group_metadata.seq_data.keys()) != 1
+            for seq_group_metadata in execute_model_req.seq_group_metadata_list
+        ):
+            raise NotImplementedError("MedusaWorker does not support beam search.")

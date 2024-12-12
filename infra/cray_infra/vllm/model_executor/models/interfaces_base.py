@@ -1,5 +1,13 @@
-from typing import (TYPE_CHECKING, List, Optional, Protocol, Type, Union,
-                    overload, runtime_checkable)
+from typing import (
+    TYPE_CHECKING,
+    List,
+    Optional,
+    Protocol,
+    Type,
+    Union,
+    overload,
+    runtime_checkable,
+)
 
 import torch
 import torch.nn as nn
@@ -43,8 +51,7 @@ class VllmModel(Protocol[C_co, T_co]):
         *,
         cache_config: Optional["CacheConfig"],
         quant_config: Optional["QuantizationConfig"],
-    ) -> None:
-        ...
+    ) -> None: ...
 
     def forward(
         self,
@@ -52,18 +59,15 @@ class VllmModel(Protocol[C_co, T_co]):
         positions: torch.Tensor,
         kv_caches: List[torch.Tensor],
         attn_metadata: "AttentionMetadata",
-    ) -> T_co:
-        ...
+    ) -> T_co: ...
 
 
 def _check_vllm_model_init(model: Union[Type[object], object]) -> bool:
     model_init = model.__init__
     vllm_kws = ("cache_config", "quant_config")
-    missing_kws = tuple(kw for kw in vllm_kws
-                        if not supports_kw(model_init, kw))
+    missing_kws = tuple(kw for kw in vllm_kws if not supports_kw(model_init, kw))
 
-    if missing_kws and (isinstance(model, type)
-                        and issubclass(model, nn.Module)):
+    if missing_kws and (isinstance(model, type) and issubclass(model, nn.Module)):
         logger.warning(
             "The model (%s) is missing "
             "vLLM-specific keywords from its initializer: %s",
@@ -80,11 +84,9 @@ def _check_vllm_model_forward(model: Union[Type[object], object]) -> bool:
         return False
 
     vllm_kws = ("input_ids", "positions", "kv_caches", "attn_metadata")
-    missing_kws = tuple(kw for kw in vllm_kws
-                        if not supports_kw(model_forward, kw))
+    missing_kws = tuple(kw for kw in vllm_kws if not supports_kw(model_forward, kw))
 
-    if missing_kws and (isinstance(model, type)
-                        and issubclass(model, nn.Module)):
+    if missing_kws and (isinstance(model, type) and issubclass(model, nn.Module)):
         logger.warning(
             "The model (%s) is missing "
             "vLLM-specific keywords from its initializer: %s",
@@ -96,13 +98,11 @@ def _check_vllm_model_forward(model: Union[Type[object], object]) -> bool:
 
 
 @overload
-def is_vllm_model(model: Type[object]) -> TypeIs[Type[VllmModel]]:
-    ...
+def is_vllm_model(model: Type[object]) -> TypeIs[Type[VllmModel]]: ...
 
 
 @overload
-def is_vllm_model(model: object) -> TypeIs[VllmModel]:
-    ...
+def is_vllm_model(model: object) -> TypeIs[VllmModel]: ...
 
 
 def is_vllm_model(
@@ -133,20 +133,19 @@ class VllmModelForTextGeneration(VllmModel[C_co, T], Protocol[C_co, T]):
 
 @overload
 def is_text_generation_model(
-        model: Type[object]) -> TypeIs[Type[VllmModelForTextGeneration]]:
-    ...
+    model: Type[object],
+) -> TypeIs[Type[VllmModelForTextGeneration]]: ...
 
 
 @overload
-def is_text_generation_model(
-        model: object) -> TypeIs[VllmModelForTextGeneration]:
-    ...
+def is_text_generation_model(model: object) -> TypeIs[VllmModelForTextGeneration]: ...
 
 
 def is_text_generation_model(
     model: Union[Type[object], object],
-) -> Union[TypeIs[Type[VllmModelForTextGeneration]],
-           TypeIs[VllmModelForTextGeneration]]:
+) -> Union[
+    TypeIs[Type[VllmModelForTextGeneration]], TypeIs[VllmModelForTextGeneration]
+]:
     if not is_vllm_model(model):
         return False
 
@@ -169,14 +168,11 @@ class VllmModelForEmbedding(VllmModel[C_co, T], Protocol[C_co, T]):
 
 
 @overload
-def is_embedding_model(
-        model: Type[object]) -> TypeIs[Type[VllmModelForEmbedding]]:
-    ...
+def is_embedding_model(model: Type[object]) -> TypeIs[Type[VllmModelForEmbedding]]: ...
 
 
 @overload
-def is_embedding_model(model: object) -> TypeIs[VllmModelForEmbedding]:
-    ...
+def is_embedding_model(model: object) -> TypeIs[VllmModelForEmbedding]: ...
 
 
 def is_embedding_model(

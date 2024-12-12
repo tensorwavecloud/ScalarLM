@@ -51,8 +51,7 @@ def is_usage_stats_enabled():
         no_usage_stats = envs.VLLM_NO_USAGE_STATS
         do_not_track_file = os.path.exists(_USAGE_STATS_DO_NOT_TRACK_PATH)
 
-        _USAGE_STATS_ENABLED = not (do_not_track or no_usage_stats
-                                    or do_not_track_file)
+        _USAGE_STATS_ENABLED = not (do_not_track or no_usage_stats or do_not_track_file)
     return _USAGE_STATS_ENABLED
 
 
@@ -63,9 +62,11 @@ def _get_current_timestamp_ns() -> int:
 def _detect_cloud_provider() -> str:
     # Try detecting through vendor file
     vendor_files = [
-        "/sys/class/dmi/id/product_version", "/sys/class/dmi/id/bios_vendor",
+        "/sys/class/dmi/id/product_version",
+        "/sys/class/dmi/id/bios_vendor",
         "/sys/class/dmi/id/product_name",
-        "/sys/class/dmi/id/chassis_asset_tag", "/sys/class/dmi/id/sys_vendor"
+        "/sys/class/dmi/id/chassis_asset_tag",
+        "/sys/class/dmi/id/sys_vendor",
     ]
     # Mapping of identifiable strings to cloud providers
     cloud_identifiers = {
@@ -133,24 +134,34 @@ class UsageMessage:
         self.log_time: Optional[int] = None
         self.source: Optional[str] = None
 
-    def report_usage(self,
-                     model_architecture: str,
-                     usage_context: UsageContext,
-                     extra_kvs: Optional[Dict[str, Any]] = None) -> None:
-        t = Thread(target=self._report_usage_worker,
-                   args=(model_architecture, usage_context, extra_kvs or {}),
-                   daemon=True)
+    def report_usage(
+        self,
+        model_architecture: str,
+        usage_context: UsageContext,
+        extra_kvs: Optional[Dict[str, Any]] = None,
+    ) -> None:
+        t = Thread(
+            target=self._report_usage_worker,
+            args=(model_architecture, usage_context, extra_kvs or {}),
+            daemon=True,
+        )
         t.start()
 
-    def _report_usage_worker(self, model_architecture: str,
-                             usage_context: UsageContext,
-                             extra_kvs: Dict[str, Any]) -> None:
+    def _report_usage_worker(
+        self,
+        model_architecture: str,
+        usage_context: UsageContext,
+        extra_kvs: Dict[str, Any],
+    ) -> None:
         self._report_usage_once(model_architecture, usage_context, extra_kvs)
         self._report_continous_usage()
 
-    def _report_usage_once(self, model_architecture: str,
-                           usage_context: UsageContext,
-                           extra_kvs: Dict[str, Any]) -> None:
+    def _report_usage_once(
+        self,
+        model_architecture: str,
+        usage_context: UsageContext,
+        extra_kvs: Dict[str, Any],
+    ) -> None:
         # Platform information
         if current_platform.is_cuda_alike():
             device_property = torch.cuda.get_device_properties(0)
@@ -165,11 +176,13 @@ class UsageMessage:
         info = cpuinfo.get_cpu_info()
         self.num_cpu = info.get("count", None)
         self.cpu_type = info.get("brand_raw", "")
-        self.cpu_family_model_stepping = ",".join([
-            str(info.get("family", "")),
-            str(info.get("model", "")),
-            str(info.get("stepping", ""))
-        ])
+        self.cpu_family_model_stepping = ",".join(
+            [
+                str(info.get("family", "")),
+                str(info.get("model", "")),
+                str(info.get("stepping", "")),
+            ]
+        )
 
         # vLLM information
         self.context = usage_context.value

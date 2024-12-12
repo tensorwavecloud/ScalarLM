@@ -6,8 +6,14 @@ from vllm.config import ModelConfig
 from vllm.logger import init_logger
 
 from .audio import AudioPlugin
-from .base import (MultiModalDataDict, MultiModalInputMapper, MultiModalInputs,
-                   MultiModalPlugin, MultiModalTokensCalc, NestedTensors)
+from .base import (
+    MultiModalDataDict,
+    MultiModalInputMapper,
+    MultiModalInputs,
+    MultiModalPlugin,
+    MultiModalTokensCalc,
+    NestedTensors,
+)
 from .image import ImagePlugin
 from .video import VideoPlugin
 
@@ -24,8 +30,10 @@ class _MultiModalLimits(UserDict):
         try:
             return super().__getitem__(key)
         except KeyError as exc:
-            msg = (f"Cannot find `mm_limits` for model={key.model}. Did you "
-                   "forget to call `init_mm_limits_per_prompt`?")
+            msg = (
+                f"Cannot find `mm_limits` for model={key.model}. Did you "
+                "forget to call `init_mm_limits_per_prompt`?"
+            )
             raise KeyError(msg) from exc
 
 
@@ -38,9 +46,8 @@ class MultiModalRegistry:
     DEFAULT_PLUGINS = (ImagePlugin(), AudioPlugin(), VideoPlugin())
 
     def __init__(
-            self,
-            *,
-            plugins: Sequence[MultiModalPlugin] = DEFAULT_PLUGINS) -> None:
+        self, *, plugins: Sequence[MultiModalPlugin] = DEFAULT_PLUGINS
+    ) -> None:
         self._plugins = {p.get_data_key(): p for p in plugins}
 
         # This is used for non-multimodal models
@@ -60,8 +67,10 @@ class MultiModalRegistry:
         if data_type_key in self._plugins:
             logger.warning(
                 "A plugin is already registered for data type %s, "
-                "and will be overwritten by the new plugin %s.", data_type_key,
-                plugin)
+                "and will be overwritten by the new plugin %s.",
+                data_type_key,
+                plugin,
+            )
 
         self._plugins[data_type_key] = plugin
 
@@ -125,15 +134,17 @@ class MultiModalRegistry:
                 raise ValueError(
                     f"You set {data_key}={max_items} (or defaulted to 1) in "
                     f"`--limit-mm-per-prompt`, but found {num_items} items "
-                    "in the same prompt.")
+                    "in the same prompt."
+                )
 
-            input_dict = plugin.map_input(model_config, data_value,
-                                          mm_processor_kwargs)
+            input_dict = plugin.map_input(model_config, data_value, mm_processor_kwargs)
             for input_key, input_tensor in input_dict.items():
                 if input_key in merged_dict:
-                    raise ValueError(f"The input mappers (keys={set(data)}) "
-                                     f"resulted in a conflicting keyword "
-                                     f"argument to `forward()`: {input_key}")
+                    raise ValueError(
+                        f"The input mappers (keys={set(data)}) "
+                        f"resulted in a conflicting keyword "
+                        f"argument to `forward()`: {input_key}"
+                    )
 
                 merged_dict[input_key] = input_tensor
 
@@ -164,8 +175,9 @@ class MultiModalRegistry:
         instance of multimodal data belonging to a specific modality, that are
         passed to the language model for a model class.
         """
-        return self._get_plugin(data_type_key) \
-            .register_max_multimodal_tokens(max_mm_tokens)
+        return self._get_plugin(data_type_key).register_max_multimodal_tokens(
+            max_mm_tokens
+        )
 
     def register_max_image_tokens(
         self,
@@ -189,9 +201,10 @@ class MultiModalRegistry:
         """
         limits_per_plugin = self._limits_by_model[model_config]
 
-        return sum((limits_per_plugin[key] *
-                    plugin.get_max_multimodal_tokens(model_config))
-                   for key, plugin in self._plugins.items())
+        return sum(
+            (limits_per_plugin[key] * plugin.get_max_multimodal_tokens(model_config))
+            for key, plugin in self._plugins.items()
+        )
 
     def init_mm_limits_per_prompt(
         self,
@@ -204,7 +217,9 @@ class MultiModalRegistry:
         if model_config in self._limits_by_model:
             logger.warning(
                 "`mm_limits` has already been set for model=%s, and will "
-                "be overwritten by the new values.", model_config.model)
+                "be overwritten by the new values.",
+                model_config.model,
+            )
 
         multimodal_config = model_config.multimodal_config
         if multimodal_config is None:
@@ -217,14 +232,15 @@ class MultiModalRegistry:
                 logger.warning(
                     "Detected extra keys in `--limit-mm-per-prompt` which "
                     "are not registered as multi-modal plugins: %s. "
-                    "They will be ignored.", extra_keys)
+                    "They will be ignored.",
+                    extra_keys,
+                )
 
             # NOTE: Currently the default is set to 1 for each plugin
             # TODO: Automatically determine the limits based on budget
             # once more models support multi-image inputs
             limits_per_plugin = {
-                key: config_limits_per_plugin.get(key, 1)
-                for key in self._plugins
+                key: config_limits_per_plugin.get(key, 1) for key in self._plugins
             }
 
         self._limits_by_model[model_config] = limits_per_plugin

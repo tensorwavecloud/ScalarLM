@@ -1,7 +1,16 @@
 import time
 from dataclasses import dataclass
-from typing import (TYPE_CHECKING, Any, Callable, Dict, List, Optional, Tuple,
-                    Type, Union)
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Callable,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+)
 from unittest.mock import patch
 
 import numpy as np
@@ -12,18 +21,31 @@ import torch_xla.runtime as xr
 
 from vllm.attention import AttentionMetadata, get_attn_backend
 from vllm.compilation.wrapper import TorchCompileWrapperWithCustomDispatcher
-from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, ModelConfig,
-                         ParallelConfig, SchedulerConfig)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    LoadConfig,
+    ModelConfig,
+    ParallelConfig,
+    SchedulerConfig,
+)
 from vllm.logger import init_logger
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.model_executor.model_loader import get_model
 from vllm.model_executor.sampling_metadata import SamplingMetadata
-from vllm.sequence import (CompletionSequenceGroupOutput, IntermediateTensors,
-                           Logprob, SequenceGroupMetadata, SequenceOutput)
+from vllm.sequence import (
+    CompletionSequenceGroupOutput,
+    IntermediateTensors,
+    Logprob,
+    SequenceGroupMetadata,
+    SequenceOutput,
+)
 from vllm.worker.model_runner_base import (
-    ModelRunnerBase, ModelRunnerInputBase,
+    ModelRunnerBase,
+    ModelRunnerInputBase,
     _add_attn_metadata_broadcastable_dict,
-    _init_attn_metadata_from_tensor_dict)
+    _init_attn_metadata_from_tensor_dict,
+)
 
 if TYPE_CHECKING:
     from vllm.attention.backends.abstract import AttentionBackend
@@ -56,8 +78,7 @@ class ModelInputForTPU(ModelRunnerInputBase):
     virtual_engine: int = 0
     async_callback: Optional[Callable] = None
 
-    def as_broadcastable_tensor_dict(
-            self) -> Dict[str, Union[int, torch.Tensor]]:
+    def as_broadcastable_tensor_dict(self) -> Dict[str, Union[int, torch.Tensor]]:
         tensor_dict = {
             "token_ids": self.token_ids,
             "position_ids": self.position_ids,
@@ -82,7 +103,8 @@ class ModelInputForTPU(ModelRunnerInputBase):
     ) -> "ModelInputForTPU":
         if attn_backend is not None:
             tensor_dict = _init_attn_metadata_from_tensor_dict(
-                attn_backend, tensor_dict)
+                attn_backend, tensor_dict
+            )
         return cls(**tensor_dict)
 
 
@@ -107,11 +129,11 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
         self.is_driver_worker = is_driver_worker
 
         self.block_size = self.cache_config.block_size
-        self.max_num_blocks_per_seq = (self.model_config.max_model_len //
-                                       self.block_size)
+        self.max_num_blocks_per_seq = self.model_config.max_model_len // self.block_size
         self.block_tables = np.zeros(
             (self.scheduler_config.max_num_seqs, self.max_num_blocks_per_seq),
-            dtype=np.int32)
+            dtype=np.int32,
+        )
         self.attn_backend = get_attn_backend(
             self.model_config.get_num_attention_heads(self.parallel_config),
             self.model_config.get_head_size(),
@@ -138,9 +160,10 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
         # the embedding weights.
         xm_tp_rank = xr.global_ordinal()
         with patch(
-                "vllm.model_executor.layers.vocab_parallel_embedding."
-                "get_tensor_model_parallel_rank",
-                return_value=xm_tp_rank):
+            "vllm.model_executor.layers.vocab_parallel_embedding."
+            "get_tensor_model_parallel_rank",
+            return_value=xm_tp_rank,
+        ):
             model = get_model(
                 model_config=self.model_config,
                 load_config=self.load_config,
@@ -163,15 +186,15 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
     ) -> None:
         if is_prompt:
             seq_len = (seq_len + 15) // 16 * 16
-            token_ids = torch.zeros((batch_size, seq_len),
-                                    dtype=torch.int32,
-                                    device=self.device)
-            position_ids = torch.zeros((batch_size, seq_len),
-                                       dtype=torch.int32,
-                                       device=self.device)
-            slot_mapping = torch.zeros((batch_size, seq_len),
-                                       dtype=torch.int64,
-                                       device=self.device)
+            token_ids = torch.zeros(
+                (batch_size, seq_len), dtype=torch.int32, device=self.device
+            )
+            position_ids = torch.zeros(
+                (batch_size, seq_len), dtype=torch.int32, device=self.device
+            )
+            slot_mapping = torch.zeros(
+                (batch_size, seq_len), dtype=torch.int64, device=self.device
+            )
             attn_metadata = self.attn_backend.make_metadata(
                 num_prefills=batch_size,
                 num_prefill_tokens=batch_size * seq_len,
@@ -180,30 +203,31 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
                 block_tables=None,
                 context_lens=None,
             )
-            input_lens = torch.ones((batch_size, ),
-                                    dtype=torch.int32,
-                                    device=self.device)
+            input_lens = torch.ones(
+                (batch_size,), dtype=torch.int32, device=self.device
+            )
         else:
             assert seq_len == 1
-            token_ids = torch.zeros((batch_size, seq_len),
-                                    dtype=torch.int32,
-                                    device=self.device)
-            position_ids = torch.zeros((batch_size, seq_len),
-                                       dtype=torch.int32,
-                                       device=self.device)
-            slot_mapping = torch.zeros((batch_size, seq_len),
-                                       dtype=torch.int64,
-                                       device=self.device)
+            token_ids = torch.zeros(
+                (batch_size, seq_len), dtype=torch.int32, device=self.device
+            )
+            position_ids = torch.zeros(
+                (batch_size, seq_len), dtype=torch.int32, device=self.device
+            )
+            slot_mapping = torch.zeros(
+                (batch_size, seq_len), dtype=torch.int64, device=self.device
+            )
             block_tables = torch.zeros(
                 (batch_size, self.max_num_blocks_per_seq),
                 dtype=torch.int32,
-                device=self.device)
-            context_lens = torch.ones((batch_size, ),
-                                      dtype=torch.int32,
-                                      device=self.device)
-            input_lens = torch.ones((batch_size, ),
-                                    dtype=torch.int32,
-                                    device=self.device)
+                device=self.device,
+            )
+            context_lens = torch.ones(
+                (batch_size,), dtype=torch.int32, device=self.device
+            )
+            input_lens = torch.ones(
+                (batch_size,), dtype=torch.int32, device=self.device
+            )
             attn_metadata = self.attn_backend.make_metadata(
                 num_prefills=0,
                 num_prefill_tokens=0,
@@ -212,8 +236,8 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
                 block_tables=block_tables,
                 context_lens=context_lens,
             )
-        t = torch.ones((batch_size, ), dtype=torch.float32, device=self.device)
-        p = torch.ones((batch_size, ), dtype=torch.float32, device=self.device)
+        t = torch.ones((batch_size,), dtype=torch.float32, device=self.device)
+        p = torch.ones((batch_size,), dtype=torch.float32, device=self.device)
         num_samples = _MAX_NUM_SAMPLES if is_prompt else 1
 
         # NOTE(woosuk): There are two stages of compilation: torch.compile and
@@ -239,15 +263,17 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
             torch._dynamo.mark_dynamic(t, 0)
             torch._dynamo.mark_dynamic(p, 0)
         # Dummy run.
-        self.model(token_ids,
-                   position_ids,
-                   attn_metadata,
-                   input_lens,
-                   t,
-                   p,
-                   num_samples,
-                   kv_caches,
-                   is_prompt=is_prompt)
+        self.model(
+            token_ids,
+            position_ids,
+            attn_metadata,
+            input_lens,
+            t,
+            p,
+            num_samples,
+            kv_caches,
+            is_prompt=is_prompt,
+        )
 
     def warmup_model(
         self,
@@ -336,18 +362,10 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
 
         assert len(prompt_lens) > 0
         num_prefills = len(prompt_lens)
-        input_tokens = torch.tensor(input_tokens,
-                                    dtype=torch.int32,
-                                    device="cpu")
-        input_positions = torch.tensor(input_positions,
-                                       dtype=torch.int32,
-                                       device="cpu")
-        slot_mapping = torch.tensor(slot_mapping,
-                                    dtype=torch.int64,
-                                    device="cpu")
-        prompt_lens = torch.tensor(prompt_lens,
-                                   dtype=torch.int32,
-                                   device="cpu")
+        input_tokens = torch.tensor(input_tokens, dtype=torch.int32, device="cpu")
+        input_positions = torch.tensor(input_positions, dtype=torch.int32, device="cpu")
+        slot_mapping = torch.tensor(slot_mapping, dtype=torch.int64, device="cpu")
+        prompt_lens = torch.tensor(prompt_lens, dtype=torch.int32, device="cpu")
         attn_metadata = self.attn_backend.make_metadata(
             num_prefills=num_prefills,
             num_prefill_tokens=0,  # NOTE: This is not used.
@@ -384,7 +402,7 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
 
                 assert seq_group_metadata.block_tables is not None
                 block_table = seq_group_metadata.block_tables[seq_id]
-                self.block_tables[batch_idx, :len(block_table)] = block_table
+                self.block_tables[batch_idx, : len(block_table)] = block_table
                 batch_idx += 1
 
                 block_number = block_table[position // self.block_size]
@@ -399,24 +417,14 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
         slot_mapping = slot_mapping + [[_PAD_SLOT_ID]] * num_paddings
         context_lens = context_lens + [0] * num_paddings
 
-        input_tokens = torch.tensor(input_tokens,
-                                    dtype=torch.int32,
-                                    device="cpu")
-        input_positions = torch.tensor(input_positions,
-                                       dtype=torch.int32,
-                                       device="cpu")
-        slot_mapping = torch.tensor(slot_mapping,
-                                    dtype=torch.int64,
-                                    device="cpu")
-        context_lens = torch.tensor(context_lens,
-                                    dtype=torch.int32,
-                                    device="cpu")
-        block_tables = torch.tensor(self.block_tables[:batch_size],
-                                    dtype=torch.int32,
-                                    device="cpu")
-        input_lens = torch.tensor([1] * batch_size,
-                                  dtype=torch.int32,
-                                  device="cpu")
+        input_tokens = torch.tensor(input_tokens, dtype=torch.int32, device="cpu")
+        input_positions = torch.tensor(input_positions, dtype=torch.int32, device="cpu")
+        slot_mapping = torch.tensor(slot_mapping, dtype=torch.int64, device="cpu")
+        context_lens = torch.tensor(context_lens, dtype=torch.int32, device="cpu")
+        block_tables = torch.tensor(
+            self.block_tables[:batch_size], dtype=torch.int32, device="cpu"
+        )
+        input_lens = torch.tensor([1] * batch_size, dtype=torch.int32, device="cpu")
         attn_metadata = self.attn_backend.make_metadata(
             num_prefills=0,
             num_prefill_tokens=0,
@@ -442,24 +450,28 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
             if sampling_params.top_p != 1 and not _ENABLE_TOP_P:
                 raise NotImplementedError(
                     "Top-p sampling is currently disabled for the TPU backend "
-                    "due to performance issues.")
+                    "due to performance issues."
+                )
             p.append(sampling_params.top_p)
             if sampling_params.top_k != -1:
                 raise NotImplementedError(
                     "Top-k sampling is currently disabled for the TPU backend "
-                    "due to performance issues.")
+                    "due to performance issues."
+                )
             if sampling_params.best_of > _MAX_NUM_SAMPLES:
                 raise NotImplementedError(
                     f"Best of > {_MAX_NUM_SAMPLES} is not supported by the TPU "
-                    "backend.")
+                    "backend."
+                )
             best_of.append(sampling_params.best_of)
             if sampling_params.logprobs is not None:
                 raise NotImplementedError(
-                    "logprobs is not currently supported by the TPU backend.")
+                    "logprobs is not currently supported by the TPU backend."
+                )
             if sampling_params.prompt_logprobs is not None:
                 raise NotImplementedError(
-                    "prompt_logprobs is not currently supported by the TPU "
-                    "backend.")
+                    "prompt_logprobs is not currently supported by the TPU " "backend."
+                )
 
             # Repeat the sampling params if the seq group has multiple seqs.
             num_seqs = len(seq_group_metadata.seq_data)
@@ -493,22 +505,30 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
             inputs = self._prepare_decode(seq_group_metadata_list)
         input_tokens, input_positions, attn_metadata, input_lens = inputs
         padded_batch_size = input_tokens.shape[0]
-        t, p, best_of = self._prepare_sample(seq_group_metadata_list,
-                                             padded_batch_size)
+        t, p, best_of = self._prepare_sample(seq_group_metadata_list, padded_batch_size)
         num_samples = _MAX_NUM_SAMPLES if is_prompt else 1
 
         seq_groups = [
-            list(metadata.seq_data.keys())
-            for metadata in seq_group_metadata_list
+            list(metadata.seq_data.keys()) for metadata in seq_group_metadata_list
         ]
-        return ModelInputForTPU(input_tokens, input_positions, attn_metadata,
-                                input_lens, t, p, num_samples, best_of,
-                                seq_groups)
+        return ModelInputForTPU(
+            input_tokens,
+            input_positions,
+            attn_metadata,
+            input_lens,
+            t,
+            p,
+            num_samples,
+            best_of,
+            seq_groups,
+        )
 
     def make_model_input_from_broadcasted_tensor_dict(
-            self, tensor_dict: Dict[str, Any]) -> ModelInputForTPU:
+        self, tensor_dict: Dict[str, Any]
+    ) -> ModelInputForTPU:
         model_input = ModelInputForTPU.from_broadcasted_tensor_dict(
-            tensor_dict, attn_backend=self.attn_backend)
+            tensor_dict, attn_backend=self.attn_backend
+        )
         return model_input
 
     @torch.no_grad()
@@ -530,20 +550,21 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
             for i in range(num_outputs):
                 next_token_ids = self.cached_step_outputs.pop(0)
                 next_token_ids = next_token_ids.cpu().tolist()
-                sampler_output = _make_decode_output(next_token_ids,
-                                                     model_input.seq_groups)
+                sampler_output = _make_decode_output(
+                    next_token_ids, model_input.seq_groups
+                )
                 sampler_outputs.append(sampler_output)
 
                 if i < num_outputs - 1 and use_async_out_proc:
                     assert model_input.async_callback is not None
-                    ctx = model_input.async_callback.keywords[  # type: ignore
-                        "ctx"]
+                    ctx = model_input.async_callback.keywords["ctx"]  # type: ignore
                     ctx.append_output(
                         outputs=[sampler_output],
                         seq_group_metadata_list=ctx.seq_group_metadata_list,
                         scheduler_outputs=ctx.scheduler_outputs,
                         is_async=False,
-                        is_last_step=False)
+                        is_last_step=False,
+                    )
                     model_input.async_callback()
             if use_async_out_proc:
                 return [sampler_outputs[-1]]
@@ -563,31 +584,35 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
             next_token_ids = []
             for i in range(batch_size):
                 # Get the actual prefill_len.
-                prefill_len = model_input.input_lens[i:i + 1].item()
+                prefill_len = model_input.input_lens[i : i + 1].item()
                 prefill_len = _get_padded_prefill_len(prefill_len)
                 end_idx = start_idx + prefill_len
 
                 token_ids = model_input.token_ids[None, start_idx:end_idx].to(
-                    self.device)
-                position_ids = model_input.position_ids[None,
-                                                        start_idx:end_idx].to(
-                                                            self.device)
+                    self.device
+                )
+                position_ids = model_input.position_ids[None, start_idx:end_idx].to(
+                    self.device
+                )
                 attn_metadata = model_input.attn_metadata
                 attn_metadata.num_prefills = 1
                 attn_metadata.slot_mapping = orig_slot_mapping[
-                    None, start_idx:end_idx].to(self.device)
-                input_lens = model_input.input_lens[i:i + 1].to(self.device)
-                t = model_input.t[i:i + 1].to(self.device)
-                p = model_input.p[i:i + 1].to(self.device)
-                output_token_ids = self.model(token_ids,
-                                              position_ids,
-                                              attn_metadata,
-                                              input_lens,
-                                              t,
-                                              p,
-                                              model_input.num_samples,
-                                              kv_caches,
-                                              is_prompt=True)
+                    None, start_idx:end_idx
+                ].to(self.device)
+                input_lens = model_input.input_lens[i : i + 1].to(self.device)
+                t = model_input.t[i : i + 1].to(self.device)
+                p = model_input.p[i : i + 1].to(self.device)
+                output_token_ids = self.model(
+                    token_ids,
+                    position_ids,
+                    attn_metadata,
+                    input_lens,
+                    t,
+                    p,
+                    model_input.num_samples,
+                    kv_caches,
+                    is_prompt=True,
+                )
                 next_token_ids.append(output_token_ids[0])
                 start_idx = end_idx
 
@@ -595,8 +620,7 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
                 model_input.async_callback()
             # Retrieve the outputs to CPU.
             next_token_ids = [
-                output_token_ids.cpu().tolist()
-                for output_token_ids in next_token_ids
+                output_token_ids.cpu().tolist() for output_token_ids in next_token_ids
             ]
 
             # NOTE(woosuk): Minimal code to construct the sampler outputs.
@@ -612,35 +636,35 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
                 for j in range(model_input.best_of[i]):
                     next_token_id = next_token_ids[i][j]
                     seq_outputs.append(
-                        SequenceOutput(seq_id, next_token_id,
-                                       {next_token_id: zero_logprob}))
-                sampler_outputs.append(
-                    CompletionSequenceGroupOutput(seq_outputs, None))
+                        SequenceOutput(
+                            seq_id, next_token_id, {next_token_id: zero_logprob}
+                        )
+                    )
+                sampler_outputs.append(CompletionSequenceGroupOutput(seq_outputs, None))
             return [SamplerOutput(sampler_outputs)]
         else:
             token_ids = model_input.token_ids.to(self.device)
             position_ids = model_input.position_ids.to(self.device)
             attn_metadata = model_input.attn_metadata
-            attn_metadata.slot_mapping = attn_metadata.slot_mapping.to(
-                self.device)
-            attn_metadata.block_tables = attn_metadata.block_tables.to(
-                self.device)
-            attn_metadata.context_lens = attn_metadata.context_lens.to(
-                self.device)
+            attn_metadata.slot_mapping = attn_metadata.slot_mapping.to(self.device)
+            attn_metadata.block_tables = attn_metadata.block_tables.to(self.device)
+            attn_metadata.context_lens = attn_metadata.context_lens.to(self.device)
             t = model_input.t.to(self.device)
             p = model_input.p.to(self.device)
             input_lens = model_input.input_lens.to(self.device)
             for i in range(num_steps):
                 slot_mapping = attn_metadata.slot_mapping
-                output_token_ids = self.model(token_ids,
-                                              position_ids,
-                                              attn_metadata,
-                                              input_lens,
-                                              t,
-                                              p,
-                                              model_input.num_samples,
-                                              kv_caches,
-                                              is_prompt=False)
+                output_token_ids = self.model(
+                    token_ids,
+                    position_ids,
+                    attn_metadata,
+                    input_lens,
+                    t,
+                    p,
+                    model_input.num_samples,
+                    kv_caches,
+                    is_prompt=False,
+                )
                 self.cached_step_outputs.append(output_token_ids)
 
                 if i < num_steps - 1:
@@ -651,15 +675,14 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
 
                     block_tables = attn_metadata.block_tables
                     block_number = block_tables.gather(
-                        1,
-                        position_ids.long() // self.block_size)
+                        1, position_ids.long() // self.block_size
+                    )
                     block_offset = position_ids % self.block_size
 
                     is_padding = slot_mapping == _PAD_SLOT_ID
                     slot_mapping = block_number * self.block_size + block_offset
                     slot_mapping = slot_mapping.long()
-                    slot_mapping = torch.where(is_padding, _PAD_SLOT_ID,
-                                               slot_mapping)
+                    slot_mapping = torch.where(is_padding, _PAD_SLOT_ID, slot_mapping)
                     attn_metadata.slot_mapping = slot_mapping
 
             if model_input.async_callback is not None:
@@ -670,8 +693,7 @@ class TPUModelRunner(ModelRunnerBase[ModelInputForTPU]):
             # Retrieve the outputs to CPU.
             next_token_ids = self.cached_step_outputs.pop(0)
             next_token_ids = next_token_ids.cpu().tolist()
-            sampler_output = _make_decode_output(next_token_ids,
-                                                 model_input.seq_groups)
+            sampler_output = _make_decode_output(next_token_ids, model_input.seq_groups)
             return [sampler_output]
 
 
@@ -679,10 +701,9 @@ class ModelWrapper(TorchCompileWrapperWithCustomDispatcher):
 
     def __init__(self, model: nn.Module):
         self.model = model
-        compiled_callable = torch.compile(self.forward,
-                                          backend="openxla",
-                                          fullgraph=True,
-                                          dynamic=False)
+        compiled_callable = torch.compile(
+            self.forward, backend="openxla", fullgraph=True, dynamic=False
+        )
         super().__init__(compiled_callable)
 
     def __call__(self, *args, is_prompt: bool, **kwargs):
@@ -728,8 +749,10 @@ class ModelWrapper(TorchCompileWrapperWithCustomDispatcher):
         """
         batch_size, seq_len = token_ids.shape
         # Calculate the positions to sample from.
-        start_indicies = torch.arange(
-            batch_size, dtype=torch.int32, device=input_lens.device) * seq_len
+        start_indicies = (
+            torch.arange(batch_size, dtype=torch.int32, device=input_lens.device)
+            * seq_len
+        )
         logits_indices = start_indicies + input_lens - 1
 
         # FIXME(woosuk): This is a temporary hack to avoid using the existing
@@ -751,13 +774,13 @@ class ModelWrapper(TorchCompileWrapperWithCustomDispatcher):
             num_kv_heads, num_blocks, block_size, _ = kv_caches[0][0].shape
             slot_mapping = attn_metadata.slot_mapping
             slot_mapping = slot_mapping.flatten()
-            head_indicies = torch.arange(0,
-                                         num_kv_heads,
-                                         device=slot_mapping.device,
-                                         dtype=slot_mapping.dtype)
+            head_indicies = torch.arange(
+                0, num_kv_heads, device=slot_mapping.device, dtype=slot_mapping.dtype
+            )
             head_indicies *= block_size * num_blocks
             slot_mapping = slot_mapping.repeat_interleave(num_kv_heads).view(
-                -1, num_kv_heads)
+                -1, num_kv_heads
+            )
             slot_mapping = slot_mapping + head_indicies.view(1, -1)
             slot_mapping = slot_mapping.flatten()
             attn_metadata.slot_mapping = slot_mapping
@@ -783,14 +806,11 @@ class ModelWrapper(TorchCompileWrapperWithCustomDispatcher):
 
         # Random sampling.
         probs = torch.softmax(logits, dim=-1, dtype=torch.float32)
-        sampled_token_ids = torch.multinomial(probs,
-                                              num_samples,
-                                              replacement=True)
+        sampled_token_ids = torch.multinomial(probs, num_samples, replacement=True)
         if num_samples == 1:
             argmax_token_ids = argmax_token_ids.squeeze(dim=-1)
             sampled_token_ids = sampled_token_ids.squeeze(dim=-1)
-        next_token_ids = torch.where(t != 0, sampled_token_ids,
-                                     argmax_token_ids)
+        next_token_ids = torch.where(t != 0, sampled_token_ids, argmax_token_ids)
         return next_token_ids
 
 
@@ -835,9 +855,8 @@ def _make_decode_output(
         for seq_id in seq_ids:
             next_token_id = next_token_ids[batch_idx]
             seq_outputs.append(
-                SequenceOutput(seq_id, next_token_id,
-                               {next_token_id: zero_logprob}))
+                SequenceOutput(seq_id, next_token_id, {next_token_id: zero_logprob})
+            )
             batch_idx += 1
-        sampler_outputs.append(CompletionSequenceGroupOutput(
-            seq_outputs, None))
+        sampler_outputs.append(CompletionSequenceGroupOutput(seq_outputs, None))
     return SamplerOutput(sampler_outputs)

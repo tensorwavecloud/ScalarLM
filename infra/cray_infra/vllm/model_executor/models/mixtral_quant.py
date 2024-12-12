@@ -31,26 +31,36 @@ from transformers import MixtralConfig
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
-from vllm.distributed import (get_pp_group, get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size,
-                              tensor_model_parallel_all_reduce)
+from vllm.distributed import (
+    get_pp_group,
+    get_tensor_model_parallel_rank,
+    get_tensor_model_parallel_world_size,
+    tensor_model_parallel_all_reduce,
+)
 from vllm.model_executor.layers.layernorm import RMSNorm
-from vllm.model_executor.layers.linear import (QKVParallelLinear,
-                                               ReplicatedLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    QKVParallelLinear,
+    ReplicatedLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    ParallelLMHead, VocabParallelEmbedding)
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class MixtralMLP(nn.Module):
@@ -67,18 +77,15 @@ class MixtralMLP(nn.Module):
         self.ffn_dim = intermediate_size
         self.hidden_dim = hidden_size
 
-        self.w1 = ReplicatedLinear(self.hidden_dim,
-                                   self.ffn_dim,
-                                   bias=False,
-                                   quant_config=quant_config)
-        self.w2 = ReplicatedLinear(self.ffn_dim,
-                                   self.hidden_dim,
-                                   bias=False,
-                                   quant_config=quant_config)
-        self.w3 = ReplicatedLinear(self.hidden_dim,
-                                   self.ffn_dim,
-                                   bias=False,
-                                   quant_config=quant_config)
+        self.w1 = ReplicatedLinear(
+            self.hidden_dim, self.ffn_dim, bias=False, quant_config=quant_config
+        )
+        self.w2 = ReplicatedLinear(
+            self.ffn_dim, self.hidden_dim, bias=False, quant_config=quant_config
+        )
+        self.w3 = ReplicatedLinear(
+            self.hidden_dim, self.ffn_dim, bias=False, quant_config=quant_config
+        )
 
         # TODO: Use vllm's SiluAndMul
         self.act_fn = nn.SiLU()
@@ -108,26 +115,33 @@ class MixtralMoE(nn.Module):
         if self.tp_size > self.num_total_experts:
             raise ValueError(
                 f"Tensor parallel size {self.tp_size} is greater than "
-                f"the number of experts {self.num_total_experts}.")
+                f"the number of experts {self.num_total_experts}."
+            )
         # Split experts equally between ranks
-        self.expert_indicies = np.array_split(range(
-            self.num_total_experts), self.tp_size)[self.rank].tolist()
+        self.expert_indicies = np.array_split(
+            range(self.num_total_experts), self.tp_size
+        )[self.rank].tolist()
         if not self.expert_indicies:
-            raise ValueError(
-                f"Rank {self.rank} has no experts assigned to it.")
+            raise ValueError(f"Rank {self.rank} has no experts assigned to it.")
 
-        self.experts = nn.ModuleList([
-            MixtralMLP(self.num_total_experts,
-                       config.hidden_size,
-                       config.intermediate_size,
-                       quant_config=quant_config)
-            if idx in self.expert_indicies else None
-            for idx in range(self.num_total_experts)
-        ])
-        self.gate = ReplicatedLinear(config.hidden_size,
-                                     self.num_total_experts,
-                                     bias=False,
-                                     quant_config=None)
+        self.experts = nn.ModuleList(
+            [
+                (
+                    MixtralMLP(
+                        self.num_total_experts,
+                        config.hidden_size,
+                        config.intermediate_size,
+                        quant_config=quant_config,
+                    )
+                    if idx in self.expert_indicies
+                    else None
+                )
+                for idx in range(self.num_total_experts)
+            ]
+        )
+        self.gate = ReplicatedLinear(
+            config.hidden_size, self.num_total_experts, bias=False, quant_config=None
+        )
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         num_tokens, hidden_dim = hidden_states.shape
@@ -136,27 +150,26 @@ class MixtralMoE(nn.Module):
         router_logits, _ = self.gate(hidden_states)
 
         routing_weights = F.softmax(router_logits, dim=1, dtype=torch.float)
-        routing_weights, selected_experts = torch.topk(routing_weights,
-                                                       self.top_k,
-                                                       dim=-1)
+        routing_weights, selected_experts = torch.topk(
+            routing_weights, self.top_k, dim=-1
+        )
         routing_weights /= routing_weights.sum(dim=-1, keepdim=True)
 
         final_hidden_states = None
         for expert_idx in self.expert_indicies:
             expert_layer = self.experts[expert_idx]
-            expert_mask = (selected_experts == expert_idx)
-            expert_weights = (routing_weights * expert_mask).sum(dim=-1,
-                                                                 keepdim=True)
+            expert_mask = selected_experts == expert_idx
+            expert_weights = (routing_weights * expert_mask).sum(dim=-1, keepdim=True)
 
-            current_hidden_states = expert_layer(hidden_states).mul_(
-                expert_weights)
+            current_hidden_states = expert_layer(hidden_states).mul_(expert_weights)
             if final_hidden_states is None:
                 final_hidden_states = current_hidden_states
             else:
                 final_hidden_states.add_(current_hidden_states)
 
         return tensor_model_parallel_all_reduce(final_hidden_states).view(
-            num_tokens, hidden_dim)
+            num_tokens, hidden_dim
+        )
 
 
 class MixtralAttention(nn.Module):
@@ -214,12 +227,14 @@ class MixtralAttention(nn.Module):
             base=int(self.rope_theta),
             is_neox_style=True,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def forward(
         self,
@@ -255,13 +270,13 @@ class MixtralDecoderLayer(nn.Module):
             num_kv_heads=config.num_key_value_heads,
             rope_theta=rope_theta,
             cache_config=cache_config,
-            quant_config=quant_config)
-        self.block_sparse_moe = MixtralMoE(config=config,
-                                           quant_config=quant_config)
-        self.input_layernorm = RMSNorm(config.hidden_size,
-                                       eps=config.rms_norm_eps)
-        self.post_attention_layernorm = RMSNorm(config.hidden_size,
-                                                eps=config.rms_norm_eps)
+            quant_config=quant_config,
+        )
+        self.block_sparse_moe = MixtralMoE(config=config, quant_config=quant_config)
+        self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
     def forward(
         self,
@@ -276,8 +291,7 @@ class MixtralDecoderLayer(nn.Module):
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
         else:
-            hidden_states, residual = self.input_layernorm(
-                hidden_states, residual)
+            hidden_states, residual = self.input_layernorm(hidden_states, residual)
         hidden_states = self.self_attn(
             positions=positions,
             hidden_states=hidden_states,
@@ -286,8 +300,7 @@ class MixtralDecoderLayer(nn.Module):
         )
 
         # Fully Connected
-        hidden_states, residual = self.post_attention_layernorm(
-            hidden_states, residual)
+        hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
         hidden_states = self.block_sparse_moe(hidden_states)
         return hidden_states, residual
 
@@ -312,12 +325,14 @@ class MixtralModel(nn.Module):
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
             lambda prefix: MixtralDecoderLayer(
-                config, cache_config, quant_config=quant_config),
-            prefix=f"{prefix}.layers")
+                config, cache_config, quant_config=quant_config
+            ),
+            prefix=f"{prefix}.layers",
+        )
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(
-                ["hidden_states", "residual"], config.hidden_size))
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states", "residual"], config.hidden_size
+        )
 
     def forward(
         self,
@@ -336,14 +351,17 @@ class MixtralModel(nn.Module):
             residual = intermediate_tensors["residual"]
         for i in range(self.start_layer, self.end_layer):
             layer = self.layers[i]
-            hidden_states, residual = layer(positions, hidden_states,
-                                            kv_caches[i - self.start_layer],
-                                            attn_metadata, residual)
+            hidden_states, residual = layer(
+                positions,
+                hidden_states,
+                kv_caches[i - self.start_layer],
+                attn_metadata,
+                residual,
+            )
         if not get_pp_group().is_last_rank:
-            return IntermediateTensors({
-                "hidden_states": hidden_states,
-                "residual": residual
-            })
+            return IntermediateTensors(
+                {"hidden_states": hidden_states, "residual": residual}
+            )
         hidden_states, _ = self.norm(hidden_states, residual)
         return hidden_states
 
@@ -361,15 +379,16 @@ class MixtralForCausalLM(nn.Module, SupportsPP):
         self.config = config
         self.quant_config = quant_config
         self.model = MixtralModel(config, cache_config, quant_config)
-        self.lm_head = ParallelLMHead(config.vocab_size,
-                                      config.hidden_size,
-                                      quant_config=quant_config)
+        self.lm_head = ParallelLMHead(
+            config.vocab_size, config.hidden_size, quant_config=quant_config
+        )
         if self.config.tie_word_embeddings:
             self.lm_head.weight = self.model.embed_tokens.weight
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -379,8 +398,9 @@ class MixtralForCausalLM(nn.Module, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata, intermediate_tensors)
+        hidden_states = self.model(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
@@ -388,8 +408,7 @@ class MixtralForCausalLM(nn.Module, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -412,7 +431,7 @@ class MixtralForCausalLM(nn.Module, SupportsPP):
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
@@ -430,12 +449,10 @@ class MixtralForCausalLM(nn.Module, SupportsPP):
                 if name.endswith(".bias") and name not in params_dict:
                     continue
                 # Skip experts that are not assigned to this worker.
-                if ("block_sparse_moe.experts." in name
-                        and name not in params_dict):
+                if "block_sparse_moe.experts." in name and name not in params_dict:
                     continue
                 if is_pp_missing_parameter(name, self):
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)

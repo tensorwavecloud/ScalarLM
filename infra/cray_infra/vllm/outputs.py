@@ -6,8 +6,13 @@ from typing import Union
 
 from vllm.lora.request import LoRARequest
 from vllm.sampling_params import RequestOutputKind
-from vllm.sequence import (PromptLogprobs, RequestMetrics, SampleLogprobs,
-                           SequenceGroup, SequenceStatus)
+from vllm.sequence import (
+    PromptLogprobs,
+    RequestMetrics,
+    SampleLogprobs,
+    SequenceGroup,
+    SequenceStatus,
+)
 
 
 @dataclass
@@ -42,13 +47,15 @@ class CompletionOutput:
         return self.finish_reason is not None
 
     def __repr__(self) -> str:
-        return (f"CompletionOutput(index={self.index}, "
-                f"text={self.text!r}, "
-                f"token_ids={self.token_ids}, "
-                f"cumulative_logprob={self.cumulative_logprob}, "
-                f"logprobs={self.logprobs}, "
-                f"finish_reason={self.finish_reason}, "
-                f"stop_reason={self.stop_reason})")
+        return (
+            f"CompletionOutput(index={self.index}, "
+            f"text={self.text!r}, "
+            f"token_ids={self.token_ids}, "
+            f"cumulative_logprob={self.cumulative_logprob}, "
+            f"logprobs={self.logprobs}, "
+            f"finish_reason={self.finish_reason}, "
+            f"stop_reason={self.stop_reason})"
+        )
 
 
 @dataclass
@@ -63,8 +70,7 @@ class EmbeddingOutput:
     embedding: List[float]
 
     def __repr__(self) -> str:
-        return (f"EmbeddingOutput("
-                f"embedding={len(self.embedding)})")
+        return f"EmbeddingOutput(" f"embedding={len(self.embedding)})"
 
 
 class RequestOutput:
@@ -83,7 +89,7 @@ class RequestOutput:
         finished: Whether the whole request is finished.
         metrics: Metrics associated with the request.
         lora_request: The LoRA request that was used to generate the output.
-        encoder_prompt: The encoder prompt string of the request; 
+        encoder_prompt: The encoder prompt string of the request;
                         None if decoder-only
         encoder_prompt_token_ids: The token IDs of the encoder prompt;
                                   None if decoder-only
@@ -114,16 +120,17 @@ class RequestOutput:
         self.encoder_prompt_token_ids = encoder_prompt_token_ids
 
     @classmethod
-    def from_seq_group(cls, seq_group: SequenceGroup,
-                       use_cache: bool) -> Optional["RequestOutput"]:
+    def from_seq_group(
+        cls, seq_group: SequenceGroup, use_cache: bool
+    ) -> Optional["RequestOutput"]:
         sampling_params = seq_group.sampling_params
         if sampling_params is None:
-            raise ValueError(
-                "Sampling parameters are missing for a CompletionRequest.")
+            raise ValueError("Sampling parameters are missing for a CompletionRequest.")
 
         finished = seq_group.is_finished()
         if sampling_params.output_kind == RequestOutputKind.FINAL_ONLY and (
-                not finished):
+            not finished
+        ):
             return None
 
         # Init cache (if needed)
@@ -134,7 +141,8 @@ class RequestOutput:
                 prompt_token_ids=[],
                 prompt_logprobs=None,
                 outputs=[],
-                finished=False)
+                finished=False,
+            )
 
         seqs = seq_group.get_seqs()
         if len(seqs) == 1:
@@ -157,12 +165,12 @@ class RequestOutput:
         outputs = []
         include_prompt = True
         for i, seq in enumerate(top_n_seqs):
-            output_text = seq.get_output_text_to_return(
-                text_buffer_length, delta)
+            output_text = seq.get_output_text_to_return(text_buffer_length, delta)
 
             output_token_ids = seq.get_output_token_ids_to_return(delta)
-            num_output_tokens = 1 if isinstance(output_token_ids,
-                                                int) else len(output_token_ids)
+            num_output_tokens = (
+                1 if isinstance(output_token_ids, int) else len(output_token_ids)
+            )
 
             output_logprobs = seq.output_logprobs if include_logprobs else None
 
@@ -180,13 +188,16 @@ class RequestOutput:
                 cached_outputs = seq_group.cached_request_output.outputs  # type: ignore
                 if i >= len(cached_outputs):
                     cached_outputs.append(
-                        CompletionOutput(index=i,
-                                         text="",
-                                         token_ids=[],
-                                         cumulative_logprob=None,
-                                         logprobs=None,
-                                         finish_reason=None,
-                                         stop_reason=None))
+                        CompletionOutput(
+                            index=i,
+                            text="",
+                            token_ids=[],
+                            cumulative_logprob=None,
+                            logprobs=None,
+                            finish_reason=None,
+                            stop_reason=None,
+                        )
+                    )
                 output = cached_outputs[i]
 
                 # Init cached output object
@@ -199,21 +210,27 @@ class RequestOutput:
                 else:
                     output.token_ids = output_token_ids
 
-                output.cumulative_logprob = seq.get_cumulative_logprob() \
-                    if include_logprobs else None
+                output.cumulative_logprob = (
+                    seq.get_cumulative_logprob() if include_logprobs else None
+                )
                 output.logprobs = output_logprobs
-                output.finish_reason = SequenceStatus.get_finished_reason(
-                    seq.status)
+                output.finish_reason = SequenceStatus.get_finished_reason(seq.status)
                 output.stop_reason = seq.stop_reason
 
             else:
                 output = CompletionOutput(
-                    seqs.index(seq), output_text, [output_token_ids]
-                    if isinstance(output_token_ids, int) else output_token_ids,
+                    seqs.index(seq),
+                    output_text,
+                    (
+                        [output_token_ids]
+                        if isinstance(output_token_ids, int)
+                        else output_token_ids
+                    ),
                     seq.get_cumulative_logprob() if include_logprobs else None,
                     output_logprobs,
                     SequenceStatus.get_finished_reason(seq.status),
-                    seq.stop_reason)
+                    seq.stop_reason,
+                )
 
             outputs.append(output)
 
@@ -233,10 +250,18 @@ class RequestOutput:
         finished_time = time.time() if finished else None
         seq_group.set_finished_time(finished_time)
 
-        init_args = (seq_group.request_id, prompt, prompt_token_ids,
-                     prompt_logprobs, outputs, finished, seq_group.metrics,
-                     seq_group.lora_request, encoder_prompt,
-                     encoder_prompt_token_ids)
+        init_args = (
+            seq_group.request_id,
+            prompt,
+            prompt_token_ids,
+            prompt_logprobs,
+            outputs,
+            finished,
+            seq_group.metrics,
+            seq_group.lora_request,
+            encoder_prompt,
+            encoder_prompt_token_ids,
+        )
 
         if use_cache:
             request_output = seq_group.cached_request_output
@@ -248,16 +273,18 @@ class RequestOutput:
         return request_output
 
     def __repr__(self) -> str:
-        return (f"RequestOutput(request_id={self.request_id}, "
-                f"prompt={self.prompt!r}, "
-                f"prompt_token_ids={self.prompt_token_ids}, "
-                f"encoder_prompt={self.encoder_prompt!r}, "
-                f"encoder_prompt_token_ids={self.encoder_prompt_token_ids}, "
-                f"prompt_logprobs={self.prompt_logprobs}, "
-                f"outputs={self.outputs}, "
-                f"finished={self.finished}, "
-                f"metrics={self.metrics}, "
-                f"lora_request={self.lora_request})")
+        return (
+            f"RequestOutput(request_id={self.request_id}, "
+            f"prompt={self.prompt!r}, "
+            f"prompt_token_ids={self.prompt_token_ids}, "
+            f"encoder_prompt={self.encoder_prompt!r}, "
+            f"encoder_prompt_token_ids={self.encoder_prompt_token_ids}, "
+            f"prompt_logprobs={self.prompt_logprobs}, "
+            f"outputs={self.outputs}, "
+            f"finished={self.finished}, "
+            f"metrics={self.metrics}, "
+            f"lora_request={self.lora_request})"
+        )
 
 
 class EmbeddingRequestOutput:
@@ -271,19 +298,24 @@ class EmbeddingRequestOutput:
         finished (bool): A flag indicating whether the embedding is completed.
     """
 
-    def __init__(self, request_id: str, outputs: "EmbeddingOutput",
-                 prompt_token_ids: List[int], finished: bool):
+    def __init__(
+        self,
+        request_id: str,
+        outputs: "EmbeddingOutput",
+        prompt_token_ids: List[int],
+        finished: bool,
+    ):
         self.request_id = request_id
         self.prompt_token_ids = prompt_token_ids
         self.finished = finished
         self.outputs = outputs
 
     @classmethod
-    def from_seq_group(cls,
-                       seq_group: 'SequenceGroup') -> "EmbeddingRequestOutput":
+    def from_seq_group(cls, seq_group: "SequenceGroup") -> "EmbeddingRequestOutput":
         if seq_group.embeddings is None:
             raise ValueError(
-                "Embeddings are missing in seq_group for EmbeddingRequest.")
+                "Embeddings are missing in seq_group for EmbeddingRequest."
+            )
         output = EmbeddingOutput(seq_group.embeddings)
         prompt_token_ids = seq_group.prompt_token_ids
         finished = seq_group.is_finished()
@@ -300,10 +332,12 @@ class EmbeddingRequestOutput:
         Returns:
             str: A string representation of the EmbeddingRequestOutput instance.
         """
-        return (f"EmbeddingRequestOutput(request_id='{self.request_id}', "
-                f"outputs={repr(self.outputs)}, "
-                f"prompt_token_ids={self.prompt_token_ids}, "
-                f"finished={self.finished})")
+        return (
+            f"EmbeddingRequestOutput(request_id='{self.request_id}', "
+            f"outputs={repr(self.outputs)}, "
+            f"prompt_token_ids={self.prompt_token_ids}, "
+            f"finished={self.finished})"
+        )
 
 
 class RequestOutputFactory:
@@ -311,8 +345,7 @@ class RequestOutputFactory:
     @staticmethod
     def create(seq_group: SequenceGroup, use_cache: bool = False):
         # Determine the type based on a condition, for example:
-        if hasattr(seq_group,
-                   'embeddings') and seq_group.embeddings is not None:
+        if hasattr(seq_group, "embeddings") and seq_group.embeddings is not None:
             return EmbeddingRequestOutput.from_seq_group(seq_group)
         else:
             return RequestOutput.from_seq_group(seq_group, use_cache)

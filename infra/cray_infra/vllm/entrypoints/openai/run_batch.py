@@ -27,17 +27,16 @@ from vllm.version import __version__ as VLLM_VERSION
 
 
 def parse_args():
-    parser = FlexibleArgumentParser(
-        description="vLLM OpenAI-Compatible batch runner.")
+    parser = FlexibleArgumentParser(description="vLLM OpenAI-Compatible batch runner.")
     parser.add_argument(
         "-i",
         "--input-file",
         required=True,
         type=str,
-        help=
-        "The path or url to a single input file. Currently supports local file "
+        help="The path or url to a single input file. Currently supports local file "
         "paths, or the http protocol (http or https). If a URL is specified, "
-        "the file should be available via HTTP GET.")
+        "the file should be available via HTTP GET.",
+    )
     parser.add_argument(
         "-o",
         "--output-file",
@@ -45,25 +44,29 @@ def parse_args():
         type=str,
         help="The path or url to a single output file. Currently supports "
         "local file paths, or web (http or https) urls. If a URL is specified,"
-        " the file should be available via HTTP PUT.")
-    parser.add_argument("--response-role",
-                        type=nullable_str,
-                        default="assistant",
-                        help="The role name to return if "
-                        "`request.add_generation_prompt=True`.")
+        " the file should be available via HTTP PUT.",
+    )
+    parser.add_argument(
+        "--response-role",
+        type=nullable_str,
+        default="assistant",
+        help="The role name to return if " "`request.add_generation_prompt=True`.",
+    )
 
     parser = AsyncEngineArgs.add_cli_args(parser)
 
-    parser.add_argument('--max-log-len',
-                        type=int,
-                        default=None,
-                        help='Max number of prompt characters or prompt '
-                        'ID numbers being printed in log.'
-                        '\n\nDefault: Unlimited')
+    parser.add_argument(
+        "--max-log-len",
+        type=int,
+        default=None,
+        help="Max number of prompt characters or prompt "
+        "ID numbers being printed in log."
+        "\n\nDefault: Unlimited",
+    )
 
-    parser.add_argument("--enable-metrics",
-                        action="store_true",
-                        help="Enable Prometheus metrics")
+    parser.add_argument(
+        "--enable-metrics", action="store_true", help="Enable Prometheus metrics"
+    )
     parser.add_argument(
         "--url",
         type=str,
@@ -103,21 +106,23 @@ class BatchProgressTracker:
             self._pbar.update()
 
     def pbar(self) -> tqdm:
-        enable_tqdm = not torch.distributed.is_initialized(
-        ) or torch.distributed.get_rank() == 0
-        self._pbar = tqdm(total=self._total,
-                          unit="req",
-                          desc="Running batch",
-                          mininterval=5,
-                          disable=not enable_tqdm,
-                          bar_format=_BAR_FORMAT)
+        enable_tqdm = (
+            not torch.distributed.is_initialized() or torch.distributed.get_rank() == 0
+        )
+        self._pbar = tqdm(
+            total=self._total,
+            unit="req",
+            desc="Running batch",
+            mininterval=5,
+            disable=not enable_tqdm,
+            bar_format=_BAR_FORMAT,
+        )
         return self._pbar
 
 
 async def read_file(path_or_url: str) -> str:
     if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-        async with aiohttp.ClientSession() as session, \
-                   session.get(path_or_url) as resp:
+        async with aiohttp.ClientSession() as session, session.get(path_or_url) as resp:
             return await resp.text()
     else:
         with open(path_or_url, "r", encoding="utf-8") as f:
@@ -126,8 +131,9 @@ async def read_file(path_or_url: str) -> str:
 
 async def write_file(path_or_url: str, data: str) -> None:
     if path_or_url.startswith("http://") or path_or_url.startswith("https://"):
-        async with aiohttp.ClientSession() as session, \
-                   session.put(path_or_url, data=data.encode("utf-8")):
+        async with aiohttp.ClientSession() as session, session.put(
+            path_or_url, data=data.encode("utf-8")
+        ):
             pass
     else:
         # We should make this async, but as long as this is always run as a
@@ -137,8 +143,9 @@ async def write_file(path_or_url: str, data: str) -> None:
             f.write(data)
 
 
-def make_error_request_output(request: BatchRequestInput,
-                              error_msg: str) -> BatchRequestOutput:
+def make_error_request_output(
+    request: BatchRequestInput, error_msg: str
+) -> BatchRequestOutput:
     batch_output = BatchRequestOutput(
         id=f"vllm-{random_uuid()}",
         custom_id=request.custom_id,
@@ -152,13 +159,16 @@ def make_error_request_output(request: BatchRequestInput,
 
 
 async def make_async_error_request_output(
-        request: BatchRequestInput, error_msg: str) -> BatchRequestOutput:
+    request: BatchRequestInput, error_msg: str
+) -> BatchRequestOutput:
     return make_error_request_output(request, error_msg)
 
 
-async def run_request(serving_engine_func: Callable,
-                      request: BatchRequestInput,
-                      tracker: BatchProgressTracker) -> BatchRequestOutput:
+async def run_request(
+    serving_engine_func: Callable,
+    request: BatchRequestInput,
+    tracker: BatchProgressTracker,
+) -> BatchRequestOutput:
     response = await serving_engine_func(request.body)
 
     if isinstance(response, (ChatCompletionResponse, EmbeddingResponse)):
@@ -166,7 +176,8 @@ async def run_request(serving_engine_func: Callable,
             id=f"vllm-{random_uuid()}",
             custom_id=request.custom_id,
             response=BatchResponseData(
-                body=response, request_id=f"vllm-batch-{random_uuid()}"),
+                body=response, request_id=f"vllm-batch-{random_uuid()}"
+            ),
             error=None,
         )
     elif isinstance(response, ErrorResponse):
@@ -174,13 +185,14 @@ async def run_request(serving_engine_func: Callable,
             id=f"vllm-{random_uuid()}",
             custom_id=request.custom_id,
             response=BatchResponseData(
-                status_code=response.code,
-                request_id=f"vllm-batch-{random_uuid()}"),
+                status_code=response.code, request_id=f"vllm-batch-{random_uuid()}"
+            ),
             error=response,
         )
     else:
         batch_output = make_error_request_output(
-            request, error_msg="Request must not be sent in stream mode")
+            request, error_msg="Request must not be sent in stream mode"
+        )
 
     tracker.completed()
     return batch_output
@@ -194,12 +206,12 @@ async def main(args):
 
     engine_args = AsyncEngineArgs.from_cli_args(args)
     engine = AsyncLLMEngine.from_engine_args(
-        engine_args, usage_context=UsageContext.OPENAI_BATCH_RUNNER)
+        engine_args, usage_context=UsageContext.OPENAI_BATCH_RUNNER
+    )
 
     model_config = await engine.get_model_config()
     base_model_paths = [
-        BaseModelPath(name=name, model_path=args.model)
-        for name in served_model_names
+        BaseModelPath(name=name, model_path=args.model) for name in served_model_names
     ]
 
     if args.disable_log_requests:
@@ -241,13 +253,15 @@ async def main(args):
         # Determine the type of request and run it.
         if request.url == "/v1/chat/completions":
             response_futures.append(
-                run_request(openai_serving_chat.create_chat_completion,
-                            request, tracker))
+                run_request(
+                    openai_serving_chat.create_chat_completion, request, tracker
+                )
+            )
             tracker.submitted()
         elif request.url == "/v1/embeddings":
             response_futures.append(
-                run_request(openai_serving_embedding.create_embedding, request,
-                            tracker))
+                run_request(openai_serving_embedding.create_embedding, request, tracker)
+            )
             tracker.submitted()
         else:
             response_futures.append(
@@ -255,7 +269,8 @@ async def main(args):
                     request,
                     error_msg="Only /v1/chat/completions and "
                     "/v1/embeddings are supported in the batch endpoint.",
-                ))
+                )
+            )
 
     with tracker.pbar():
         responses = await asyncio.gather(*response_futures)

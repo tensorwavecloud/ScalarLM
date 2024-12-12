@@ -1,4 +1,5 @@
 """A XPU worker class."""
+
 import gc
 import os
 from typing import List, Optional, Tuple
@@ -8,12 +9,22 @@ import oneccl_bindings_for_pytorch  # noqa: F401
 import torch
 import torch.distributed
 
-from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, LoRAConfig,
-                         ModelConfig, ObservabilityConfig, ParallelConfig,
-                         PromptAdapterConfig, SchedulerConfig,
-                         SpeculativeConfig)
-from vllm.distributed import (ensure_model_parallel_initialized,
-                              init_distributed_environment)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    LoadConfig,
+    LoRAConfig,
+    ModelConfig,
+    ObservabilityConfig,
+    ParallelConfig,
+    PromptAdapterConfig,
+    SchedulerConfig,
+    SpeculativeConfig,
+)
+from vllm.distributed import (
+    ensure_model_parallel_initialized,
+    init_distributed_environment,
+)
 from vllm.distributed.parallel_state import get_pp_group
 from vllm.logger import init_logger
 from vllm.model_executor import set_random_seed
@@ -28,9 +39,9 @@ logger = init_logger(__name__)
 
 class XPUWorker(LoraNotSupportedWorkerBase, Worker):
     """A worker class that executes (a partition of) the model on a GPU.
-    
-    Each worker is associated with a single XPU device. The worker is 
-    responsible for maintaining the KV cache and executing the model on the 
+
+    Each worker is associated with a single XPU device. The worker is
+    responsible for maintaining the KV cache and executing the model on the
     XPU. In case of distributed inference, each worker is assigned a partition
     of the model.
     """
@@ -70,8 +81,9 @@ class XPUWorker(LoraNotSupportedWorkerBase, Worker):
         self.is_driver_worker = is_driver_worker
         self.observability_config = observability_config
         if parallel_config and is_driver_worker:
-            assert rank % parallel_config.tensor_parallel_size == 0, \
-                   "Driver worker should be rank 0 of tensor parallel group."
+            assert (
+                rank % parallel_config.tensor_parallel_size == 0
+            ), "Driver worker should be rank 0 of tensor parallel group."
 
         self.model_runner = XPUModelRunner(  # type: ignore
             model_config,
@@ -96,10 +108,10 @@ class XPUWorker(LoraNotSupportedWorkerBase, Worker):
             torch.xpu.set_device(self.device)
             torch.xpu.empty_cache()
             self.init_gpu_memory = torch.xpu.get_device_properties(
-                self.local_rank).total_memory
+                self.local_rank
+            ).total_memory
         else:
-            raise RuntimeError(
-                f"Not support device type: {self.device_config.device}")
+            raise RuntimeError(f"Not support device type: {self.device_config.device}")
         # Initialize the distributed environment.
         self.init_worker_distributed_environment()
         # Initialize the model.
@@ -131,8 +143,7 @@ class XPUWorker(LoraNotSupportedWorkerBase, Worker):
         # profiled peak memory.
         torch.xpu.synchronize()
         used_memory = torch.xpu.memory_allocated()
-        total_gpu_memory = torch.xpu.get_device_properties(
-            self.local_rank).total_memory
+        total_gpu_memory = torch.xpu.get_device_properties(self.local_rank).total_memory
         free_gpu_memory = total_gpu_memory - used_memory
 
         # NOTE(woosuk): Here we assume that the other processes using the same
@@ -142,14 +153,15 @@ class XPUWorker(LoraNotSupportedWorkerBase, Worker):
             "Error in memory profiling. "
             f"Initial free memory {self.init_gpu_memory}, current free memory"
             f" {free_gpu_memory}. This happens when the GPU memory was "
-            "not properly cleaned up before initializing the vLLM instance.")
+            "not properly cleaned up before initializing the vLLM instance."
+        )
 
         cache_block_size = self.get_cache_block_size_bytes()
         num_gpu_blocks = int(
-            (total_gpu_memory * self.cache_config.gpu_memory_utilization -
-             peak_memory) // cache_block_size)
-        num_cpu_blocks = int(self.cache_config.swap_space_bytes //
-                             cache_block_size)
+            (total_gpu_memory * self.cache_config.gpu_memory_utilization - peak_memory)
+            // cache_block_size
+        )
+        num_cpu_blocks = int(self.cache_config.swap_space_bytes // cache_block_size)
         num_gpu_blocks = max(num_gpu_blocks, 0)
         num_cpu_blocks = max(num_cpu_blocks, 0)
         gc.collect()
@@ -173,20 +185,22 @@ class XPUWorker(LoraNotSupportedWorkerBase, Worker):
                 raise RuntimeError(
                     "torch.distributed is already initialized but the torch "
                     "world size does not match parallel_config.world_size "
-                    f"({torch_world_size} vs. {parallel_config.world_size}).")
+                    f"({torch_world_size} vs. {parallel_config.world_size})."
+                )
         elif not distributed_init_method:
             raise ValueError(
                 "distributed_init_method must be set if torch.distributed "
-                "is not already initialized")
+                "is not already initialized"
+            )
         else:
             # use sockets as default Level zero IPC exchange backend. By
             # default oneccl will use `drmfd` as mechanism which need extra
             # dependency (libdrm and drm headers) on your system.
-            ENV_CCL_ZE_IPC_EXCHANGE = os.getenv("CCL_ZE_IPC_EXCHANGE",
-                                                "sockets")
-            ENV_LOCAL_WORLD_SIZE = os.getenv("LOCAL_WORLD_SIZE",
-                                             str(parallel_config.world_size))
-            os.environ['CCL_ZE_IPC_EXCHANGE'] = ENV_CCL_ZE_IPC_EXCHANGE
+            ENV_CCL_ZE_IPC_EXCHANGE = os.getenv("CCL_ZE_IPC_EXCHANGE", "sockets")
+            ENV_LOCAL_WORLD_SIZE = os.getenv(
+                "LOCAL_WORLD_SIZE", str(parallel_config.world_size)
+            )
+            os.environ["CCL_ZE_IPC_EXCHANGE"] = ENV_CCL_ZE_IPC_EXCHANGE
             os.environ["LOCAL_WORLD_SIZE"] = ENV_LOCAL_WORLD_SIZE
             os.environ["LOCAL_RANK"] = str(self.local_rank)
             init_distributed_environment(
@@ -194,11 +208,12 @@ class XPUWorker(LoraNotSupportedWorkerBase, Worker):
                 rank=rank,
                 distributed_init_method=distributed_init_method,
                 local_rank=self.local_rank,
-                backend="ccl")
+                backend="ccl",
+            )
 
         ensure_model_parallel_initialized(
-            parallel_config.tensor_parallel_size,
-            parallel_config.pipeline_parallel_size)
+            parallel_config.tensor_parallel_size, parallel_config.pipeline_parallel_size
+        )
 
         if parallel_config.pipeline_parallel_size > 1:
             # torch-ccl xpu need a collective API warm up

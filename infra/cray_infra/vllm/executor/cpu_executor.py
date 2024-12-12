@@ -5,18 +5,25 @@ from typing import Any, Awaitable, List, Optional, Set, Tuple, Union
 import torch
 
 import vllm.envs as envs
-from vllm.config import (CacheConfig, ModelConfig, ParallelConfig,
-                         SchedulerConfig)
+from vllm.config import CacheConfig, ModelConfig, ParallelConfig, SchedulerConfig
 from vllm.executor.executor_base import ExecutorAsyncBase, ExecutorBase
-from vllm.executor.multiproc_worker_utils import (ProcessWorkerWrapper,
-                                                  ResultHandler, WorkerMonitor)
+from vllm.executor.multiproc_worker_utils import (
+    ProcessWorkerWrapper,
+    ResultHandler,
+    WorkerMonitor,
+)
 from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sequence import ExecuteModelRequest
-from vllm.utils import (GiB_bytes, get_distributed_init_method, get_open_port,
-                        get_vllm_instance_id, make_async)
+from vllm.utils import (
+    GiB_bytes,
+    get_distributed_init_method,
+    get_open_port,
+    get_vllm_instance_id,
+    make_async,
+)
 from vllm.worker.worker_base import WorkerWrapperBase
 
 logger = init_logger(__name__)
@@ -28,7 +35,7 @@ class CPUExecutor(ExecutorBase):
 
     def _init_executor(self) -> None:
         assert self.device_config.device_type == "cpu"
-        #assert self.lora_config is None, "cpu backend doesn't support LoRA"
+        # assert self.lora_config is None, "cpu backend doesn't support LoRA"
 
         #
         # Environment variables for CPU executor
@@ -45,24 +52,21 @@ class CPUExecutor(ExecutorBase):
         if "libiomp5.so" in ld_prealod_str:
             # The time(milliseconds) that a thread should wait after
             # completing the execution of a parallel region, before sleeping.
-            os.environ['KMP_BLOCKTIME'] = "1"
+            os.environ["KMP_BLOCKTIME"] = "1"
             # Prevents the CPU to run into low performance state
-            os.environ['KMP_TPAUSE'] = "0"
+            os.environ["KMP_TPAUSE"] = "0"
             # Provides fine granularity parallelism
-            os.environ['KMP_FORKJOIN_BARRIER_PATTERN'] = "dist,dist"
-            os.environ['KMP_PLAIN_BARRIER_PATTERN'] = "dist,dist"
-            os.environ['KMP_REDUCTION_BARRIER_PATTERN'] = "dist,dist"
+            os.environ["KMP_FORKJOIN_BARRIER_PATTERN"] = "dist,dist"
+            os.environ["KMP_PLAIN_BARRIER_PATTERN"] = "dist,dist"
+            os.environ["KMP_REDUCTION_BARRIER_PATTERN"] = "dist,dist"
 
         # To hint IPEX uses shared memory based AllReduce
-        os.environ["LOCAL_WORLD_SIZE"] = str(
-            self.parallel_config.tensor_parallel_size)
+        os.environ["LOCAL_WORLD_SIZE"] = str(self.parallel_config.tensor_parallel_size)
 
         self.model_config = _verify_and_get_model_config(self.model_config)
         self.cache_config = _verify_and_get_cache_config(self.cache_config)
-        self.scheduler_config = _verify_and_get_scheduler_config(
-            self.scheduler_config)
-        self.parallel_config = _verify_and_get_parallel_config(
-            self.parallel_config)
+        self.scheduler_config = _verify_and_get_scheduler_config(self.scheduler_config)
+        self.parallel_config = _verify_and_get_parallel_config(self.parallel_config)
 
         # Multiprocessing-based executor does not support multi-node setting.
         # Since it only works for single node, we can use the loopback address
@@ -86,7 +90,9 @@ class CPUExecutor(ExecutorBase):
                         self._create_worker,
                         rank=rank,
                         local_rank=rank,
-                    )) for rank in range(0, world_size)
+                    ),
+                )
+                for rank in range(0, world_size)
             ]
             self.driver_worker = self.workers[0]
             self.workers = self.workers[1:]
@@ -103,7 +109,9 @@ class CPUExecutor(ExecutorBase):
                             self._create_worker,
                             rank=rank,
                             local_rank=rank,
-                        )) for rank in range(1, world_size)
+                        ),
+                    )
+                    for rank in range(1, world_size)
                 ]
 
         self.worker_monitor = None
@@ -112,8 +120,7 @@ class CPUExecutor(ExecutorBase):
                 async_worker_list = self.workers + [self.driver_worker]
             else:
                 async_worker_list = self.workers
-            self.worker_monitor = WorkerMonitor(async_worker_list,
-                                                result_handler)
+            self.worker_monitor = WorkerMonitor(async_worker_list, result_handler)
             result_handler.start()
             self.worker_monitor.start()
 
@@ -172,13 +179,11 @@ class CPUExecutor(ExecutorBase):
         """
 
         if max_concurrent_workers:
-            raise NotImplementedError(
-                "max_concurrent_workers is not supported yet.")
+            raise NotImplementedError("max_concurrent_workers is not supported yet.")
 
         # Start the workers first.
         worker_outputs = [
-            worker.execute_method(method, *args, **kwargs)
-            for worker in self.workers
+            worker.execute_method(method, *args, **kwargs) for worker in self.workers
         ]
 
         if async_run_remote_workers_only:
@@ -186,23 +191,22 @@ class CPUExecutor(ExecutorBase):
             return worker_outputs
 
         driver_worker_output = self.driver_method_invoker(
-            self.driver_worker, method, *args, **kwargs)
+            self.driver_worker, method, *args, **kwargs
+        )
 
         # Get the results of the workers.
-        return [driver_worker_output
-                ] + [output.get() for output in worker_outputs]
+        return [driver_worker_output] + [output.get() for output in worker_outputs]
 
     def determine_num_available_blocks(self) -> Tuple[int, int]:
         """Determine the number of available KV blocks by invoking the
         underlying worker.
         """
-        return self.driver_method_invoker(self.driver_worker,
-                                          "determine_num_available_blocks")
+        return self.driver_method_invoker(
+            self.driver_worker, "determine_num_available_blocks"
+        )
 
-    def initialize_cache(self, num_gpu_blocks: int,
-                         num_cpu_blocks: int) -> None:
-        """Initialize the KV cache by invoking the underlying worker.
-        """
+    def initialize_cache(self, num_gpu_blocks: int, num_cpu_blocks: int) -> None:
+        """Initialize the KV cache by invoking the underlying worker."""
         # NOTE: We log here to avoid multiple logs when number of workers is
         # greater than one. We could log in the engine, but not all executors
         # have GPUs.
@@ -211,21 +215,26 @@ class CPUExecutor(ExecutorBase):
         # management procedure.
         logger.info("# CPU blocks: %d", num_gpu_blocks)
 
-        self._run_workers("initialize_cache",
-                          num_gpu_blocks=num_gpu_blocks,
-                          num_cpu_blocks=num_cpu_blocks)
+        self._run_workers(
+            "initialize_cache",
+            num_gpu_blocks=num_gpu_blocks,
+            num_cpu_blocks=num_cpu_blocks,
+        )
 
     def execute_model(
-            self,
-            execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
-        if (self.parallel_config.tensor_parallel_size > 1
-                and self.parallel_worker_tasks is None):
+        self, execute_model_req: ExecuteModelRequest
+    ) -> List[SamplerOutput]:
+        if (
+            self.parallel_config.tensor_parallel_size > 1
+            and self.parallel_worker_tasks is None
+        ):
             self.parallel_worker_tasks = self._run_workers(
                 "start_worker_execution_loop",
                 async_run_remote_workers_only=True,
             )
-        output = self.driver_method_invoker(self.driver_worker,
-                                            "execute_model", execute_model_req)
+        output = self.driver_method_invoker(
+            self.driver_worker, "execute_model", execute_model_req
+        )
         return output
 
     def stop_remote_worker_execution_loop(self) -> None:
@@ -250,48 +259,50 @@ class CPUExecutor(ExecutorBase):
 
     def pin_lora(self, lora_id: int) -> bool:
         assert lora_id > 0, "lora_id must be greater than 0."
-        return all(self._run_workers(
-            "pin_lora",
-            lora_id=lora_id,
-        ))
+        return all(
+            self._run_workers(
+                "pin_lora",
+                lora_id=lora_id,
+            )
+        )
 
     def list_loras(self) -> Set[int]:
         return self.driver_method_invoker(self.driver_worker, "list_loras")
 
-    def add_prompt_adapter(
-            self, prompt_adapter_request: PromptAdapterRequest) -> bool:
+    def add_prompt_adapter(self, prompt_adapter_request: PromptAdapterRequest) -> bool:
         return all(
             self._run_workers(
                 "add_prompt_adapter",
                 prompt_adapter_request,
-            ))
+            )
+        )
 
     def remove_prompt_adapter(self, prompt_adapter_id: int) -> bool:
         return all(
             self._run_workers(
                 "remove_prompt_adapter",
                 prompt_adapter_id,
-            ))
+            )
+        )
 
     def list_prompt_adapters(self) -> Set[int]:
-        return self.driver_method_invoker(self.driver_worker,
-                                          "list_prompt_adapters")
+        return self.driver_method_invoker(self.driver_worker, "list_prompt_adapters")
 
     def pin_prompt_adapter(self, prompt_adapter_id: int) -> bool:
-        return all(self._run_workers(
-            "pin_prompt_adapter",
-            prompt_adapter_id,
-        ))
+        return all(
+            self._run_workers(
+                "pin_prompt_adapter",
+                prompt_adapter_id,
+            )
+        )
 
     def check_health(self) -> None:
         """Raises an error if engine is unhealthy."""
-        if self.worker_monitor is not None and not self.worker_monitor.is_alive(
-        ):
+        if self.worker_monitor is not None and not self.worker_monitor.is_alive():
             raise RuntimeError("Worker processes are not running")
 
     def shutdown(self):
-        if (worker_monitor := getattr(self, "worker_monitor",
-                                      None)) is not None:
+        if (worker_monitor := getattr(self, "worker_monitor", None)) is not None:
             worker_monitor.close()
 
     def _wait_for_tasks_completion(self, parallel_worker_tasks: Any) -> None:
@@ -310,10 +321,11 @@ class CPUExecutor(ExecutorBase):
 class CPUExecutorAsync(CPUExecutor, ExecutorAsyncBase):
 
     async def execute_model_async(
-            self,
-            execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
-        output = await make_async(self.execute_model
-                                  )(execute_model_req=execute_model_req, )
+        self, execute_model_req: ExecuteModelRequest
+    ) -> List[SamplerOutput]:
+        output = await make_async(self.execute_model)(
+            execute_model_req=execute_model_req,
+        )
         return output
 
     async def check_health_async(self) -> None:
@@ -326,14 +338,13 @@ def _verify_and_get_model_config(config: ModelConfig) -> ModelConfig:
         config.dtype = torch.bfloat16
     if not config.enforce_eager:
         logger.warning(
-            "CUDA graph is not supported on CPU, fallback to the eager "
-            "mode.")
+            "CUDA graph is not supported on CPU, fallback to the eager " "mode."
+        )
         config.enforce_eager = True
     return config
 
 
-def _verify_and_get_scheduler_config(
-        config: SchedulerConfig) -> SchedulerConfig:
+def _verify_and_get_scheduler_config(config: SchedulerConfig) -> SchedulerConfig:
     if config.chunked_prefill_enabled:
         logger.warning("Chunked prefill is not supported on CPU, disable it.")
         config.chunked_prefill_enabled = False
@@ -351,24 +362,31 @@ def _verify_and_get_cache_config(config: CacheConfig) -> CacheConfig:
     if kv_cache_space >= 0:
         if kv_cache_space == 0:
             config.cpu_kvcache_space_bytes = 4 * GiB_bytes  # type: ignore
-            logger.warning("Environment variable VLLM_CPU_KVCACHE_SPACE (GB) "
-                           "for CPU backend is not set, using 4 by default.")
+            logger.warning(
+                "Environment variable VLLM_CPU_KVCACHE_SPACE (GB) "
+                "for CPU backend is not set, using 4 by default."
+            )
         else:
             config.cpu_kvcache_space_bytes = kv_cache_space * GiB_bytes  # type: ignore
     else:
         raise RuntimeError(
             "Invalid environment variable VLLM_CPU_KVCACHE_SPACE"
-            f" {kv_cache_space}, expect a positive integer value.")
+            f" {kv_cache_space}, expect a positive integer value."
+        )
 
     return config
 
 
 def _verify_and_get_parallel_config(config: ParallelConfig) -> ParallelConfig:
-    if (config.distributed_executor_backend is not None
-            and config.distributed_executor_backend != "mp"):
+    if (
+        config.distributed_executor_backend is not None
+        and config.distributed_executor_backend != "mp"
+    ):
         logger.warning(
             "%s is not supported on CPU, fallback to mp distributed executor "
-            "backend.", config.distributed_executor_backend)
+            "backend.",
+            config.distributed_executor_backend,
+        )
         config.distributed_executor_backend = "mp"
     return config
 

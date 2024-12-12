@@ -34,7 +34,8 @@ class ImagePlugin(MultiModalPlugin):
         return cached_get_image_processor(
             model_config.model,
             trust_remote_code=model_config.trust_remote_code,
-            **mm_processor_kwargs)
+            **mm_processor_kwargs,
+        )
 
     def _default_input_mapper(
         self,
@@ -56,24 +57,25 @@ class ImagePlugin(MultiModalPlugin):
             )
 
             if image_processor is None:
-                raise RuntimeError("No HuggingFace processor is available "
-                                   "to process the image object")
+                raise RuntimeError(
+                    "No HuggingFace processor is available "
+                    "to process the image object"
+                )
             try:
                 # NOTE: It may make sense to forward the mm_processor_kwargs
                 # here too. For now, to keep it simple, we only allow it be
                 # used for the initialization call though, just in case the
                 # signatures of the preprocessor initializer don't match
                 # preprocess()
-                batch_data = image_processor \
-                    .preprocess(data, return_tensors="pt") \
-                    .data
+                batch_data = image_processor.preprocess(data, return_tensors="pt").data
             except Exception:
                 logger.error(
                     "Failed to process image (%s) with the default mapper. "
                     "This is most likely an edge-case with this model's image "
                     "processor in transformers (type: %s), and not vLLM.",
                     data,
-                    type(image_processor).__name__)
+                    type(image_processor).__name__,
+                )
                 raise
 
             return MultiModalInputs(batch_data)

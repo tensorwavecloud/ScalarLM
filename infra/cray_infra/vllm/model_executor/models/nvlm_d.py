@@ -11,25 +11,33 @@ from vllm.inputs import INPUT_REGISTRY
 from vllm.multimodal import MULTIMODAL_REGISTRY
 
 from .intern_vit import InternVisionModel
-from .internvl import (InternVLChatModel, InternVLInputPipeline,
-                       get_max_internvl_image_tokens)
+from .internvl import (
+    InternVLChatModel,
+    InternVLInputPipeline,
+    get_max_internvl_image_tokens,
+)
 
-IMG_START = '<|vision_start|>'
-IMG_END = '<|vision_end|>'
-IMG_CONTEXT = '<|vision_pad|>'
+IMG_START = "<|vision_start|>"
+IMG_END = "<|vision_end|>"
+IMG_CONTEXT = "<|vision_pad|>"
 
 
 class NVLMInputPipeline(InternVLInputPipeline):
 
     def _create_image_prompt(self, feature_size: int, num_patches: int) -> str:
-        tile_pos_identifiers = ([f"<tile_{i}>"
-                                 for i in range(1, num_patches)] +
-                                ["<tile_global_thumbnail>"])
+        tile_pos_identifiers = [f"<tile_{i}>" for i in range(1, num_patches)] + [
+            "<tile_global_thumbnail>"
+        ]
         context_size = feature_size // num_patches
 
-        return '<Image>' + ''.join(
-            tile_pos_identifier + self.img_context_token * context_size
-            for tile_pos_identifier in tile_pos_identifiers) + '</Image>'
+        return (
+            "<Image>"
+            + "".join(
+                tile_pos_identifier + self.img_context_token * context_size
+                for tile_pos_identifier in tile_pos_identifiers
+            )
+            + "</Image>"
+        )
 
 
 input_pipeline = NVLMInputPipeline(IMG_START, IMG_END, IMG_CONTEXT)
@@ -47,18 +55,21 @@ class NVLM_D_Model(InternVLChatModel):
         llm_hidden_size = config.text_config.hidden_size
 
         return nn.Sequential(
-            nn.LayerNorm(vit_hidden_size * int(1 / self.downsample_ratio)**2),
-            nn.Linear(vit_hidden_size * int(1 / self.downsample_ratio)**2,
-                      llm_intermediate_size,
-                      bias=False),
+            nn.LayerNorm(vit_hidden_size * int(1 / self.downsample_ratio) ** 2),
+            nn.Linear(
+                vit_hidden_size * int(1 / self.downsample_ratio) ** 2,
+                llm_intermediate_size,
+                bias=False,
+            ),
             nn.GELU(),
             nn.Linear(llm_intermediate_size, llm_hidden_size, bias=False),
         )
 
-    def _init_vision_model(self, config: PretrainedConfig,
-                           num_hidden_layers: int):
+    def _init_vision_model(self, config: PretrainedConfig, num_hidden_layers: int):
         # We added additional dummy heads to the original num of heads to make
         # the number of heads divisible by 8.
-        return InternVisionModel(config.vision_config,
-                                 num_hidden_layers_override=num_hidden_layers,
-                                 num_dummy_heads=7)
+        return InternVisionModel(
+            config.vision_config,
+            num_hidden_layers_override=num_hidden_layers,
+            num_dummy_heads=7,
+        )

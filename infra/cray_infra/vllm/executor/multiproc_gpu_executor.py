@@ -6,18 +6,29 @@ from typing import Any, List, Optional
 import torch
 
 from vllm.executor.distributed_gpu_executor import (  # yapf: disable
-    DistributedGPUExecutor, DistributedGPUExecutorAsync)
+    DistributedGPUExecutor,
+    DistributedGPUExecutorAsync,
+)
 from vllm.executor.gpu_executor import create_worker
-from vllm.executor.multiproc_worker_utils import (ProcessWorkerWrapper,
-                                                  ResultHandler, WorkerMonitor)
+from vllm.executor.multiproc_worker_utils import (
+    ProcessWorkerWrapper,
+    ResultHandler,
+    WorkerMonitor,
+)
 from vllm.logger import init_logger
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.sequence import ExecuteModelRequest
 from vllm.triton_utils import maybe_set_triton_cache_manager
-from vllm.utils import (_run_task_with_lock, cuda_device_count_stateless,
-                        cuda_is_initialized, get_distributed_init_method,
-                        get_open_port, get_vllm_instance_id, make_async,
-                        update_environment_variables)
+from vllm.utils import (
+    _run_task_with_lock,
+    cuda_device_count_stateless,
+    cuda_is_initialized,
+    get_distributed_init_method,
+    get_open_port,
+    get_vllm_instance_id,
+    make_async,
+    update_environment_variables,
+)
 
 logger = init_logger(__name__)
 
@@ -47,14 +58,18 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
         # impact on performance. The contention is amplified when running in a
         # container where CPU limits can cause throttling.
         default_omp_num_threads = 1
-        if "OMP_NUM_THREADS" not in os.environ and (
-                current_parallelism :=
-                torch.get_num_threads()) > default_omp_num_threads:
+        if (
+            "OMP_NUM_THREADS" not in os.environ
+            and (current_parallelism := torch.get_num_threads())
+            > default_omp_num_threads
+        ):
             logger.warning(
                 "Reducing Torch parallelism from %d threads to %d to avoid "
                 "unnecessary CPU contention. Set OMP_NUM_THREADS in the "
                 "external environment to tune this value as needed.",
-                current_parallelism, default_omp_num_threads)
+                current_parallelism,
+                default_omp_num_threads,
+            )
             os.environ["OMP_NUM_THREADS"] = str(default_omp_num_threads)
             torch.set_num_threads(default_omp_num_threads)
 
@@ -66,7 +81,8 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
         # Since it only works for single node, we can use the loopback address
         # 127.0.0.1 for communication.
         distributed_init_method = get_distributed_init_method(
-            "127.0.0.1", get_open_port())
+            "127.0.0.1", get_open_port()
+        )
 
         self.workers: List[ProcessWorkerWrapper] = []
         # This is the list of workers that are rank 0 of each TP group EXCEPT
@@ -91,7 +107,9 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
                             rank=rank,
                             local_rank=rank,
                             distributed_init_method=distributed_init_method,
-                        )))
+                        ),
+                    ),
+                )
                 self.workers.append(worker)
                 if rank % tensor_parallel_size == 0:
                     self.tp_driver_workers.append(worker)
@@ -106,11 +124,13 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
         # sometimes gc does not work well
 
         self.driver_worker = self._create_worker(
-            distributed_init_method=distributed_init_method)
+            distributed_init_method=distributed_init_method
+        )
         self._run_workers("init_device")
-        self._run_workers("load_model",
-                          max_concurrent_workers=self.parallel_config.
-                          max_parallel_loading_workers)
+        self._run_workers(
+            "load_model",
+            max_concurrent_workers=self.parallel_config.max_parallel_loading_workers,
+        )
 
     def _check_executor_parameters(self):
         world_size = self.parallel_config.world_size
@@ -118,30 +138,35 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
 
         # Set CUDA_VISIBLE_DEVICES for the driver, inherited by workers
         if "CUDA_VISIBLE_DEVICES" not in os.environ:
-            update_environment_variables({
-                "CUDA_VISIBLE_DEVICES": (",".join(map(str, range(world_size))))
-            })
+            update_environment_variables(
+                {"CUDA_VISIBLE_DEVICES": (",".join(map(str, range(world_size))))}
+            )
 
-        if (cuda_is_initialized()
-                and os.environ.get("VLLM_WORKER_MULTIPROC_METHOD") != "spawn"):
-            logger.warning("CUDA was previously initialized. We must use "
-                           "the `spawn` multiprocessing start method. Setting "
-                           "VLLM_WORKER_MULTIPROC_METHOD to 'spawn'.")
+        if (
+            cuda_is_initialized()
+            and os.environ.get("VLLM_WORKER_MULTIPROC_METHOD") != "spawn"
+        ):
+            logger.warning(
+                "CUDA was previously initialized. We must use "
+                "the `spawn` multiprocessing start method. Setting "
+                "VLLM_WORKER_MULTIPROC_METHOD to 'spawn'."
+            )
             os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 
         cuda_device_count = cuda_device_count_stateless()
         # Use confusing message for more common TP-only case.
         assert tensor_parallel_size <= cuda_device_count, (
             f"please set tensor_parallel_size ({tensor_parallel_size}) "
-            f"to less than max local gpu count ({cuda_device_count})")
+            f"to less than max local gpu count ({cuda_device_count})"
+        )
 
         assert world_size <= cuda_device_count, (
             f"please ensure that world_size ({world_size}) "
-            f"is less than than max local gpu count ({cuda_device_count})")
+            f"is less than than max local gpu count ({cuda_device_count})"
+        )
 
     def shutdown(self):
-        if (worker_monitor := getattr(self, "worker_monitor",
-                                      None)) is not None:
+        if (worker_monitor := getattr(self, "worker_monitor", None)) is not None:
             worker_monitor.close()
 
     def _driver_execute_model(
@@ -172,8 +197,7 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
         """
 
         if max_concurrent_workers:
-            raise NotImplementedError(
-                "max_concurrent_workers is not supported yet.")
+            raise NotImplementedError("max_concurrent_workers is not supported yet.")
 
         if async_run_tensor_parallel_workers_only:
             # Run only non-driver workers and just return futures.
@@ -184,21 +208,18 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
 
         # Start all remote workers first.
         worker_outputs = [
-            worker.execute_method(method, *args, **kwargs)
-            for worker in self.workers
+            worker.execute_method(method, *args, **kwargs) for worker in self.workers
         ]
 
         driver_worker_method = getattr(self.driver_worker, method)
         driver_worker_output = driver_worker_method(*args, **kwargs)
 
         # Get the results of the workers.
-        return [driver_worker_output
-                ] + [output.get() for output in worker_outputs]
+        return [driver_worker_output] + [output.get() for output in worker_outputs]
 
     def check_health(self) -> None:
         """Raises an error if engine is unhealthy."""
-        if self.worker_monitor is not None and not self.worker_monitor.is_alive(
-        ):
+        if self.worker_monitor is not None and not self.worker_monitor.is_alive():
             raise RuntimeError("Worker processes are not running")
 
     def _wait_for_tasks_completion(self, parallel_worker_tasks: Any) -> None:
@@ -208,8 +229,9 @@ class MultiprocessingGPUExecutor(DistributedGPUExecutor):
             result.get()
 
 
-class MultiprocessingGPUExecutorAsync(MultiprocessingGPUExecutor,
-                                      DistributedGPUExecutorAsync):
+class MultiprocessingGPUExecutorAsync(
+    MultiprocessingGPUExecutor, DistributedGPUExecutorAsync
+):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -217,8 +239,7 @@ class MultiprocessingGPUExecutorAsync(MultiprocessingGPUExecutor,
         self.pp_locks: Optional[List[asyncio.Lock]] = None
 
     async def _driver_execute_model_async(
-        self,
-        execute_model_req: Optional[ExecuteModelRequest] = None
+        self, execute_model_req: Optional[ExecuteModelRequest] = None
     ) -> List[SamplerOutput]:
         if not self.tp_driver_workers:
             return await self.driver_exec_model(execute_model_req)
@@ -235,16 +256,22 @@ class MultiprocessingGPUExecutorAsync(MultiprocessingGPUExecutor,
 
         tasks = [
             asyncio.create_task(
-                _run_task_with_lock(self.driver_exec_model, self.pp_locks[0],
-                                    execute_model_req))
+                _run_task_with_lock(
+                    self.driver_exec_model, self.pp_locks[0], execute_model_req
+                )
+            )
         ]
-        for pp_rank, driver_worker in enumerate(self.tp_driver_workers,
-                                                start=1):
+        for pp_rank, driver_worker in enumerate(self.tp_driver_workers, start=1):
             tasks.append(
                 asyncio.create_task(
-                    _run_task_with_lock(driver_worker.execute_method_async,
-                                        self.pp_locks[pp_rank],
-                                        "execute_model", execute_model_req)))
+                    _run_task_with_lock(
+                        driver_worker.execute_method_async,
+                        self.pp_locks[pp_rank],
+                        "execute_model",
+                        execute_model_req,
+                    )
+                )
+            )
         results = await asyncio.gather(*tasks)
 
         # Only the last PP stage has the final results.

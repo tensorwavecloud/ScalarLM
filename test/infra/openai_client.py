@@ -12,6 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class TestOpenAIClient(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
 
@@ -29,15 +30,14 @@ class TestOpenAIClient(unittest.IsolatedAsyncioTestCase):
         config = get_config()
 
         client = AsyncOpenAI(
-            base_url=config["api_url"]+"/v1/openai",
+            base_url=config["api_url"] + "/v1/openai",
             api_key="token-abc123",
         )
 
         completion = await client.chat.completions.create(
-          model=config["model"],
-          messages=[
-            {"role": "user", "content": "Hello!"}
-          ], max_tokens=10
+            model=config["model"],
+            messages=[{"role": "user", "content": "Hello!"}],
+            max_tokens=10,
         )
 
         print(completion.choices[0].message)
@@ -45,6 +45,3 @@ class TestOpenAIClient(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         logger.debug("Shutting down server")
         await self.app.shutdown()
-
-
-

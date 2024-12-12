@@ -47,8 +47,9 @@ def _bgmv_expand_slice_kernel(
     offset_k = tl.arange(0, BLOCK_K)
     offset_n = tl.arange(0, BLOCK_N)
     if EVEN_K:
-        tiled_a = tl.load(input_ptr + cur_batch * xm_stride +
-                          offset_k * xk_stride, )  # [BLOCK_K]
+        tiled_a = tl.load(
+            input_ptr + cur_batch * xm_stride + offset_k * xk_stride,
+        )  # [BLOCK_K]
     else:
         tiled_a = tl.load(
             input_ptr + cur_batch * xm_stride + offset_k * xk_stride,
@@ -60,19 +61,22 @@ def _bgmv_expand_slice_kernel(
     if CAST_TYPE:
         tiled_a = tiled_a.to(lora_ptr.dtype.element_ty)
     # sliding  to  next row-block
-    b_ptr = (lora_ptr + l0_stride * lora_index +
-             pid_sn * split_n_length * lora_k_stride)
-    c_ptr = (out_ptr + cur_batch * cm_stride + pid_sn * split_n_length +
-             slice_offset * cn_stride)
+    b_ptr = lora_ptr + l0_stride * lora_index + pid_sn * split_n_length * lora_k_stride
+    c_ptr = (
+        out_ptr
+        + cur_batch * cm_stride
+        + pid_sn * split_n_length
+        + slice_offset * cn_stride
+    )
 
     for n in range(0, split_n_length, BLOCK_N):
         current_n = n + offset_n
-        b_ptr_mask = (current_n[:, None] < split_n_length) & (offset_k[None, :]
-                                                              < K)
+        b_ptr_mask = (current_n[:, None] < split_n_length) & (offset_k[None, :] < K)
         c_mask = current_n < split_n_length
         tiled_b = tl.load(
-            b_ptr + current_n[:, None] * lora_k_stride +
-            offset_k[None, :] * lora_n_stride,
+            b_ptr
+            + current_n[:, None] * lora_k_stride
+            + offset_k[None, :] * lora_n_stride,
             mask=b_ptr_mask,
             other=0.0,
         )  # [BLOCK_N,BLOCK_K]
@@ -136,8 +140,8 @@ def _bgmv_expand_slice(
     ADD_INPUTS = add_inputs
     CAST_TYPE = False
     if inputs.dtype == torch.float32 and lora_b_weights.dtype in [
-            torch.float16,
-            torch.bfloat16,
+        torch.float16,
+        torch.bfloat16,
     ]:
         CAST_TYPE = True
 
@@ -174,8 +178,8 @@ def _bgmv_expand_slice(
 
 
 try:
-    bgmv_expand_slice = torch.library.custom_op("lora::bgmv_expand_slice",
-                                                _bgmv_expand_slice,
-                                                mutates_args=["output_tensor"])
+    bgmv_expand_slice = torch.library.custom_op(
+        "lora::bgmv_expand_slice", _bgmv_expand_slice, mutates_args=["output_tensor"]
+    )
 except AttributeError:
     bgmv_expand_slice = _bgmv_expand_slice

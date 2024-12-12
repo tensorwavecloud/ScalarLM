@@ -1,4 +1,5 @@
 """Custom normalization layers."""
+
 from typing import Optional, Tuple, Union
 
 import torch
@@ -24,8 +25,9 @@ class RMSNorm(CustomOp):
 
         self.hidden_size = hidden_size
         self.variance_epsilon = eps
-        self.variance_size_override = (None if var_hidden_size == hidden_size
-                                       else var_hidden_size)
+        self.variance_size_override = (
+            None if var_hidden_size == hidden_size else var_hidden_size
+        )
 
         self.weight = nn.Parameter(torch.ones(hidden_size))
 
@@ -43,8 +45,10 @@ class RMSNorm(CustomOp):
 
         hidden_size = x.shape[-1]
         if hidden_size != self.hidden_size:
-            raise ValueError("Expected hidden_size to be "
-                             f"{self.hidden_size}, but found: {hidden_size}")
+            raise ValueError(
+                "Expected hidden_size to be "
+                f"{self.hidden_size}, but found: {hidden_size}"
+            )
 
         if self.variance_size_override is None:
             x_var = x
@@ -52,9 +56,10 @@ class RMSNorm(CustomOp):
             if hidden_size < self.variance_size_override:
                 raise ValueError(
                     "Expected hidden_size to be at least "
-                    f"{self.variance_size_override}, but found: {hidden_size}")
+                    f"{self.variance_size_override}, but found: {hidden_size}"
+                )
 
-            x_var = x[:, :, :self.variance_size_override]
+            x_var = x[:, :, : self.variance_size_override]
 
         variance = x_var.pow(2).mean(dim=-1, keepdim=True)
 
@@ -167,8 +172,7 @@ class GemmaRMSNorm(CustomOp):
         residual: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, Tuple[torch.Tensor, torch.Tensor]]:
         """PyTorch-native implementation equivalent to forward()."""
-        return self.forward_static(self.weight.data, self.variance_epsilon, x,
-                                   residual)
+        return self.forward_static(self.weight.data, self.variance_epsilon, x, residual)
 
     def forward_cuda(
         self,
@@ -179,7 +183,6 @@ class GemmaRMSNorm(CustomOp):
             return self.forward_native(x, residual)
 
         if not getattr(self, "_is_compiled", False):
-            self.forward_static = torch.compile(  # type: ignore
-                self.forward_static)
+            self.forward_static = torch.compile(self.forward_static)  # type: ignore
             self._is_compiled = True
         return self.forward_native(x, residual)

@@ -27,7 +27,8 @@ def fused_moe(
     dtype = hidden_states.dtype
     assert (num_tokens * topk) % 16 == 0, (
         "The Pallas GMM kernel requires num_tokens * topk to be a multiple of "
-        f"16 but got {num_tokens * topk}")
+        f"16 but got {num_tokens * topk}"
+    )
 
     hidden_states = hidden_states.view(num_tokens, hidden_size)
     gating_output = gating_output.view(num_tokens, num_experts)
@@ -40,8 +41,7 @@ def fused_moe(
     topk_indices = topk_indices.flatten()
     topk_argsort_indices = topk_indices.argsort()
     topk_argsort_revert_indices = topk_argsort_indices.argsort()
-    token_indices = torch.arange(num_tokens,
-                                 device=device).repeat_interleave(topk)
+    token_indices = torch.arange(num_tokens, device=device).repeat_interleave(topk)
     token_indices = token_indices[topk_argsort_indices]
     group_sizes = _histogram(topk_indices.to(torch.int32), 0, num_experts - 1)
 

@@ -2,8 +2,12 @@ import os
 from typing import List, Optional, Set, Tuple, Type
 
 import huggingface_hub
-from huggingface_hub.utils import (EntryNotFoundError, HfHubHTTPError,
-                                   HFValidationError, RepositoryNotFoundError)
+from huggingface_hub.utils import (
+    EntryNotFoundError,
+    HfHubHTTPError,
+    HFValidationError,
+    RepositoryNotFoundError,
+)
 from torch import nn
 from transformers import PretrainedConfig
 
@@ -12,8 +16,11 @@ from vllm.logger import init_logger
 from vllm.lora.fully_sharded_layers import (
     ColumnParallelLinearWithShardedLoRA,
     MergedColumnParallelLinearWithShardedLoRA,
-    MergedQKVParallelLinearWithShardedLora, QKVParallelLinearWithShardedLora,
-    RowParallelLinearWithShardedLoRA)
+    MergedQKVParallelLinearWithShardedLora,
+    QKVParallelLinearWithShardedLora,
+    RowParallelLinearWithShardedLoRA,
+)
+
 # being imported for _all_lora_classes below
 # yapf conflicts with isort for this block
 # yapf: disable
@@ -50,17 +57,21 @@ _all_lora_classes: Set[Type[BaseLayerWithLoRA]] = {
 }
 
 
-def from_layer(layer: nn.Module,
-               max_loras: int,
-               lora_config: LoRAConfig,
-               packed_modules_list: List,
-               model_config: Optional[PretrainedConfig] = None) -> nn.Module:
+def from_layer(
+    layer: nn.Module,
+    max_loras: int,
+    lora_config: LoRAConfig,
+    packed_modules_list: List,
+    model_config: Optional[PretrainedConfig] = None,
+) -> nn.Module:
     for lora_cls in _all_lora_classes:
         # specifying kwargs so they can be easily accessed in decorator
-        if lora_cls.can_replace_layer(source_layer=layer,
-                                      lora_config=lora_config,
-                                      packed_modules_list=packed_modules_list,
-                                      model_config=model_config):
+        if lora_cls.can_replace_layer(
+            source_layer=layer,
+            lora_config=lora_config,
+            packed_modules_list=packed_modules_list,
+            model_config=model_config,
+        ):
             ret = lora_cls(layer)
             ret.create_lora_weights(max_loras, lora_config, model_config)
             return ret
@@ -74,15 +85,20 @@ def from_layer_logits_processor(
     lora_config: LoRAConfig,
     model_config: Optional[PretrainedConfig] = None,
 ) -> LogitsProcessorWithLoRA:
-    ret = LogitsProcessorWithLoRA(layer, lm_head.embedding_dim,
-                                  lm_head.weight.dtype, lm_head.weight.device,
-                                  lm_head.get_sharded_to_full_mapping())
+    ret = LogitsProcessorWithLoRA(
+        layer,
+        lm_head.embedding_dim,
+        lm_head.weight.dtype,
+        lm_head.weight.device,
+        lm_head.get_sharded_to_full_mapping(),
+    )
     ret.create_lora_weights(max_loras, lora_config, model_config)
     return ret
 
 
-def replace_submodule(model: nn.Module, module_name: str,
-                      new_module: nn.Module) -> nn.Module:
+def replace_submodule(
+    model: nn.Module, module_name: str, new_module: nn.Module
+) -> nn.Module:
     """Replace a submodule in a model with a new module."""
     parent = model.get_submodule(".".join(module_name.split(".")[:-1]))
     target_name = module_name.split(".")[-1]
@@ -135,7 +151,7 @@ def get_adapter_absolute_path(lora_path: str) -> str:
         return lora_path
 
     # If the path starts with ~, expand the user home directory.
-    if lora_path.startswith('~'):
+    if lora_path.startswith("~"):
         return os.path.expanduser(lora_path)
 
     # Check if the expanded relative path exists locally.
@@ -144,10 +160,13 @@ def get_adapter_absolute_path(lora_path: str) -> str:
 
     # If the path does not exist locally, assume it's a Hugging Face repo.
     try:
-        local_snapshot_path = huggingface_hub.snapshot_download(
-            repo_id=lora_path)
-    except (HfHubHTTPError, RepositoryNotFoundError, EntryNotFoundError,
-            HFValidationError):
+        local_snapshot_path = huggingface_hub.snapshot_download(repo_id=lora_path)
+    except (
+        HfHubHTTPError,
+        RepositoryNotFoundError,
+        EntryNotFoundError,
+        HFValidationError,
+    ):
         # Handle errors that may occur during the download
         # Return original path instead instead of throwing error here
         logger.exception("Error downloading the HuggingFace model")

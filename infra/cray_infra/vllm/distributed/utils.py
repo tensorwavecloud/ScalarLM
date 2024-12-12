@@ -15,7 +15,8 @@ logger = init_logger(__name__)
 def ensure_divisibility(numerator, denominator):
     """Ensure that numerator is divisible by the denominator."""
     assert numerator % denominator == 0, "{} is not divisible by {}".format(
-        numerator, denominator)
+        numerator, denominator
+    )
 
 
 def divide(numerator, denominator):
@@ -30,16 +31,16 @@ def split_tensor_along_last_dim(
     num_partitions: int,
     contiguous_split_chunks: bool = False,
 ) -> Sequence[torch.Tensor]:
-    """ Split a tensor along its last dimension.
+    """Split a tensor along its last dimension.
 
-        Arguments:
-            tensor: input tensor.
-            num_partitions: number of partitions to split the tensor
-            contiguous_split_chunks: If True, make each chunk contiguous
-                                     in memory.
+    Arguments:
+        tensor: input tensor.
+        num_partitions: number of partitions to split the tensor
+        contiguous_split_chunks: If True, make each chunk contiguous
+                                 in memory.
 
-        Returns:
-            A list of Tensors
+    Returns:
+        A list of Tensors
     """
     # Get the size and dimension.
     last_dim = tensor.dim() - 1
@@ -53,8 +54,9 @@ def split_tensor_along_last_dim(
     return tensor_list
 
 
-def get_pp_indices(num_hidden_layers: int, pp_rank: int,
-                   pp_size: int) -> Tuple[int, int]:
+def get_pp_indices(
+    num_hidden_layers: int, pp_rank: int, pp_size: int
+) -> Tuple[int, int]:
     """Try to evenly distribute layers across partitions.
     If the number of layers is not divisible by the number of partitions,
     the last partition will have the remaining layers.
@@ -62,17 +64,15 @@ def get_pp_indices(num_hidden_layers: int, pp_rank: int,
     partition_list_str = envs.VLLM_PP_LAYER_PARTITION
     if partition_list_str is not None:
         try:
-            partitions = [
-                int(layer) for layer in partition_list_str.split(",")
-            ]
+            partitions = [int(layer) for layer in partition_list_str.split(",")]
         except ValueError as err:
-            raise ValueError("Invalid partition string: {}".format(
-                partition_list_str)) from err
+            raise ValueError(
+                "Invalid partition string: {}".format(partition_list_str)
+            ) from err
         if len(partitions) != pp_size:
             raise ValueError(f"{len(partitions)=} does not match {pp_size=}.")
         if sum(partitions) != num_hidden_layers:
-            raise ValueError(
-                f"{sum(partitions)=} does not match {num_hidden_layers=}.")
+            raise ValueError(f"{sum(partitions)=} does not match {num_hidden_layers=}.")
         start_layer = sum(partitions[:pp_rank])
         end_layer = start_layer + partitions[pp_rank]
     else:

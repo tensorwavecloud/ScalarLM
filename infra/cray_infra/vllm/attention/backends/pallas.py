@@ -4,8 +4,12 @@ from typing import Any, Dict, List, Optional, Tuple, Type
 import torch
 import torch_xla.experimental.custom_kernel  # Required to register custom ops.
 
-from vllm.attention.backends.abstract import (AttentionBackend, AttentionImpl,
-                                              AttentionMetadata, AttentionType)
+from vllm.attention.backends.abstract import (
+    AttentionBackend,
+    AttentionImpl,
+    AttentionMetadata,
+    AttentionType,
+)
 from vllm.attention.backends.utils import CommonAttentionState
 
 
@@ -116,21 +120,22 @@ class PallasAttentionBackendImpl(AttentionImpl):
         if blocksparse_params is not None:
             raise NotImplementedError("Blocksparse is not supported.")
         if logits_soft_cap is not None:
-            raise NotImplementedError(
-                "Attention logits soft-capping is not supported.")
+            raise NotImplementedError("Attention logits soft-capping is not supported.")
 
         if torch_xla.tpu.version() < 4:
             raise NotImplementedError("TPU version must be 4 or higher.")
 
         self.megacore_mode = None
         tpu_env = torch_xla.tpu.get_tpu_env()
-        tpu_type = (tpu_env.get("ACCELERATOR_TYPE", None)
-                    or tpu_env.get("TYPE", None)
-                    or tpu_env.get("TPU_ACCELERATOR_TYPE", None))
+        tpu_type = (
+            tpu_env.get("ACCELERATOR_TYPE", None)
+            or tpu_env.get("TYPE", None)
+            or tpu_env.get("TPU_ACCELERATOR_TYPE", None)
+        )
         assert tpu_type is not None
         tpu_type = tpu_type.lower()
 
-        if (("lite" not in tpu_type) and ("v6" not in tpu_type)):
+        if ("lite" not in tpu_type) and ("v6" not in tpu_type):
             if self.num_kv_heads % 2 == 0:
                 self.megacore_mode = "kv_head"
             else:
@@ -157,7 +162,7 @@ class PallasAttentionBackendImpl(AttentionImpl):
             value: shape = [batch_size, seq_len, num_kv_heads * head_size]
             kv_cache[0] = [num_kv_heads, num_blocks, block_size, head_size]
             kv_cache[1] = [num_kv_heads, num_blocks, block_size, head_size]
-                NOTE: kv_cache[0] and kv_cache[1] will be an empty tensor 
+                NOTE: kv_cache[0] and kv_cache[1] will be an empty tensor
                 with shape [0] for profiling run.
             attn_metadata: Metadata for attention.
         Returns:
@@ -165,15 +170,16 @@ class PallasAttentionBackendImpl(AttentionImpl):
         """
         assert k_scale == 1.0 and v_scale == 1.0
         if attn_type != AttentionType.DECODER:
-            raise NotImplementedError("Encoder self-attention and "
-                                      "encoder/decoder cross-attention "
-                                      "are not implemented for "
-                                      "PallasAttentionBackendImpl")
+            raise NotImplementedError(
+                "Encoder self-attention and "
+                "encoder/decoder cross-attention "
+                "are not implemented for "
+                "PallasAttentionBackendImpl"
+            )
         batch_size, seq_len, hidden_size = query.shape
         query = query.view(batch_size, seq_len, self.num_heads, self.head_size)
         key = key.view(batch_size, seq_len, self.num_kv_heads, self.head_size)
-        value = value.view(batch_size, seq_len, self.num_kv_heads,
-                           self.head_size)
+        value = value.view(batch_size, seq_len, self.num_kv_heads, self.head_size)
 
         if kv_cache[0].numel() > 0:
             slot_mapping = attn_metadata.slot_mapping
@@ -184,17 +190,15 @@ class PallasAttentionBackendImpl(AttentionImpl):
         if attn_metadata.num_prefills > 0:
             assert seq_len % 16 == 0, (
                 "Pallas FlashAttention kernel requires seq_len to be a "
-                f"multiple of 16 but got {seq_len}")
+                f"multiple of 16 but got {seq_len}"
+            )
 
             # Handle GQA/MQA.
             if self.num_kv_heads != self.num_heads:
                 key = key.repeat_interleave(self.num_queries_per_kv, dim=-2)
-                key = key.view(batch_size, seq_len, self.num_heads,
-                               self.head_size)
-                value = value.repeat_interleave(self.num_queries_per_kv,
-                                                dim=-2)
-                value = value.view(batch_size, seq_len, self.num_heads,
-                                   self.head_size)
+                key = key.view(batch_size, seq_len, self.num_heads, self.head_size)
+                value = value.repeat_interleave(self.num_queries_per_kv, dim=-2)
+                value = value.view(batch_size, seq_len, self.num_heads, self.head_size)
             # FlashAttention requires [batch_size, num_heads, seq_len, d_model]
             # while the input is [batch_size, seq_len, num_heads, d_model].
             # Permute the input to match the required format.

@@ -1,13 +1,18 @@
 """ Attention layer with torch scaled_dot_product_attention
     and PagedAttention."""
+
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 import torch
 from torch.nn.functional import scaled_dot_product_attention
 
-from vllm.attention.backends.abstract import (AttentionBackend, AttentionImpl,
-                                              AttentionMetadata, AttentionType)
+from vllm.attention.backends.abstract import (
+    AttentionBackend,
+    AttentionImpl,
+    AttentionMetadata,
+    AttentionType,
+)
 from vllm.attention.backends.utils import CommonAttentionState
 from vllm.attention.ops.paged_attn import PagedAttentionMetadata
 from vllm.utils import is_cpu
@@ -46,8 +51,9 @@ class TorchSDPABackend(AttentionBackend):
         num_kv_heads: int,
         head_size: int,
     ) -> Tuple[int, ...]:
-        return PagedAttention.get_kv_cache_shape(num_blocks, block_size,
-                                                 num_kv_heads, head_size)
+        return PagedAttention.get_kv_cache_shape(
+            num_blocks, block_size, num_kv_heads, head_size
+        )
 
     @staticmethod
     def swap_blocks(
@@ -67,8 +73,8 @@ class TorchSDPABackend(AttentionBackend):
 
 @dataclass
 class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
-    """Metadata for TorchSDPABackend.
-    """
+    """Metadata for TorchSDPABackend."""
+
     # Currently, input sequences can only contain all prompts
     # or all decoding. True if all sequences are prompts.
     is_prompt: bool
@@ -103,23 +109,27 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
 
     @property
     def is_all_encoder_attn_metadata_set(self):
-        '''
+        """
         All attention metadata required for encoder attention is set.
-        '''
-        return ((self.encoder_seq_lens is not None)
-                and (self.encoder_seq_lens_tensor is not None)
-                and (self.max_encoder_seq_len is not None))
+        """
+        return (
+            (self.encoder_seq_lens is not None)
+            and (self.encoder_seq_lens_tensor is not None)
+            and (self.max_encoder_seq_len is not None)
+        )
 
     @property
     def is_all_cross_attn_metadata_set(self):
-        '''
+        """
         All attention metadata required for enc/dec cross-attention is set.
 
         Superset of encoder attention required metadata.
-        '''
-        return (self.is_all_encoder_attn_metadata_set
-                and (self.cross_slot_mapping is not None)
-                and (self.cross_block_tables is not None))
+        """
+        return (
+            self.is_all_encoder_attn_metadata_set
+            and (self.cross_slot_mapping is not None)
+            and (self.cross_block_tables is not None)
+        )
 
     @property
     def prefill_metadata(self) -> Optional["TorchSDPAMetadata"]:
@@ -143,7 +153,7 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
         self,
         attn_type: AttentionType,
     ):
-        '''
+        """
         Extract appropriate sequence lengths from attention metadata
         according to attention type.
 
@@ -156,7 +166,7 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
         Returns:
         * Appropriate sequence lengths tensor for query
         * Appropriate sequence lengths tensor for key & value
-        '''
+        """
 
         if attn_type == AttentionType.DECODER:
             seq_lens_q = self.seq_lens
@@ -175,7 +185,7 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
         self,
         attn_type: AttentionType,
     ) -> Optional[List[torch.Tensor]]:
-        '''
+        """
         Extract appropriate attention bias from attention metadata
         according to attention type.
 
@@ -187,7 +197,7 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
 
         Returns:
         * Appropriate attention bias value given the attention type
-        '''
+        """
 
         if attn_type == AttentionType.DECODER:
             return self.attn_bias
@@ -203,7 +213,7 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
         attn_bias: List[torch.Tensor],
         attn_type: AttentionType,
     ) -> None:
-        '''
+        """
         Update appropriate attention bias field of attention metadata,
         according to attention type.
 
@@ -213,7 +223,7 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
         * attn_bias: The desired attention bias value
         * attn_type: encoder attention, decoder self-attention,
                     encoder/decoder cross-attention
-        '''
+        """
 
         if attn_type == AttentionType.DECODER:
             self.attn_bias = attn_bias
@@ -228,16 +238,16 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
         self,
         attn_type: AttentionType,
     ) -> tuple:
-        '''
+        """
         The particular choice of sequence-length- and block-table-related
         attributes which should be extracted from attn_metadata is dependent
         on the type of attention operation.
 
         Decoder attn -> select entirely decoder self-attention-related fields
-        Encoder/decoder cross-attn -> select encoder sequence lengths & 
+        Encoder/decoder cross-attn -> select encoder sequence lengths &
                                     cross-attn block-tables fields
         Encoder attn -> select encoder sequence lengths fields & no block tables
-        
+
         Arguments:
 
         * attn_metadata: Attention metadata structure associated with attention
@@ -250,22 +260,23 @@ class TorchSDPAMetadata(AttentionMetadata, PagedAttentionMetadata):
         * Appropriate sequence-lengths tensor
         * Appropriate max sequence-length scalar
         * Appropriate block tables (or None)
-        '''
+        """
 
         if attn_type == AttentionType.DECODER:
             # Decoder self-attention
             # Choose max_seq_len based on whether we are in prompt_run
-            return (self.seq_lens_tensor, self.max_decode_seq_len,
-                    self.block_tables)
+            return (self.seq_lens_tensor, self.max_decode_seq_len, self.block_tables)
         elif attn_type == AttentionType.ENCODER_DECODER:
             # Enc/dec cross-attention KVs match encoder sequence length;
             # cross-attention utilizes special "cross" block tables
-            return (self.encoder_seq_lens_tensor, self.max_encoder_seq_len,
-                    self.cross_block_tables)
+            return (
+                self.encoder_seq_lens_tensor,
+                self.max_encoder_seq_len,
+                self.cross_block_tables,
+            )
         elif attn_type == AttentionType.ENCODER:
             # No block tables associated with encoder attention
-            return (self.encoder_seq_lens_tensor, self.max_encoder_seq_len,
-                    None)
+            return (self.encoder_seq_lens_tensor, self.max_encoder_seq_len, None)
         else:
             raise AttributeError(f"Invalid attention type {str(attn_type)}")
 
@@ -285,8 +296,7 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
         logits_soft_cap: Optional[float] = None,
     ) -> None:
         if blocksparse_params is not None:
-            raise ValueError(
-                "Torch SPDA does not support block-sparse attention.")
+            raise ValueError("Torch SPDA does not support block-sparse attention.")
         if logits_soft_cap is not None:
             raise ValueError("Torch SPDA does not support logits soft cap.")
         self.num_heads = num_heads
@@ -301,18 +311,21 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
 
         assert self.num_heads % self.num_kv_heads == 0
         self.num_queries_per_kv = self.num_heads // self.num_kv_heads
-        self.need_mask = (self.alibi_slopes is not None
-                          or self.sliding_window is not None)
+        self.need_mask = (
+            self.alibi_slopes is not None or self.sliding_window is not None
+        )
 
         supported_head_sizes = PagedAttention.get_supported_head_sizes()
         if head_size not in supported_head_sizes:
             raise ValueError(
                 f"Head size {head_size} is not supported by PagedAttention. "
-                f"Supported head sizes are: {supported_head_sizes}.")
+                f"Supported head sizes are: {supported_head_sizes}."
+            )
         if kv_cache_dtype != "auto":
             raise NotImplementedError(
                 "Torch SDPA backend does not support FP8 KV cache. "
-                "Please use xFormers backend instead.")
+                "Please use xFormers backend instead."
+            )
 
     def forward(
         self,
@@ -339,15 +352,20 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
             shape = [num_tokens, num_heads * head_size]
         """
         assert k_scale == 1.0 and v_scale == 1.0
-        if (attn_type == AttentionType.ENCODER
-                and (not attn_metadata.is_all_encoder_attn_metadata_set)):
-            raise AttributeError("Encoder attention requires setting "
-                                 "encoder metadata attributes.")
-        elif (attn_type == AttentionType.ENCODER_DECODER
-              and (not attn_metadata.is_all_cross_attn_metadata_set)):
-            raise AttributeError("Encoder/decoder cross-attention "
-                                 "requires setting cross-attention "
-                                 "metadata attributes.")
+        if attn_type == AttentionType.ENCODER and (
+            not attn_metadata.is_all_encoder_attn_metadata_set
+        ):
+            raise AttributeError(
+                "Encoder attention requires setting " "encoder metadata attributes."
+            )
+        elif attn_type == AttentionType.ENCODER_DECODER and (
+            not attn_metadata.is_all_cross_attn_metadata_set
+        ):
+            raise AttributeError(
+                "Encoder/decoder cross-attention "
+                "requires setting cross-attention "
+                "metadata attributes."
+            )
 
         # Reshape the query, key, and value tensors.
         query = query.view(-1, self.num_heads, self.head_size)
@@ -358,7 +376,7 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
         else:
             assert value is None
 
-        if (attn_type != AttentionType.ENCODER and kv_cache.numel() > 0):
+        if attn_type != AttentionType.ENCODER and kv_cache.numel() > 0:
             # KV-cache during decoder-self- or
             # encoder-decoder-cross-attention, but not
             # during encoder attention.
@@ -367,7 +385,8 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
             # we still need to break out key_cache and value_cache
             # i.e. for later use by paged attention
             key_cache, value_cache = PagedAttention.split_kv_cache(
-                kv_cache, self.num_kv_heads, self.head_size)
+                kv_cache, self.num_kv_heads, self.head_size
+            )
 
             if (key is not None) and (value is not None):
                 if attn_type == AttentionType.ENCODER_DECODER:
@@ -379,11 +398,16 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
                     # Update self-attention KV cache (prefill/decode)
                     updated_slot_mapping = attn_metadata.slot_mapping
 
-                PagedAttention.write_to_paged_cache(key, value, key_cache,
-                                                    value_cache,
-                                                    updated_slot_mapping,
-                                                    self.kv_cache_dtype,
-                                                    k_scale, v_scale)
+                PagedAttention.write_to_paged_cache(
+                    key,
+                    value,
+                    key_cache,
+                    value_cache,
+                    updated_slot_mapping,
+                    self.kv_cache_dtype,
+                    k_scale,
+                    v_scale,
+                )
 
         if attn_type != AttentionType.ENCODER:
             # Decoder self-attention supports chunked prefill.
@@ -407,17 +431,15 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
 
         if prefill_meta := attn_metadata.prefill_metadata:
             assert attn_metadata.seq_lens is not None
-            if (kv_cache.numel() == 0
-                    or prefill_meta.block_tables.numel() == 0):
-                output = self._run_sdpa_forward(query,
-                                                key,
-                                                value,
-                                                prefill_meta,
-                                                attn_type=attn_type)
+            if kv_cache.numel() == 0 or prefill_meta.block_tables.numel() == 0:
+                output = self._run_sdpa_forward(
+                    query, key, value, prefill_meta, attn_type=attn_type
+                )
             else:
                 # prefix-enabled attention
                 raise RuntimeError(
-                    "Torch SDPA backend doesn't support prefix decoding.")
+                    "Torch SDPA backend doesn't support prefix decoding."
+                )
 
         if decode_meta := attn_metadata.decode_metadata:
             # Decoding run.
@@ -461,13 +483,13 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
         if attn_masks is None:
             if self.alibi_slopes is not None:
                 attn_masks = _make_alibi_bias(
-                    self.alibi_slopes, query.dtype,
-                    attn_metadata.seq_lens)  # type: ignore
+                    self.alibi_slopes, query.dtype, attn_metadata.seq_lens
+                )  # type: ignore
             elif self.sliding_window is not None:
                 assert attn_metadata.seq_lens is not None
                 attn_masks = _make_sliding_window_bias(
-                    attn_metadata.seq_lens, self.sliding_window,
-                    query.dtype)  # type: ignore
+                    attn_metadata.seq_lens, self.sliding_window, query.dtype
+                )  # type: ignore
             else:
                 seq_lens, _ = attn_metadata.get_seq_lens(attn_type)
                 attn_masks = [None] * len(seq_lens)
@@ -478,22 +500,26 @@ class TorchSDPABackendImpl(AttentionImpl[TorchSDPAMetadata]):
         key = key.movedim(0, key.dim() - 2)
         value = value.movedim(0, value.dim() - 2)
 
-        causal_attn = (attn_type == AttentionType.DECODER)
+        causal_attn = attn_type == AttentionType.DECODER
 
         seq_lens_q, seq_lens_kv = attn_metadata.get_seq_lens(attn_type)
         start_q, start_kv = 0, 0
-        for seq_len_q, seq_len_kv, mask in zip(seq_lens_q, seq_lens_kv,
-                                               attn_masks):
+        for seq_len_q, seq_len_kv, mask in zip(seq_lens_q, seq_lens_kv, attn_masks):
             end_q = start_q + seq_len_q
             end_kv = start_kv + seq_len_kv
-            sub_out = scaled_dot_product_attention(
-                query[None, :, start_q:end_q, :],
-                key[None, :, start_kv:end_kv, :],
-                value[None, :, start_kv:end_kv, :],
-                attn_mask=mask,
-                dropout_p=0.0,
-                is_causal=causal_attn and not self.need_mask,
-                scale=self.scale).squeeze(0).movedim(query.dim() - 2, 0)
+            sub_out = (
+                scaled_dot_product_attention(
+                    query[None, :, start_q:end_q, :],
+                    key[None, :, start_kv:end_kv, :],
+                    value[None, :, start_kv:end_kv, :],
+                    attn_mask=mask,
+                    dropout_p=0.0,
+                    is_causal=causal_attn and not self.need_mask,
+                    scale=self.scale,
+                )
+                .squeeze(0)
+                .movedim(query.dim() - 2, 0)
+            )
             output[start_q:end_q, :, :] = sub_out
             start_q, start_kv = end_q, end_kv
         return output
@@ -517,9 +543,11 @@ def _make_alibi_bias(
         num_heads = alibi_slopes.shape[0]
         bias = bias[None, :].repeat((num_heads, 1, 1))
         bias.mul_(alibi_slopes[:, None, None]).unsqueeze_(0)
-        inf_mask = torch.empty(
-            (1, seq_len, seq_len),
-            dtype=bias.dtype).fill_(-torch.inf).triu_(diagonal=1)
+        inf_mask = (
+            torch.empty((1, seq_len, seq_len), dtype=bias.dtype)
+            .fill_(-torch.inf)
+            .triu_(diagonal=1)
+        )
         attn_biases.append((bias + inf_mask).to(dtype))
 
     return attn_biases

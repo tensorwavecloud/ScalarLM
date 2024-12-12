@@ -132,24 +132,25 @@ _ROCM_UNSUPPORTED_MODELS: List[str] = []
 
 # Models partially supported by ROCm.
 # Architecture -> Reason.
-_ROCM_SWA_REASON = ("Sliding window attention (SWA) is not yet supported in "
-                    "Triton flash attention. For half-precision SWA support, "
-                    "please use CK flash attention by setting "
-                    "`VLLM_USE_TRITON_FLASH_ATTN=0`")
+_ROCM_SWA_REASON = (
+    "Sliding window attention (SWA) is not yet supported in "
+    "Triton flash attention. For half-precision SWA support, "
+    "please use CK flash attention by setting "
+    "`VLLM_USE_TRITON_FLASH_ATTN=0`"
+)
 _ROCM_PARTIALLY_SUPPORTED_MODELS: Dict[str, str] = {
-    "Qwen2ForCausalLM":
-    _ROCM_SWA_REASON,
-    "MistralForCausalLM":
-    _ROCM_SWA_REASON,
-    "MixtralForCausalLM":
-    _ROCM_SWA_REASON,
-    "PaliGemmaForConditionalGeneration":
-    ("ROCm flash attention does not yet "
-     "fully support 32-bit precision on PaliGemma"),
-    "Phi3VForCausalLM":
-    ("ROCm Triton flash attention may run into compilation errors due to "
-     "excessive use of shared memory. If this happens, disable Triton FA "
-     "by setting `VLLM_USE_TRITON_FLASH_ATTN=0`")
+    "Qwen2ForCausalLM": _ROCM_SWA_REASON,
+    "MistralForCausalLM": _ROCM_SWA_REASON,
+    "MixtralForCausalLM": _ROCM_SWA_REASON,
+    "PaliGemmaForConditionalGeneration": (
+        "ROCm flash attention does not yet "
+        "fully support 32-bit precision on PaliGemma"
+    ),
+    "Phi3VForCausalLM": (
+        "ROCm Triton flash attention may run into compilation errors due to "
+        "excessive use of shared memory. If this happens, disable Triton FA "
+        "by setting `VLLM_USE_TRITON_FLASH_ATTN=0`"
+    ),
 }
 
 
@@ -186,11 +187,14 @@ class ModelRegistry:
             if model_arch in _ROCM_UNSUPPORTED_MODELS:
                 raise ValueError(
                     f"Model architecture {model_arch} is not supported by "
-                    "ROCm for now.")
+                    "ROCm for now."
+                )
             if model_arch in _ROCM_PARTIALLY_SUPPORTED_MODELS:
                 logger.warning(
                     "Model architecture %s is partially supported by ROCm: %s",
-                    model_arch, _ROCM_PARTIALLY_SUPPORTED_MODELS[model_arch])
+                    model_arch,
+                    _ROCM_PARTIALLY_SUPPORTED_MODELS[model_arch],
+                )
 
         return None
 
@@ -204,7 +208,8 @@ class ModelRegistry:
 
     @staticmethod
     def resolve_model_cls(
-        architectures: Union[str, List[str]], ) -> Tuple[Type[nn.Module], str]:
+        architectures: Union[str, List[str]],
+    ) -> Tuple[Type[nn.Module], str]:
         if isinstance(architectures, str):
             architectures = [architectures]
         if not architectures:
@@ -217,15 +222,15 @@ class ModelRegistry:
 
         raise ValueError(
             f"Model architectures {architectures} are not supported for now. "
-            f"Supported architectures: {ModelRegistry.get_supported_archs()}")
+            f"Supported architectures: {ModelRegistry.get_supported_archs()}"
+        )
 
     @staticmethod
     def get_supported_archs() -> List[str]:
         return list(_MODELS.keys()) + list(_OOT_MODELS.keys())
 
     @staticmethod
-    def register_model(model_arch: str, model_cls: Union[Type[nn.Module],
-                                                         str]):
+    def register_model(model_arch: str, model_cls: Union[Type[nn.Module], str]):
         """
         Register an external model to be used in vLLM.
 
@@ -240,8 +245,10 @@ class ModelRegistry:
         if model_arch in _MODELS:
             logger.warning(
                 "Model architecture %s is already registered, and will be "
-                "overwritten by the new model class %s.", model_arch,
-                model_cls)
+                "overwritten by the new model class %s.",
+                model_arch,
+                model_cls,
+            )
 
         if isinstance(model_cls, str):
             split_str = model_cls.split(":")
@@ -294,14 +301,15 @@ class ModelRegistry:
 
         err_id = uuid.uuid4()
 
-        stmts = ";".join([
-            f"from {mod_name} import {cls_name}",
-            f"from {func.__module__} import {func.__name__}",
-            f"assert {func.__name__}({cls_name}), '{err_id}'",
-        ])
+        stmts = ";".join(
+            [
+                f"from {mod_name} import {cls_name}",
+                f"from {func.__module__} import {func.__name__}",
+                f"assert {func.__name__}({cls_name}), '{err_id}'",
+            ]
+        )
 
-        result = subprocess.run([sys.executable, "-c", stmts],
-                                capture_output=True)
+        result = subprocess.run([sys.executable, "-c", stmts], capture_output=True)
 
         if result.returncode != 0:
             err_lines = [line.decode() for line in result.stderr.splitlines()]
@@ -309,7 +317,8 @@ class ModelRegistry:
                 err_str = "\n".join(err_lines)
                 raise RuntimeError(
                     "An unexpected error occurred while importing the model in "
-                    f"another process. Error log:\n{err_str}")
+                    f"another process. Error log:\n{err_str}"
+                )
 
         return result.returncode == 0
 
@@ -320,9 +329,9 @@ class ModelRegistry:
         if not architectures:
             logger.warning("No model architectures are specified")
 
-        is_txt_gen = partial(ModelRegistry._check_stateless,
-                             is_text_generation_model,
-                             default=False)
+        is_txt_gen = partial(
+            ModelRegistry._check_stateless, is_text_generation_model, default=False
+        )
 
         return any(is_txt_gen(arch) for arch in architectures)
 
@@ -333,9 +342,9 @@ class ModelRegistry:
         if not architectures:
             logger.warning("No model architectures are specified")
 
-        is_emb = partial(ModelRegistry._check_stateless,
-                         is_embedding_model,
-                         default=False)
+        is_emb = partial(
+            ModelRegistry._check_stateless, is_embedding_model, default=False
+        )
 
         return any(is_emb(arch) for arch in architectures)
 
@@ -346,9 +355,9 @@ class ModelRegistry:
         if not architectures:
             logger.warning("No model architectures are specified")
 
-        is_mm = partial(ModelRegistry._check_stateless,
-                        supports_multimodal,
-                        default=False)
+        is_mm = partial(
+            ModelRegistry._check_stateless, supports_multimodal, default=False
+        )
 
         return any(is_mm(arch) for arch in architectures)
 
@@ -359,8 +368,6 @@ class ModelRegistry:
         if not architectures:
             logger.warning("No model architectures are specified")
 
-        is_pp = partial(ModelRegistry._check_stateless,
-                        supports_pp,
-                        default=False)
+        is_pp = partial(ModelRegistry._check_stateless, supports_pp, default=False)
 
         return any(is_pp(arch) for arch in architectures)

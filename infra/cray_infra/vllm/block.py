@@ -1,4 +1,5 @@
 """Token blocks."""
+
 from typing import TYPE_CHECKING, Iterator, List, Optional
 
 from vllm.utils import Device
@@ -29,17 +30,18 @@ class PhysicalTokenBlock:
         self.computed = False
 
     def __repr__(self) -> str:
-        return (f'PhysicalTokenBlock(device={self.device}, '
-                f'block_number={self.block_number}, '
-                f'num_hashed_tokens={self.num_hashed_tokens}, '
-                f'ref_count={self.ref_count}, '
-                f'last_accessed={self.last_accessed}, '
-                f'computed={self.computed})')
+        return (
+            f"PhysicalTokenBlock(device={self.device}, "
+            f"block_number={self.block_number}, "
+            f"num_hashed_tokens={self.num_hashed_tokens}, "
+            f"ref_count={self.ref_count}, "
+            f"last_accessed={self.last_accessed}, "
+            f"computed={self.computed})"
+        )
 
 
 class BlockTable:
-    """Holds a list of blocks with caching of their associated block_ids 
-    """
+    """Holds a list of blocks with caching of their associated block_ids"""
 
     def __init__(self, blocks: Optional[List[PhysicalTokenBlock]] = None):
         self._blocks: List[PhysicalTokenBlock] = []

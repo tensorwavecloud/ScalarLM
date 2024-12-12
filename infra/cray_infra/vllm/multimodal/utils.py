@@ -36,38 +36,42 @@ def fetch_image(image_url: str, *, image_mode: str = "RGB") -> Image.Image:
 
     By default, the image is converted into RGB format.
     """
-    if image_url.startswith('http'):
+    if image_url.startswith("http"):
         image_raw = global_http_connection.get_bytes(
-            image_url, timeout=VLLM_IMAGE_FETCH_TIMEOUT)
+            image_url, timeout=VLLM_IMAGE_FETCH_TIMEOUT
+        )
         image = _load_image_from_bytes(image_raw)
 
-    elif image_url.startswith('data:image'):
+    elif image_url.startswith("data:image"):
         image = _load_image_from_data_url(image_url)
     else:
-        raise ValueError("Invalid 'image_url': A valid 'image_url' must start "
-                         "with either 'data:image' or 'http'.")
+        raise ValueError(
+            "Invalid 'image_url': A valid 'image_url' must start "
+            "with either 'data:image' or 'http'."
+        )
 
     return image.convert(image_mode)
 
 
-async def async_fetch_image(image_url: str,
-                            *,
-                            image_mode: str = "RGB") -> Image.Image:
+async def async_fetch_image(image_url: str, *, image_mode: str = "RGB") -> Image.Image:
     """
     Asynchronously load a PIL image from a HTTP or base64 data URL.
 
     By default, the image is converted into RGB format.
     """
-    if image_url.startswith('http'):
+    if image_url.startswith("http"):
         image_raw = await global_http_connection.async_get_bytes(
-            image_url, timeout=VLLM_IMAGE_FETCH_TIMEOUT)
+            image_url, timeout=VLLM_IMAGE_FETCH_TIMEOUT
+        )
         image = _load_image_from_bytes(image_raw)
 
-    elif image_url.startswith('data:image'):
+    elif image_url.startswith("data:image"):
         image = _load_image_from_data_url(image_url)
     else:
-        raise ValueError("Invalid 'image_url': A valid 'image_url' must start "
-                         "with either 'data:image' or 'http'.")
+        raise ValueError(
+            "Invalid 'image_url': A valid 'image_url' must start "
+            "with either 'data:image' or 'http'."
+        )
 
     return image.convert(image_mode)
 
@@ -77,8 +81,7 @@ def try_import_audio_packages() -> Tuple[Any, Any]:
         import librosa
         import soundfile
     except ImportError:
-        raise ImportError(
-            "Please install vllm[audio] for audio support.") from None
+        raise ImportError("Please install vllm[audio] for audio support.") from None
     return librosa, soundfile
 
 
@@ -90,19 +93,21 @@ def fetch_audio(audio_url: str) -> Tuple[np.ndarray, Union[int, float]]:
 
     if audio_url.startswith("http"):
         audio_bytes = global_http_connection.get_bytes(
-            audio_url, timeout=VLLM_AUDIO_FETCH_TIMEOUT)
+            audio_url, timeout=VLLM_AUDIO_FETCH_TIMEOUT
+        )
     elif audio_url.startswith("data:audio"):
         _, audio_base64 = audio_url.split(",", 1)
         audio_bytes = base64.b64decode(audio_base64)
     else:
-        raise ValueError("Invalid 'audio_url': A valid 'audio_url' must start "
-                         "with either 'data:audio' or 'http'.")
+        raise ValueError(
+            "Invalid 'audio_url': A valid 'audio_url' must start "
+            "with either 'data:audio' or 'http'."
+        )
 
     return librosa.load(BytesIO(audio_bytes), sr=None)
 
 
-async def async_fetch_audio(
-        audio_url: str) -> Tuple[np.ndarray, Union[int, float]]:
+async def async_fetch_audio(audio_url: str) -> Tuple[np.ndarray, Union[int, float]]:
     """
     Asynchronously fetch audio from a URL.
     """
@@ -110,13 +115,16 @@ async def async_fetch_audio(
 
     if audio_url.startswith("http"):
         audio_bytes = await global_http_connection.async_get_bytes(
-            audio_url, timeout=VLLM_AUDIO_FETCH_TIMEOUT)
+            audio_url, timeout=VLLM_AUDIO_FETCH_TIMEOUT
+        )
     elif audio_url.startswith("data:audio"):
         _, audio_base64 = audio_url.split(",", 1)
         audio_bytes = base64.b64decode(audio_base64)
     else:
-        raise ValueError("Invalid 'audio_url': A valid 'audio_url' must start "
-                         "with either 'data:audio' or 'http'.")
+        raise ValueError(
+            "Invalid 'audio_url': A valid 'audio_url' must start "
+            "with either 'data:audio' or 'http'."
+        )
 
     return librosa.load(BytesIO(audio_bytes), sr=None)
 
@@ -151,7 +159,7 @@ def encode_audio_base64(
     buffered = BytesIO()
     soundfile.write(buffered, audio, sampling_rate, format="WAV")
 
-    return base64.b64encode(buffered.getvalue()).decode('utf-8')
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
 def encode_image_base64(
@@ -168,7 +176,7 @@ def encode_image_base64(
     buffered = BytesIO()
     image = image.convert(image_mode)
     image.save(buffered, format)
-    return base64.b64encode(buffered.getvalue()).decode('utf-8')
+    return base64.b64encode(buffered.getvalue()).decode("utf-8")
 
 
 def load_image_from_base64(image: Union[bytes, str]) -> Image.Image:
@@ -176,9 +184,9 @@ def load_image_from_base64(image: Union[bytes, str]) -> Image.Image:
     return _load_image_from_bytes(base64.b64decode(image))
 
 
-def rescale_image_size(image: Image.Image,
-                       size_factor: float,
-                       transpose: int = -1) -> Image.Image:
+def rescale_image_size(
+    image: Image.Image, size_factor: float, transpose: int = -1
+) -> Image.Image:
     """Rescale the dimensions of an image by a constant factor."""
     new_width = int(image.width * size_factor)
     new_height = int(image.height * size_factor)
@@ -192,8 +200,7 @@ def try_import_video_packages() -> Any:
     try:
         import cv2
     except ImportError:
-        raise ImportError(
-            "Please install vllm[video] for video support.") from None
+        raise ImportError("Please install vllm[video] for video support.") from None
     return cv2
 
 
@@ -202,8 +209,9 @@ def resize_video(frames: npt.NDArray, size: Tuple[int, int]) -> npt.NDArray:
 
     num_frames, _, _, channels = frames.shape
     new_height, new_width = size
-    resized_frames = np.empty((num_frames, new_height, new_width, channels),
-                              dtype=frames.dtype)
+    resized_frames = np.empty(
+        (num_frames, new_height, new_width, channels), dtype=frames.dtype
+    )
     for i, frame in enumerate(frames):
         resized_frame = cv2.resize(frame, (new_width, new_height))
         resized_frames[i] = resized_frame
@@ -218,8 +226,7 @@ def rescale_video_size(frames: npt.NDArray, size_factor: float) -> npt.NDArray:
     return resize_video(frames, (new_height, new_width))
 
 
-def sample_frames_from_video(frames: npt.NDArray,
-                             num_frames: int) -> npt.NDArray:
+def sample_frames_from_video(frames: npt.NDArray, num_frames: int) -> npt.NDArray:
     total_frames = frames.shape[0]
     if num_frames == -1:
         return frames
@@ -266,10 +273,12 @@ def repeat_and_pad_placeholder_tokens(
         new_prompt = None
     else:
         placeholder_token_str = tokenizer.decode(placeholder_token_id)
-        pad_token_str_left = (None if pad_token_left is None else
-                              tokenizer.decode(pad_token_left))
-        pad_token_str_right = (None if pad_token_right is None else
-                               tokenizer.decode(pad_token_right))
+        pad_token_str_left = (
+            None if pad_token_left is None else tokenizer.decode(pad_token_left)
+        )
+        pad_token_str_right = (
+            None if pad_token_right is None else tokenizer.decode(pad_token_right)
+        )
 
         placeholder_token_count = prompt.count(placeholder_token_str)
         # This is an arbitrary number to distinguish between the two cases
@@ -277,16 +286,18 @@ def repeat_and_pad_placeholder_tokens(
             logger.warning(
                 "Please follow the prompt format that is "
                 "documented on HuggingFace which does not involve "
-                "repeating %s tokens.", placeholder_token_str)
+                "repeating %s tokens.",
+                placeholder_token_str,
+            )
         if placeholder_token_count < len(repeat_count):
             logger.warning(
                 "The number of multi-modal placeholder tokens in the prompt "
                 "is less than the number of multi-modal inputs. Extra "
-                "placeholder tokens will be treated as plain text")
+                "placeholder tokens will be treated as plain text"
+            )
             repeat_count = repeat_count[:placeholder_token_count]
 
-        prompt_parts = prompt.split(placeholder_token_str,
-                                    maxsplit=len(repeat_count))
+        prompt_parts = prompt.split(placeholder_token_str, maxsplit=len(repeat_count))
         new_prompt = ""
         for i, repeat_count_item in enumerate(repeat_count):
             replacement_str = "".join(
@@ -295,7 +306,8 @@ def repeat_and_pad_placeholder_tokens(
                     repeat_count=repeat_count_item,
                     pad_token_left=pad_token_str_left,
                     pad_token_right=pad_token_str_right,
-                ))
+                )
+            )
             # The image tokens are removed to be consistent with HuggingFace
             new_prompt += prompt_parts[i] + replacement_str
         new_prompt += prompt_parts[-1]
@@ -315,7 +327,7 @@ def repeat_and_pad_placeholder_tokens(
 
             # No need to further scan the list since we replaced all tokens
             if placeholder_token_idx >= len(repeat_count):
-                new_token_ids.extend(prompt_token_ids[i + 1:])
+                new_token_ids.extend(prompt_token_ids[i + 1 :])
                 break
         else:
             new_token_ids.append(token)

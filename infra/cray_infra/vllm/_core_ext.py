@@ -7,7 +7,7 @@ import torch
 from vllm.logger import init_logger
 
 logger = init_logger(__name__)
-core_C_available = importlib.util.find_spec('._core_C', 'vllm') is not None
+core_C_available = importlib.util.find_spec("._core_C", "vllm") is not None
 
 
 # Mirrors enum in `core/scalar_type.hpp`
@@ -127,8 +127,9 @@ if TYPE_CHECKING or not core_C_available:
             If the type is a floating point type that follows IEEE 754
             conventions
             """
-            return self.nan_repr == NanRepr.IEEE_754.value and \
-                not self._finite_values_only
+            return (
+                self.nan_repr == NanRepr.IEEE_754.value and not self._finite_values_only
+            )
 
         def __str__(self) -> str:
             raise NotImplementedError
@@ -146,17 +147,17 @@ if TYPE_CHECKING or not core_C_available:
         #
 
         @classmethod
-        def int_(cls, size_bits: int, bias: Optional[int]) -> 'ScalarType':
+        def int_(cls, size_bits: int, bias: Optional[int]) -> "ScalarType":
             "Create a signed integer scalar type (size_bits includes sign-bit)."
             return cls(size_bits - 1, size_bits, bias if bias else 0, True)
 
         @classmethod
-        def uint(cls, size_bits: int, bias: Optional[int]) -> 'ScalarType':
+        def uint(cls, size_bits: int, bias: Optional[int]) -> "ScalarType":
             """Create a unsigned integer scalar type."""
             return cls(size_bits, size_bits, bias if bias else 0, False)
 
         @classmethod
-        def float_IEEE754(cls, exponent: int, mantissa: int) -> 'ScalarType':
+        def float_IEEE754(cls, exponent: int, mantissa: int) -> "ScalarType":
             """
             Create a standard floating point type
             (i.e. follows IEEE 754 conventions).
@@ -164,14 +165,14 @@ if TYPE_CHECKING or not core_C_available:
             return cls(exponent, mantissa, 0, True)
 
         @classmethod
-        def float_(cls, exponent: int, mantissa: int, finite_values_only: bool,
-                   nan_repr: int) -> 'ScalarType':
+        def float_(
+            cls, exponent: int, mantissa: int, finite_values_only: bool, nan_repr: int
+        ) -> "ScalarType":
             """
             Create a non-standard floating point type
             (i.e. does not follow IEEE 754 conventions).
             """
-            return cls(exponent, mantissa, 0, True, finite_values_only,
-                       nan_repr)
+            return cls(exponent, mantissa, 0, True, finite_values_only, nan_repr)
 
 elif core_C_available:
     try:
@@ -181,8 +182,7 @@ elif core_C_available:
 
     ScalarType = torch.classes._core_C.ScalarType
 
-    if (hasattr(torch, "_library")
-            and hasattr(torch._library, "register_fake_class")):
+    if hasattr(torch, "_library") and hasattr(torch._library, "register_fake_class"):
         # Needed for dynamo support of ScalarType.
         @torch._library.register_fake_class("_core_C::ScalarType")
         class FakeScalarType:
@@ -246,33 +246,36 @@ elif core_C_available:
                 return self.ScalarType.__len__()
 
             def __obj_flatten__(self) -> Tuple[Tuple[str, Any], ...]:
-                return torch.classes._core_C.ScalarType.__obj_flatten__(
-                    self.ScalarType)
+                return torch.classes._core_C.ScalarType.__obj_flatten__(self.ScalarType)
 
             @classmethod
             def __obj_unflatten__(
-                    cls, flat_type: Tuple[Tuple[str, Any],
-                                          ...]) -> 'ScalarType':
+                cls, flat_type: Tuple[Tuple[str, Any], ...]
+            ) -> "ScalarType":
                 return cls(
-                    torch.classes._core_C.ScalarType.__obj_unflatten__(
-                        flat_type))
+                    torch.classes._core_C.ScalarType.__obj_unflatten__(flat_type)
+                )
 
             @classmethod
-            def int_(cls, size_bits: int, bias: Optional[int]) -> 'ScalarType':
+            def int_(cls, size_bits: int, bias: Optional[int]) -> "ScalarType":
                 return ScalarType.int_(size_bits, bias)
 
             @classmethod
-            def uint(cls, size_bits: int, bias: Optional[int]) -> 'ScalarType':
+            def uint(cls, size_bits: int, bias: Optional[int]) -> "ScalarType":
                 return ScalarType.uint(size_bits, bias)
 
             @classmethod
-            def float_IEEE754(cls, exponent: int,
-                              mantissa: int) -> 'ScalarType':
+            def float_IEEE754(cls, exponent: int, mantissa: int) -> "ScalarType":
                 return ScalarType.float_IEEE754(exponent, mantissa)
 
             @classmethod
-            def float_(cls, exponent: int, mantissa: int,
-                       finite_values_only: bool,
-                       nan_repr: int) -> 'ScalarType':
-                return ScalarType.float_(exponent, mantissa,
-                                         finite_values_only, nan_repr)
+            def float_(
+                cls,
+                exponent: int,
+                mantissa: int,
+                finite_values_only: bool,
+                nan_repr: int,
+            ) -> "ScalarType":
+                return ScalarType.float_(
+                    exponent, mantissa, finite_values_only, nan_repr
+                )

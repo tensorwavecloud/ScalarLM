@@ -15,13 +15,13 @@ from .interfaces import SupportsPP
 class Gemma2EmbeddingModel(nn.Module, SupportsPP):
     """A model that uses Gemma2 with additional embedding functionalities.
 
-   This class encapsulates the Gemma2Model and provides an interface for
-   embedding operations and customized pooling functions.
+    This class encapsulates the Gemma2Model and provides an interface for
+    embedding operations and customized pooling functions.
 
-   Attributes:
-       model: An instance of Gemma2Model used for forward operations.
-       _pooler: An instance of Pooler used for pooling operations.
-   """
+    Attributes:
+        model: An instance of Gemma2Model used for forward operations.
+        _pooler: An instance of Pooler used for pooling operations.
+    """
 
     def __init__(
         self,
@@ -32,7 +32,8 @@ class Gemma2EmbeddingModel(nn.Module, SupportsPP):
         self._pooler = Pooler(pooling_type=PoolingType.LAST, normalize=True)
 
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -43,8 +44,14 @@ class Gemma2EmbeddingModel(nn.Module, SupportsPP):
         intermediate_tensors: Optional[IntermediateTensors] = None,
         inputs_embeds: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        return self.model(input_ids, positions, kv_caches, attn_metadata,
-                          intermediate_tensors, inputs_embeds)
+        return self.model(
+            input_ids,
+            positions,
+            kv_caches,
+            attn_metadata,
+            intermediate_tensors,
+            inputs_embeds,
+        )
 
     def pooler(
         self,

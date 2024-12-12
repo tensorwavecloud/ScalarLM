@@ -1,5 +1,16 @@
-from typing import (TYPE_CHECKING, ClassVar, Dict, List, Literal, Optional,
-                    Protocol, Type, Union, overload, runtime_checkable)
+from typing import (
+    TYPE_CHECKING,
+    ClassVar,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Protocol,
+    Type,
+    Union,
+    overload,
+    runtime_checkable,
+)
 
 import torch
 from typing_extensions import TypeIs
@@ -27,8 +38,7 @@ class SupportsMultiModal(Protocol):
         MRO of your model class.
     """
 
-    def __init__(self, *, multimodal_config: "MultiModalConfig") -> None:
-        ...
+    def __init__(self, *, multimodal_config: "MultiModalConfig") -> None: ...
 
 
 # We can't use runtime_checkable with ClassVar for issubclass checks
@@ -37,19 +47,15 @@ class SupportsMultiModal(Protocol):
 class _SupportsMultiModalType(Protocol):
     supports_multimodal: Literal[True]
 
-    def __call__(self, *, multimodal_config: "MultiModalConfig") -> None:
-        ...
+    def __call__(self, *, multimodal_config: "MultiModalConfig") -> None: ...
 
 
 @overload
-def supports_multimodal(
-        model: Type[object]) -> TypeIs[Type[SupportsMultiModal]]:
-    ...
+def supports_multimodal(model: Type[object]) -> TypeIs[Type[SupportsMultiModal]]: ...
 
 
 @overload
-def supports_multimodal(model: object) -> TypeIs[SupportsMultiModal]:
-    ...
+def supports_multimodal(model: object) -> TypeIs[SupportsMultiModal]: ...
 
 
 def supports_multimodal(
@@ -80,8 +86,7 @@ class SupportsLoRA(Protocol):
     embedding_padding_modules: ClassVar[List[str]]
 
     # lora_config is None when LoRA is not enabled
-    def __init__(self, *, lora_config: Optional["LoRAConfig"] = None) -> None:
-        ...
+    def __init__(self, *, lora_config: Optional["LoRAConfig"] = None) -> None: ...
 
 
 # We can't use runtime_checkable with ClassVar for issubclass checks
@@ -95,18 +100,15 @@ class _SupportsLoRAType(Protocol):
     embedding_modules: Dict[str, str]
     embedding_padding_modules: List[str]
 
-    def __call__(self, *, lora_config: Optional["LoRAConfig"] = None) -> None:
-        ...
+    def __call__(self, *, lora_config: Optional["LoRAConfig"] = None) -> None: ...
 
 
 @overload
-def supports_lora(model: Type[object]) -> TypeIs[Type[SupportsLoRA]]:
-    ...
+def supports_lora(model: Type[object]) -> TypeIs[Type[SupportsLoRA]]: ...
 
 
 @overload
-def supports_lora(model: object) -> TypeIs[SupportsLoRA]:
-    ...
+def supports_lora(model: object) -> TypeIs[SupportsLoRA]: ...
 
 
 def supports_lora(
@@ -121,8 +123,7 @@ def supports_lora(
             "embedding_modules",
             "embedding_padding_modules",
         )
-        missing_attrs = tuple(attr for attr in lora_attrs
-                              if not hasattr(model, attr))
+        missing_attrs = tuple(attr for attr in lora_attrs if not hasattr(model, attr))
 
         if getattr(model, "supports_lora", False):
             if missing_attrs:
@@ -136,7 +137,9 @@ def supports_lora(
             if not missing_attrs:
                 logger.warning(
                     "The model (%s) contains all LoRA-specific attributes, "
-                    "but does not set `supports_lora=True`.", model)
+                    "but does not set `supports_lora=True`.",
+                    model,
+                )
 
     return result
 
@@ -194,25 +197,21 @@ class _SupportsPPType(Protocol):
         batch_size: int,
         dtype: torch.dtype,
         device: torch.device,
-    ) -> "IntermediateTensors":
-        ...
+    ) -> "IntermediateTensors": ...
 
     def forward(
         self,
         *,
         intermediate_tensors: Optional["IntermediateTensors"],
-    ) -> Union[torch.Tensor, "IntermediateTensors"]:
-        ...
+    ) -> Union[torch.Tensor, "IntermediateTensors"]: ...
 
 
 @overload
-def supports_pp(model: Type[object]) -> TypeIs[Type[SupportsPP]]:
-    ...
+def supports_pp(model: Type[object]) -> TypeIs[Type[SupportsPP]]: ...
 
 
 @overload
-def supports_pp(model: object) -> TypeIs[SupportsPP]:
-    ...
+def supports_pp(model: object) -> TypeIs[SupportsPP]: ...
 
 
 def supports_pp(
@@ -224,12 +223,13 @@ def supports_pp(
     if supports_attributes and not supports_inspect:
         logger.warning(
             "The model (%s) sets `supports_pp=True`, but does not accept "
-            "`intermediate_tensors` in its `forward` method", model)
+            "`intermediate_tensors` in its `forward` method",
+            model,
+        )
 
     if not supports_attributes:
-        pp_attrs = ("make_empty_intermediate_tensors", )
-        missing_attrs = tuple(attr for attr in pp_attrs
-                              if not hasattr(model, attr))
+        pp_attrs = ("make_empty_intermediate_tensors",)
+        missing_attrs = tuple(attr for attr in pp_attrs if not hasattr(model, attr))
 
         if getattr(model, "supports_pp", False):
             if missing_attrs:
@@ -243,7 +243,9 @@ def supports_pp(
             if not missing_attrs:
                 logger.warning(
                     "The model (%s) contains all PP-specific attributes, "
-                    "but does not set `supports_pp=True`.", model)
+                    "but does not set `supports_pp=True`.",
+                    model,
+                )
 
     return supports_attributes and supports_inspect
 
@@ -274,30 +276,26 @@ class HasInnerState(Protocol):
         for max_num_seqs ,etc... (Currently only used by Jamba)
     """
 
-    def __init__(self,
-                 *,
-                 scheduler_config: Optional["SchedulerConfig"] = None) -> None:
-        ...
+    def __init__(
+        self, *, scheduler_config: Optional["SchedulerConfig"] = None
+    ) -> None: ...
 
 
 @runtime_checkable
 class _HasInnerStateType(Protocol):
     has_inner_state: ClassVar[Literal[True]]
 
-    def __init__(self,
-                 *,
-                 scheduler_config: Optional["SchedulerConfig"] = None) -> None:
-        ...
+    def __init__(
+        self, *, scheduler_config: Optional["SchedulerConfig"] = None
+    ) -> None: ...
 
 
 @overload
-def has_inner_state(model: object) -> TypeIs[HasInnerState]:
-    ...
+def has_inner_state(model: object) -> TypeIs[HasInnerState]: ...
 
 
 @overload
-def has_inner_state(model: Type[object]) -> TypeIs[Type[HasInnerState]]:
-    ...
+def has_inner_state(model: Type[object]) -> TypeIs[Type[HasInnerState]]: ...
 
 
 def has_inner_state(

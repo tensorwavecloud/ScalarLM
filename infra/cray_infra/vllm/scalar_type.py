@@ -17,8 +17,7 @@ class scalar_types:
     uint4 = ScalarType.uint(4, None)
     int8 = ScalarType.int_(8, None)
     uint8 = ScalarType.uint(8, None)
-    float8_e4m3fn = ScalarType.float_(4, 3, True,
-                                      NanRepr.EXTD_RANGE_MAX_MIN.value)
+    float8_e4m3fn = ScalarType.float_(4, 3, True, NanRepr.EXTD_RANGE_MAX_MIN.value)
     float8_e5m2 = ScalarType.float_IEEE754(5, 2)
     float16_e8m7 = ScalarType.float_IEEE754(8, 7)
     float16_e5m10 = ScalarType.float_IEEE754(5, 10)

@@ -1,4 +1,5 @@
 """An OpenVINO worker class."""
+
 from typing import Any, Dict, List, Optional, Tuple
 
 import openvino as ov
@@ -7,12 +8,21 @@ import torch.distributed
 
 import vllm.envs as envs
 from vllm.attention import get_attn_backend
-from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, LoRAConfig,
-                         ModelConfig, MultiModalConfig, ParallelConfig,
-                         SchedulerConfig)
-from vllm.distributed import (broadcast_tensor_dict,
-                              ensure_model_parallel_initialized,
-                              init_distributed_environment)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    LoadConfig,
+    LoRAConfig,
+    ModelConfig,
+    MultiModalConfig,
+    ParallelConfig,
+    SchedulerConfig,
+)
+from vllm.distributed import (
+    broadcast_tensor_dict,
+    ensure_model_parallel_initialized,
+    init_distributed_environment,
+)
 from vllm.executor.openvino_executor import is_openvino_cpu
 from vllm.inputs import INPUT_REGISTRY
 from vllm.logger import init_logger
@@ -50,8 +60,10 @@ class OpenVINOCacheEngine:
         self.parallel_config = parallel_config
 
         self.head_size = model_config.get_head_size()
-        if device_config.device.type == "cpu" and \
-            cache_config.cache_dtype == ov.Type.u8:
+        if (
+            device_config.device.type == "cpu"
+            and cache_config.cache_dtype == ov.Type.u8
+        ):
             # Scale, zero point and quantized data will be stored together.
             # The layout for per token per head:
             # |scale(f32)|zeropoint(f32)|quantized data(u8,idx_1)|quantized data(u8,idx_2)|...|quantized data(u8,idx_head_size)| # noqa: E501
@@ -80,15 +92,14 @@ class OpenVINOCacheEngine:
         )
 
         # Initialize the cache.
-        self.kv_cache: List[Tuple[ov.Tensor,
-                                  ov.Tensor]] = self._allocate_kv_cache(
-                                      self.num_device_blocks, ov_core,
-                                      ov_device)
+        self.kv_cache: List[Tuple[ov.Tensor, ov.Tensor]] = self._allocate_kv_cache(
+            self.num_device_blocks, ov_core, ov_device
+        )
 
         # Initialize the swap.
-        self.swap_cache: List[Tuple[ov.Tensor,
-                                    ov.Tensor]] = self._allocate_swap_cache(
-                                        self.num_swap_blocks, ov_device)
+        self.swap_cache: List[Tuple[ov.Tensor, ov.Tensor]] = self._allocate_swap_cache(
+            self.num_swap_blocks, ov_device
+        )
 
     def _allocate_kv_cache(
         self,
@@ -98,33 +109,34 @@ class OpenVINOCacheEngine:
     ) -> List[Tuple[ov.Tensor, ov.Tensor]]:
         """Allocates KV cache."""
         k_block_shape = v_block_shape = self.attn_backend.get_kv_cache_shape(
-            num_blocks, self.block_size, self.num_kv_heads, self.head_size)[1:]
+            num_blocks, self.block_size, self.num_kv_heads, self.head_size
+        )[1:]
         kv_cache: List[Tuple[ov.Tensor, ov.Tensor]] = []
 
         if is_openvino_cpu():
             for _ in range(self.num_layers):
-                key_blocks = ov.Tensor(self.cache_config.cache_dtype,
-                                       k_block_shape)
-                value_blocks = ov.Tensor(self.cache_config.cache_dtype,
-                                         v_block_shape)
+                key_blocks = ov.Tensor(self.cache_config.cache_dtype, k_block_shape)
+                value_blocks = ov.Tensor(self.cache_config.cache_dtype, v_block_shape)
                 kv_cache.append((key_blocks, value_blocks))
         else:
             # Update key_cache shape:
-            k_block_shape = (v_block_shape[0], v_block_shape[1],
-                             v_block_shape[3], v_block_shape[2])
+            k_block_shape = (
+                v_block_shape[0],
+                v_block_shape[1],
+                v_block_shape[3],
+                v_block_shape[2],
+            )
 
             remote_context = ov_core.get_default_context(ov_device)
 
             for _ in range(self.num_layers):
-                key_blocks = \
-                    remote_context.create_tensor(self.cache_config.cache_dtype,
-                                                 ov.Shape(k_block_shape),
-                                                 {})
+                key_blocks = remote_context.create_tensor(
+                    self.cache_config.cache_dtype, ov.Shape(k_block_shape), {}
+                )
 
-                value_blocks = \
-                    remote_context.create_tensor(self.cache_config.cache_dtype,
-                                                 ov.Shape(v_block_shape),
-                                                 {})
+                value_blocks = remote_context.create_tensor(
+                    self.cache_config.cache_dtype, ov.Shape(v_block_shape), {}
+                )
 
                 kv_cache.append((key_blocks, value_blocks))
 
@@ -137,44 +149,42 @@ class OpenVINOCacheEngine:
     ) -> List[Tuple[ov.Tensor, ov.Tensor]]:
         """Allocates swap cache."""
         k_block_shape = v_block_shape = self.attn_backend.get_kv_cache_shape(
-            num_blocks, self.block_size, self.num_kv_heads, self.head_size)[1:]
+            num_blocks, self.block_size, self.num_kv_heads, self.head_size
+        )[1:]
         swap_cache: List[Tuple[ov.Tensor, ov.Tensor]] = []
 
         if num_blocks == 0:
             return swap_cache
 
-        assert not is_openvino_cpu(), \
-            "CPU device isn't supposed to have swap cache"
+        assert not is_openvino_cpu(), "CPU device isn't supposed to have swap cache"
 
         # Update key_cache shape:
-        k_block_shape = (v_block_shape[0], v_block_shape[1], v_block_shape[3],
-                         v_block_shape[2])
+        k_block_shape = (
+            v_block_shape[0],
+            v_block_shape[1],
+            v_block_shape[3],
+            v_block_shape[2],
+        )
 
         for _ in range(self.num_layers):
-            key_blocks = ov.Tensor(self.cache_config.cache_dtype,
-                                   k_block_shape)
-            value_blocks = ov.Tensor(self.cache_config.cache_dtype,
-                                     v_block_shape)
+            key_blocks = ov.Tensor(self.cache_config.cache_dtype, k_block_shape)
+            value_blocks = ov.Tensor(self.cache_config.cache_dtype, v_block_shape)
             swap_cache.append((key_blocks, value_blocks))
 
         return swap_cache
 
     def swap_in(self, src_to_dst: List[Tuple[int, int]]) -> None:
         for i in range(self.num_layers):
-            for swap_tensor, kv_tensor in zip(self.swap_cache[i],
-                                              self.kv_cache[i]):
-                self.attn_backend.swap_blocks(swap_tensor, kv_tensor,
-                                              src_to_dst)
+            for swap_tensor, kv_tensor in zip(self.swap_cache[i], self.kv_cache[i]):
+                self.attn_backend.swap_blocks(swap_tensor, kv_tensor, src_to_dst)
 
     def swap_out(self, src_to_dst: List[Tuple[int, int]]) -> None:
         for i in range(self.num_layers):
-            for swap_tensor, kv_tensor in zip(self.swap_cache[i],
-                                              self.kv_cache[i]):
-                self.attn_backend.swap_blocks(kv_tensor, swap_tensor,
-                                              src_to_dst)
+            for swap_tensor, kv_tensor in zip(self.swap_cache[i], self.kv_cache[i]):
+                self.attn_backend.swap_blocks(kv_tensor, swap_tensor, src_to_dst)
 
     def copy(self, src_to_dsts: List[Tuple[int, int]]) -> None:
-        if (len(src_to_dsts) > 0):
+        if len(src_to_dsts) > 0:
             self.attn_backend.copy_blocks(self.kv_cache, src_to_dsts)
 
     @staticmethod
@@ -292,9 +302,11 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
             num_swap_blocks = 0
         else:
             if kvcache_space_bytes > 0:
-                logger.info("KV_CACHE size was explicitly configured via "
-                            "VLLM_OPENVINO_KVCACHE_SPACE environment "
-                            "variable, ignoring profiling run.")
+                logger.info(
+                    "KV_CACHE size was explicitly configured via "
+                    "VLLM_OPENVINO_KVCACHE_SPACE environment "
+                    "variable, ignoring profiling run."
+                )
                 kv_cache_size = kvcache_space_bytes
             else:
                 try:
@@ -304,16 +316,17 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
                         "The error occurred during profile run. This might be "
                         "due to insufficient GPU memory. Consider decreasing "
                         "`max_model_len` to limit the maximum simultaneously "
-                        "processed tokens.") from err
+                        "processed tokens."
+                    ) from err
 
             num_device_blocks = int(kv_cache_size // cache_block_size)
-            num_swap_blocks = int(self.cache_config.swap_space_bytes //
-                                  cache_block_size)
+            num_swap_blocks = int(
+                self.cache_config.swap_space_bytes // cache_block_size
+            )
 
         return num_device_blocks, num_swap_blocks
 
-    def initialize_cache(self, num_gpu_blocks: int,
-                         num_cpu_blocks: int) -> None:
+    def initialize_cache(self, num_gpu_blocks: int, num_cpu_blocks: int) -> None:
         """Initialize the KV cache. Swappable CPU memory is only
         supported on GPU.
 
@@ -325,8 +338,9 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
         num_swap_blocks = num_cpu_blocks
 
         if is_openvino_cpu():
-            assert (num_swap_blocks == 0
-                    ), f"{type(self)} does not support swappable cache for CPU"
+            assert (
+                num_swap_blocks == 0
+            ), f"{type(self)} does not support swappable cache for CPU"
 
         self._validate_num_blocks(num_device_blocks)
         self.cache_config.num_gpu_blocks = num_device_blocks
@@ -341,7 +355,8 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
             raise ValueError(
                 "No available memory for the cache blocks. "
                 "Try increasing `VLLM_OPENVINO_KVCACHE_SPACE` when "
-                "initializing the engine.")
+                "initializing the engine."
+            )
 
         max_seq_len = self.cache_config.block_size * num_blocks
         if self.model_config.max_model_len > max_seq_len:
@@ -350,7 +365,8 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
                 "is larger than the maximum number of tokens that can be "
                 f"stored in KV cache ({max_seq_len}). Try increasing "
                 "`VLLM_OPENVINO_KVCACHE_SPACE` or decreasing `max_model_len` "
-                "when initializing the engine.")
+                "when initializing the engine."
+            )
 
     def _init_cache_engine(self) -> None:
         ov_device = envs.VLLM_OPENVINO_DEVICE
@@ -429,8 +445,7 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
         if num_seq_groups == 0:
             return []
 
-        output = self.model_runner.execute_model(seq_group_metadata_list,
-                                                 self.kv_cache)
+        output = self.model_runner.execute_model(seq_group_metadata_list, self.kv_cache)
 
         # OpenVINO worker only supports single-step execution.
         return [output]
@@ -468,8 +483,7 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
     def profile_run(self) -> int:
         ov_device = envs.VLLM_OPENVINO_DEVICE
 
-        assert not is_openvino_cpu(), \
-            "CPU device isn't supposed to use profile run."
+        assert not is_openvino_cpu(), "CPU device isn't supposed to use profile run."
 
         import openvino.properties.device as device
         import openvino.properties.intel_gpu as intel_gpu
@@ -489,34 +503,42 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
             top_k = model_config.get_vocab_size() - 1
             sampling_params = SamplingParams(top_p=0.99, top_k=top_k)
 
-            max_num_batched_tokens = \
-                self.scheduler_config.max_num_batched_tokens
+            max_num_batched_tokens = self.scheduler_config.max_num_batched_tokens
             max_num_seqs = self.scheduler_config.max_num_seqs
-            tmp_cache_config = CacheConfig(cache_config.block_size,
-                                           cache_config.gpu_memory_utilization,
-                                           cache_config.swap_space_bytes,
-                                           "auto")
+            tmp_cache_config = CacheConfig(
+                cache_config.block_size,
+                cache_config.gpu_memory_utilization,
+                cache_config.swap_space_bytes,
+                "auto",
+            )
             tmp_cache_config.num_gpu_blocks = 1
             tmp_cache_config.num_cpu_blocks = 0
             tmp_cache_config.cache_dtype = cache_config.cache_dtype
 
             profiling_cache_engine = OpenVINOCacheEngine(
-                tmp_cache_config, model_config, parallel_config, device_config,
-                ov_core, ov_device)
+                tmp_cache_config,
+                model_config,
+                parallel_config,
+                device_config,
+                ov_core,
+                ov_device,
+            )
 
             # Profile memory usage with max_num_sequences sequences and the
             # total # number of tokens equal to max_num_batched_tokens.
             seqs: List[SequenceGroupMetadata] = []
             for group_id in range(max_num_seqs):
-                seq_len = (max_num_batched_tokens // max_num_seqs +
-                           (group_id < max_num_batched_tokens % max_num_seqs))
+                seq_len = max_num_batched_tokens // max_num_seqs + (
+                    group_id < max_num_batched_tokens % max_num_seqs
+                )
                 block_size = cache_config.block_size
                 seq_num_blocks = (seq_len + block_size - 1) // block_size
 
-                seq_data, dummy_multi_modal_data = input_registry \
-                    .dummy_data_for_profiling(model_config,
-                                              seq_len,
-                                              mm_registry)
+                seq_data, dummy_multi_modal_data = (
+                    input_registry.dummy_data_for_profiling(
+                        model_config, seq_len, mm_registry
+                    )
+                )
 
                 block_tables = [[0] * seq_num_blocks] * max_num_seqs
                 seq = SequenceGroupMetadata(
@@ -526,14 +548,14 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
                     sampling_params=sampling_params,
                     block_tables=block_tables,
                     lora_request=None,
-                    multi_modal_data=dummy_multi_modal_data)
+                    multi_modal_data=dummy_multi_modal_data,
+                )
                 seqs.append(seq)
 
             self.model_runner.block_size = tmp_cache_config.block_size
 
             # Run the model with the dummy inputs.
-            self.model_runner.execute_model(seqs,
-                                            profiling_cache_engine.kv_cache)
+            self.model_runner.execute_model(seqs, profiling_cache_engine.kv_cache)
 
             # explicitly delete temporary KV cache manager to free KV cache
             # when real inputs will be passed to OV
@@ -541,17 +563,17 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
 
             logger.info(
                 "Start profiling run with dummy inputs to evaluate "
-                "memory usage for %s. It might take a while.", ov_device)
+                "memory usage for %s. It might take a while.",
+                ov_device,
+            )
 
         model_profile_run()
 
         gpu_device_type = ov_core.get_property(ov_device, device.type)
-        memory_statistics = \
-            ov_core.get_property(ov_device, intel_gpu.memory_statistics)
+        memory_statistics = ov_core.get_property(ov_device, intel_gpu.memory_statistics)
         memory_utilization = cache_config.gpu_memory_utilization
 
-        if gpu_device_type == device.Type.INTEGRATED and \
-            memory_utilization >= 0.9:
+        if gpu_device_type == device.Type.INTEGRATED and memory_utilization >= 0.9:
             logger.warning(
                 "iGPU is used with high gpu_memory_utilization=%f "
                 "value. This may cause low performance due to "
@@ -559,12 +581,15 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
                 "memory. Please consider decreasing "
                 "gpu_memory_utilization or explicitly setting"
                 "`VLLM_OPENVINO_KVCACHE_SPACE` (GB) environment "
-                "variable.", memory_utilization)
+                "variable.",
+                memory_utilization,
+            )
 
         # sum up all used device memory
         device_memory_types = ["cl_mem", "usm_device"]
-        used_device_mem = \
-            sum(memory_statistics.get(key, 0) for key in device_memory_types)
+        used_device_mem = sum(
+            memory_statistics.get(key, 0) for key in device_memory_types
+        )
 
         if gpu_device_type == device.Type.INTEGRATED:
             used_device_mem += memory_statistics.get("usm_host", 0)
@@ -575,8 +600,9 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
         used_memory_threshold = 1.1
         used_device_mem *= used_memory_threshold
 
-        total_device_memory = \
-            ov_core.get_property(ov_device, intel_gpu.device_total_mem_size)
+        total_device_memory = ov_core.get_property(
+            ov_device, intel_gpu.device_total_mem_size
+        )
 
         def format_memory_size(size) -> str:
             units = ["B", "KB", "MB", "GB"]
@@ -588,18 +614,18 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
 
             return f"{size:.2f} {units[unit_index]}"
 
-        total_device_memory_str = \
-            format(format_memory_size(total_device_memory))
-        used_device_memory_str = \
-            format(format_memory_size(used_device_mem))
+        total_device_memory_str = format(format_memory_size(total_device_memory))
+        used_device_memory_str = format(format_memory_size(used_device_mem))
 
         logger.info(
             "Total %s memory: %s. "
             "Amount of memory required to run the model with "
-            "max_num_batched_tokens=%d: %s.", ov_device,
+            "max_num_batched_tokens=%d: %s.",
+            ov_device,
             total_device_memory_str,
             self.scheduler_config.max_num_batched_tokens,
-            used_device_memory_str)
+            used_device_memory_str,
+        )
 
         if used_device_mem >= total_device_memory:
             raise RuntimeError(
@@ -607,6 +633,7 @@ class OpenVINOWorker(LoraNotSupportedWorkerBase):
                 "is higher than the total available device "
                 "memory {total_device_memory_str}. Please consider to "
                 "decrease `max_num_batched_tokens` or increase "
-                "`gpu_memory_utilization`")
+                "`gpu_memory_utilization`"
+            )
 
         return total_device_memory * memory_utilization - used_device_mem

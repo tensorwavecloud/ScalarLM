@@ -1,10 +1,11 @@
-
 import logging
 
 logger = logging.getLogger(__name__)
 
+
 def print_logo():
     logger.info(ascii_art)
+
 
 ascii_art = """
 ⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⢀⠀⢠⢀⡐⢄⢢⡐⢢⢁⠂⠄⠠⢀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀⠀

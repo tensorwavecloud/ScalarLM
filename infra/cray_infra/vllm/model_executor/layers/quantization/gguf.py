@@ -7,20 +7,23 @@ from torch.nn.parameter import Parameter, UninitializedParameter
 from vllm import _custom_ops as ops
 from vllm.model_executor.layers.linear import LinearBase, LinearMethodBase
 from vllm.model_executor.layers.quantization.base_config import (
-    QuantizationConfig, QuantizeMethodBase)
-from vllm.model_executor.layers.vocab_parallel_embedding import (
-    VocabParallelEmbedding)
+    QuantizationConfig,
+    QuantizeMethodBase,
+)
+from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
 from vllm.model_executor.utils import set_weight_attrs
 
 
 class GGUFConfig(QuantizationConfig):
     """Config class for GGUF."""
 
-    def __init__(self, ) -> None:
+    def __init__(
+        self,
+    ) -> None:
         pass
 
     def __repr__(self) -> str:
-        return ("GGUFConfig()")
+        return "GGUFConfig()"
 
     def get_name(self) -> str:
         return "gguf"
@@ -40,8 +43,9 @@ class GGUFConfig(QuantizationConfig):
     def from_config(cls, config: Dict[str, Any]) -> "GGUFConfig":
         return cls()
 
-    def get_quant_method(self, layer: torch.nn.Module,
-                         prefix: str) -> Optional["QuantizeMethodBase"]:
+    def get_quant_method(
+        self, layer: torch.nn.Module, prefix: str
+    ) -> Optional["QuantizeMethodBase"]:
         if isinstance(layer, LinearBase):
             return GGUFLinearMethod(self)
         elif isinstance(layer, VocabParallelEmbedding):
@@ -52,8 +56,9 @@ class GGUFConfig(QuantizationConfig):
         return []
 
 
-def _fuse_mul_mat(x: torch.Tensor, qweight: torch.Tensor,
-                  qweight_type: int) -> torch.Tensor:
+def _fuse_mul_mat(
+    x: torch.Tensor, qweight: torch.Tensor, qweight_type: int
+) -> torch.Tensor:
     # use dequantize mulmat for IQmatrix, mmq for k-quants
     if x.shape[0] == 1:
         # enable mmvq in contiguous batching
@@ -78,17 +83,23 @@ class GGUFLinearMethod(LinearMethodBase):
     def __init__(self, quant_config: GGUFConfig):
         self.quant_config = quant_config
 
-    def create_weights(self, layer: torch.nn.Module,
-                       input_size_per_partition: int,
-                       output_partition_sizes: List[int], input_size: int,
-                       output_size: int, params_dtype: torch.dtype,
-                       **extra_weight_attrs):
+    def create_weights(
+        self,
+        layer: torch.nn.Module,
+        input_size_per_partition: int,
+        output_partition_sizes: List[int],
+        input_size: int,
+        output_size: int,
+        params_dtype: torch.dtype,
+        **extra_weight_attrs
+    ):
         output_size_per_partition = sum(output_partition_sizes)
 
         tensor_shape = (output_size_per_partition, input_size_per_partition)
         qweight = GGUFUninitializedParameter(requires_grad=False)
         set_weight_attrs(
-            qweight, {
+            qweight,
+            {
                 "input_dim": 1,
                 "output_dim": 0,
                 "tensor_shape": tensor_shape,
@@ -96,27 +107,33 @@ class GGUFLinearMethod(LinearMethodBase):
                 "data_container": [],
                 "shard_id": [],
                 "shard_id_map": {},
-            })
+            },
+        )
         set_weight_attrs(qweight, extra_weight_attrs)
         layer.register_parameter("qweight", qweight)
 
-        qweight_type = Parameter(torch.empty(len(output_partition_sizes),
-                                             dtype=torch.uint8),
-                                 requires_grad=False)
+        qweight_type = Parameter(
+            torch.empty(len(output_partition_sizes), dtype=torch.uint8),
+            requires_grad=False,
+        )
         set_weight_attrs(
-            qweight_type, {
+            qweight_type,
+            {
                 "is_gguf_weight_type": True,
                 "weight_type": 0,
                 "shard_weight_type": {},
-                "ignore_warning": True
-            })
+                "ignore_warning": True,
+            },
+        )
         set_weight_attrs(qweight_type, extra_weight_attrs)
         layer.register_parameter("qweight_type", qweight_type)
 
-    def apply(self,
-              layer: torch.nn.Module,
-              x: torch.Tensor,
-              bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def apply(
+        self,
+        layer: torch.nn.Module,
+        x: torch.Tensor,
+        bias: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         shard_id = getattr(layer.qweight, "shard_id", None)
 
         if shard_id:
@@ -145,8 +162,7 @@ class GGUFEmbeddingMethod(GGUFLinearMethod):
         quant_config: The GGUF quantization config.
     """
 
-    def embedding(self, layer: torch.nn.Module,
-                  x: torch.Tensor) -> torch.Tensor:
+    def embedding(self, layer: torch.nn.Module, x: torch.Tensor) -> torch.Tensor:
         qweight = layer.qweight
         qweight_type = layer.qweight_type.weight_type
 
@@ -156,8 +172,7 @@ class GGUFEmbeddingMethod(GGUFLinearMethod):
             return torch.embedding(qweight, x)
         x_flat = x.flatten()
         quant = torch.index_select(qweight, dim=0, index=x_flat)
-        dequant = ops.ggml_dequantize(quant, qweight_type, hidden_size,
-                                      x_flat.shape[0])
+        dequant = ops.ggml_dequantize(quant, qweight_type, hidden_size, x_flat.shape[0])
         return dequant.view(*x.shape, hidden_size)
 
 
@@ -166,13 +181,13 @@ class GGUFUninitializedParameter(UninitializedParameter):
     data_container: List[torch.Tensor]
 
     def materialize_nested(self) -> Parameter:
-        nested_data = torch.nested.nested_tensor(self.data_container,
-                                                 device=self.device,
-                                                 dtype=torch.uint8)
+        nested_data = torch.nested.nested_tensor(
+            self.data_container, device=self.device, dtype=torch.uint8
+        )
         self.data_container.clear()
-        param = torch.Tensor._make_subclass(self.cls_to_become,
-                                            nested_data,
-                                            require_grad=False)
+        param = torch.Tensor._make_subclass(
+            self.cls_to_become, nested_data, require_grad=False
+        )
         for k, v in self.__dict__.items():
             setattr(param, k, v)
         return param

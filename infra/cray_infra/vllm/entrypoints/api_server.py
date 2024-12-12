@@ -5,6 +5,7 @@ For production use, we recommend using our OpenAI compatible server.
 We are also not going to accept PRs modifying this file, please
 change `vllm/entrypoints/openai/api_server.py` instead.
 """
+
 import asyncio
 import json
 import ssl
@@ -20,8 +21,7 @@ from vllm.entrypoints.launcher import serve_http
 from vllm.logger import init_logger
 from vllm.sampling_params import SamplingParams
 from vllm.usage.usage_lib import UsageContext
-from vllm.utils import (FlexibleArgumentParser, iterate_with_cancellation,
-                        random_uuid)
+from vllm.utils import FlexibleArgumentParser, iterate_with_cancellation, random_uuid
 from vllm.version import __version__ as VLLM_VERSION
 
 logger = init_logger("vllm.entrypoints.api_server")
@@ -55,16 +55,15 @@ async def generate(request: Request) -> Response:
     assert engine is not None
     results_generator = engine.generate(prompt, sampling_params, request_id)
     results_generator = iterate_with_cancellation(
-        results_generator, is_cancelled=request.is_disconnected)
+        results_generator, is_cancelled=request.is_disconnected
+    )
 
     # Streaming case
     async def stream_results() -> AsyncGenerator[bytes, None]:
         async for request_output in results_generator:
             prompt = request_output.prompt
             assert prompt is not None
-            text_outputs = [
-                prompt + output.text for output in request_output.outputs
-            ]
+            text_outputs = [prompt + output.text for output in request_output.outputs]
             ret = {"text": text_outputs}
             yield (json.dumps(ret) + "\0").encode("utf-8")
 
@@ -103,16 +102,20 @@ async def init_app(
     global engine
 
     engine_args = AsyncEngineArgs.from_cli_args(args)
-    engine = (llm_engine
-              if llm_engine is not None else AsyncLLMEngine.from_engine_args(
-                  engine_args, usage_context=UsageContext.API_SERVER))
+    engine = (
+        llm_engine
+        if llm_engine is not None
+        else AsyncLLMEngine.from_engine_args(
+            engine_args, usage_context=UsageContext.API_SERVER
+        )
+    )
 
     return app
 
 
-async def run_server(args: Namespace,
-                     llm_engine: Optional[AsyncLLMEngine] = None,
-                     **uvicorn_kwargs: Any) -> None:
+async def run_server(
+    args: Namespace, llm_engine: Optional[AsyncLLMEngine] = None, **uvicorn_kwargs: Any
+) -> None:
     logger.info("vLLM API server version %s", VLLM_VERSION)
     logger.info("args: %s", args)
 
@@ -141,21 +144,21 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, default=8000)
     parser.add_argument("--ssl-keyfile", type=str, default=None)
     parser.add_argument("--ssl-certfile", type=str, default=None)
-    parser.add_argument("--ssl-ca-certs",
-                        type=str,
-                        default=None,
-                        help="The CA certificates file")
+    parser.add_argument(
+        "--ssl-ca-certs", type=str, default=None, help="The CA certificates file"
+    )
     parser.add_argument(
         "--ssl-cert-reqs",
         type=int,
         default=int(ssl.CERT_NONE),
-        help="Whether client certificate is required (see stdlib ssl module's)"
+        help="Whether client certificate is required (see stdlib ssl module's)",
     )
     parser.add_argument(
         "--root-path",
         type=str,
         default=None,
-        help="FastAPI root_path when app is behind a path based routing proxy")
+        help="FastAPI root_path when app is behind a path based routing proxy",
+    )
     parser.add_argument("--log-level", type=str, default="debug")
     parser = AsyncEngineArgs.add_cli_args(parser)
     args = parser.parse_args()

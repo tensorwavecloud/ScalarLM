@@ -11,8 +11,13 @@ from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.sequence import ExecuteModelRequest
-from vllm.utils import (GiB_bytes, get_distributed_init_method, get_ip,
-                        get_open_port, make_async)
+from vllm.utils import (
+    GiB_bytes,
+    get_distributed_init_method,
+    get_ip,
+    get_open_port,
+    make_async,
+)
 
 logger = init_logger(__name__)
 
@@ -32,13 +37,15 @@ class OpenVINOExecutor(ExecutorBase):
     def _init_executor(self) -> None:
         assert self.device_config.device_type == "openvino"
         assert self.lora_config is None, "OpenVINO backend doesn't support LoRA"
-        assert is_openvino_cpu() or is_openvino_gpu(), \
-            "OpenVINO backend supports only CPU and GPU devices"
+        assert (
+            is_openvino_cpu() or is_openvino_gpu()
+        ), "OpenVINO backend supports only CPU and GPU devices"
 
         self.ov_core = ov.Core()
         self.model_config = _verify_and_get_model_config(self.model_config)
         self.cache_config = _verify_and_get_cache_config(
-            self.ov_core, self.cache_config)
+            self.ov_core, self.cache_config
+        )
 
         # Instantiate the worker and load the model to CPU.
         self._init_worker()
@@ -50,8 +57,7 @@ class OpenVINOExecutor(ExecutorBase):
             self.parallel_config.world_size == 1
         ), "OpenVINOExecutor only supports single CPU socket currently."
 
-        distributed_init_method = get_distributed_init_method(
-            get_ip(), get_open_port())
+        distributed_init_method = get_distributed_init_method(get_ip(), get_open_port())
         self.driver_worker = OpenVINOWorker(
             ov_core=self.ov_core,
             model_config=self.model_config,
@@ -76,8 +82,7 @@ class OpenVINOExecutor(ExecutorBase):
         """
         return self.driver_worker.determine_num_available_blocks()
 
-    def initialize_cache(self, num_gpu_blocks: int,
-                         num_cpu_blocks: int) -> None:
+    def initialize_cache(self, num_gpu_blocks: int, num_cpu_blocks: int) -> None:
         """Initialize the KV cache by invoking the underlying worker."""
         # NOTE: We log here to avoid multiple logs when number of workers is
         # greater than one. We could log in the engine, but not all executors
@@ -87,13 +92,17 @@ class OpenVINOExecutor(ExecutorBase):
         # Because we want to reuse the existing block management procedure.
         device_blocks = num_gpu_blocks
         swap_blocks = num_cpu_blocks
-        logger.info("OpenVINO %s: # device blocks: %d; # swap blocks: %d",
-                    envs.VLLM_OPENVINO_DEVICE, device_blocks, swap_blocks)
+        logger.info(
+            "OpenVINO %s: # device blocks: %d; # swap blocks: %d",
+            envs.VLLM_OPENVINO_DEVICE,
+            device_blocks,
+            swap_blocks,
+        )
         self.driver_worker.initialize_cache(num_gpu_blocks, num_cpu_blocks)
 
     def execute_model(
-            self,
-            execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
+        self, execute_model_req: ExecuteModelRequest
+    ) -> List[SamplerOutput]:
         output = self.driver_worker.execute_model(execute_model_req)
         return output
 
@@ -111,19 +120,23 @@ class OpenVINOExecutor(ExecutorBase):
 
     def add_prompt_adapter(self, prompt_adapter_request) -> bool:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the OPENVINO backend.")
+            "Soft prompt is currently not supported by the OPENVINO backend."
+        )
 
     def remove_prompt_adapter(self, prompt_adapter_id: int) -> bool:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the OPENVINO backend.")
+            "Soft prompt is currently not supported by the OPENVINO backend."
+        )
 
     def pin_prompt_adapter(self, prompt_adapter_id: int) -> bool:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the OPENVINO backend.")
+            "Soft prompt is currently not supported by the OPENVINO backend."
+        )
 
     def list_prompt_adapters(self) -> Set[int]:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the OPENVINO backend.")
+            "Soft prompt is currently not supported by the OPENVINO backend."
+        )
 
     def check_health(self) -> None:
         # OpenVINOExecutor will always be healthy as long as
@@ -134,10 +147,11 @@ class OpenVINOExecutor(ExecutorBase):
 class OpenVINOExecutorAsync(OpenVINOExecutor, ExecutorAsyncBase):
 
     async def execute_model_async(
-            self,
-            execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
-        output = await make_async(self.driver_worker.execute_model
-                                  )(execute_model_req=execute_model_req, )
+        self, execute_model_req: ExecuteModelRequest
+    ) -> List[SamplerOutput]:
+        output = await make_async(self.driver_worker.execute_model)(
+            execute_model_req=execute_model_req,
+        )
         return output
 
     async def check_health_async(self) -> None:
@@ -155,27 +169,32 @@ def _verify_and_get_model_config(config: ModelConfig) -> ModelConfig:
     if not config.enforce_eager:
         logger.warning(
             "CUDA graph is not supported on OpenVINO backend, fallback to the "
-            "eager mode.")
+            "eager mode."
+        )
         config.enforce_eager = True
     return config
 
 
-def _verify_and_get_cache_config(ov_core: ov.Core,
-                                 config: CacheConfig) -> CacheConfig:
+def _verify_and_get_cache_config(ov_core: ov.Core, config: CacheConfig) -> CacheConfig:
     if envs.VLLM_OPENVINO_CPU_KV_CACHE_PRECISION == "u8":
         if not is_openvino_cpu():
-            logger.info("VLLM_OPENVINO_CPU_KV_CACHE_PRECISION is"
-                        "ignored for GPU, f16 data type will be used.")
+            logger.info(
+                "VLLM_OPENVINO_CPU_KV_CACHE_PRECISION is"
+                "ignored for GPU, f16 data type will be used."
+            )
             config.cache_dtype = ov.Type.f16
         else:
-            logger.info("KV cache type is overridden to u8 via "
-                        "VLLM_OPENVINO_CPU_KV_CACHE_PRECISION env var.")
+            logger.info(
+                "KV cache type is overridden to u8 via "
+                "VLLM_OPENVINO_CPU_KV_CACHE_PRECISION env var."
+            )
             config.cache_dtype = ov.Type.u8
     else:
         if is_openvino_cpu():
             ov_device = envs.VLLM_OPENVINO_DEVICE
             inference_precision = ov_core.get_property(
-                ov_device, hints.inference_precision)
+                ov_device, hints.inference_precision
+            )
             if inference_precision == ov.Type.bf16:
                 config.cache_dtype = ov.Type.bf16
             else:
@@ -202,12 +221,14 @@ def _verify_and_get_cache_config(ov_core: ov.Core,
             config.openvino_kvcache_space_bytes = 4 * GiB_bytes  # type: ignore
             logger.warning(
                 "Environment variable VLLM_OPENVINO_KVCACHE_SPACE (GB) "
-                "for OpenVINO backend is not set, using 4 by default.")
+                "for OpenVINO backend is not set, using 4 by default."
+            )
         else:
             config.openvino_kvcache_space_bytes = kv_cache_space * GiB_bytes  # type: ignore
     else:
         raise RuntimeError(
             "Invalid environment variable VLLM_OPENVINO_KVCACHE_SPACE"
-            f" {kv_cache_space}, expect a positive integer value.")
+            f" {kv_cache_space}, expect a positive integer value."
+        )
 
     return config

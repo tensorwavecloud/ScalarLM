@@ -17,8 +17,9 @@ class AudioAsset:
     @property
     def audio_and_sample_rate(self) -> Tuple[np.ndarray, int]:
 
-        audio_path = get_vllm_public_assets(filename=f"{self.name}.ogg",
-                                            s3_prefix=ASSET_DIR)
+        audio_path = get_vllm_public_assets(
+            filename=f"{self.name}.ogg", s3_prefix=ASSET_DIR
+        )
         y, sr = librosa.load(audio_path, sr=None)
         assert isinstance(sr, int)
         return y, sr

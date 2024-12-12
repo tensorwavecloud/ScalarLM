@@ -1,7 +1,14 @@
-from vllm.sequence import (ExecuteModelRequest, SequenceData,
-                           SequenceGroupMetadata, get_all_seq_ids)
-from vllm.spec_decode.interfaces import (SpeculativeProposals,
-                                         SpeculativeScorer, SpeculativeScores)
+from vllm.sequence import (
+    ExecuteModelRequest,
+    SequenceData,
+    SequenceGroupMetadata,
+    get_all_seq_ids,
+)
+from vllm.spec_decode.interfaces import (
+    SpeculativeProposals,
+    SpeculativeScorer,
+    SpeculativeScores,
+)
 
 SeqId = int
 TargetSeqId = int
@@ -15,11 +22,13 @@ class MQAScorer(SpeculativeScorer):
         proposals: SpeculativeProposals,
     ) -> SpeculativeScores:
         target_seq_group_metadata_list = []
-        target_seq_id_start = max(
-            get_all_seq_ids(execute_model_req.seq_group_metadata_list)) + 1
+        target_seq_id_start = (
+            max(get_all_seq_ids(execute_model_req.seq_group_metadata_list)) + 1
+        )
         all_proposal_tokens = proposals.proposal_token_ids.tolist()
         for i, seq_group_metadata in enumerate(
-                execute_model_req.seq_group_metadata_list):
+            execute_model_req.seq_group_metadata_list
+        ):
             seq_data_dict = seq_group_metadata.seq_data
             assert len(seq_data_dict) == 1
             seq_id = next(iter(seq_data_dict.keys()))
@@ -36,7 +45,8 @@ class MQAScorer(SpeculativeScorer):
                 output_token_ids=new_output_token_ids,
             )
             new_seq_data.update_num_computed_tokens(
-                len(prompt_token_ids) + len(output_token_ids) - 1)
+                len(prompt_token_ids) + len(output_token_ids) - 1
+            )
 
             # Ensure that the new sequence has at least one token
             # because we only use mqa scorer in the decoding stage.
@@ -58,7 +68,9 @@ class MQAScorer(SpeculativeScorer):
 
         target_sampler_output = self._scorer_worker.execute_model(
             execute_model_req=execute_model_req.clone(
-                seq_group_metadata_list=target_seq_group_metadata_list))
+                seq_group_metadata_list=target_seq_group_metadata_list
+            )
+        )
 
         target_sampler_output = target_sampler_output[0]
 
@@ -66,15 +78,18 @@ class MQAScorer(SpeculativeScorer):
         all_tokens = target_sampler_output.sampled_token_ids.reshape(bs, k + 1)
 
         all_probs = target_sampler_output.sampled_token_probs.reshape(
-            bs, k + 1, self._vocab_size)
+            bs, k + 1, self._vocab_size
+        )
         all_logprobs = target_sampler_output.logprobs.reshape(
-            bs, k + 1, self._vocab_size)
+            bs, k + 1, self._vocab_size
+        )
 
         hidden_states = None
         if target_sampler_output.hidden_states is not None:
-            hidden_states = target_sampler_output.hidden_states.reshape(
-                bs, (k + 1), -1)
-        return SpeculativeScores(probs=all_probs,
-                                 token_ids=all_tokens,
-                                 logprobs=all_logprobs,
-                                 hidden_states=hidden_states)
+            hidden_states = target_sampler_output.hidden_states.reshape(bs, (k + 1), -1)
+        return SpeculativeScores(
+            probs=all_probs,
+            token_ids=all_tokens,
+            logprobs=all_logprobs,
+            hidden_states=hidden_states,
+        )

@@ -1,14 +1,16 @@
 """A layer that compute logits from hidden_stats."""
+
 import inspect
 from typing import Optional
 
 import torch
 import torch.nn as nn
 
-from vllm.distributed import (tensor_model_parallel_all_gather,
-                              tensor_model_parallel_gather)
-from vllm.model_executor.layers.vocab_parallel_embedding import (
-    VocabParallelEmbedding)
+from vllm.distributed import (
+    tensor_model_parallel_all_gather,
+    tensor_model_parallel_gather,
+)
+from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.platforms import current_platform
 
@@ -22,12 +24,14 @@ class LogitsProcessor(nn.Module):
     3. Apply logits processors (if any).
     """
 
-    def __init__(self,
-                 vocab_size: int,
-                 org_vocab_size: Optional[int] = None,
-                 scale: float = 1.0,
-                 logits_as_input: bool = False,
-                 soft_cap: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        vocab_size: int,
+        org_vocab_size: Optional[int] = None,
+        scale: float = 1.0,
+        logits_as_input: bool = False,
+        soft_cap: Optional[float] = None,
+    ) -> None:
         """
         Args:
             scale: A scaling factor to apply to the logits.
@@ -54,8 +58,7 @@ class LogitsProcessor(nn.Module):
         if self.logits_as_input:
             logits = hidden_states
         else:
-            hidden_states = _prune_hidden_states(hidden_states,
-                                                 sampling_metadata)
+            hidden_states = _prune_hidden_states(hidden_states, sampling_metadata)
 
             # Get the logits for the next tokens.
             logits = self._get_logits(hidden_states, lm_head, embedding_bias)
@@ -80,9 +83,9 @@ class LogitsProcessor(nn.Module):
         embedding_bias: Optional[torch.Tensor],
     ) -> Optional[torch.Tensor]:
         # Get the logits for the next tokens.
-        logits = lm_head.linear_method.apply(lm_head,
-                                             hidden_states,
-                                             bias=embedding_bias)
+        logits = lm_head.linear_method.apply(
+            lm_head, hidden_states, bias=embedding_bias
+        )
         if self.use_gather:
             # None may be returned for rank > 0
             logits = tensor_model_parallel_gather(logits)
@@ -95,7 +98,7 @@ class LogitsProcessor(nn.Module):
             logits = tensor_model_parallel_all_gather(logits)
         # Remove paddings in vocab (if any).
         if logits is not None:
-            logits = logits[..., :self.org_vocab_size]
+            logits = logits[..., : self.org_vocab_size]
         return logits
 
     def extra_repr(self) -> str:
@@ -109,8 +112,7 @@ def _prune_hidden_states(
     hidden_states: torch.Tensor,
     sampling_metadata: SamplingMetadata,
 ) -> torch.Tensor:
-    return hidden_states.index_select(0,
-                                      sampling_metadata.selected_token_indices)
+    return hidden_states.index_select(0, sampling_metadata.selected_token_indices)
 
 
 def _apply_logits_processors(
@@ -126,8 +128,7 @@ def _apply_logits_processors(
         if logits_processors:
             found_logits_processors = True
 
-            for seq_id, logits_row_idx in zip(seq_ids,
-                                              seq_group.sample_indices):
+            for seq_id, logits_row_idx in zip(seq_ids, seq_group.sample_indices):
                 logits_row = logits[logits_row_idx]
                 past_tokens_ids = seq_group.seq_data[seq_id].output_token_ids
                 prompt_tokens_ids = seq_group.seq_data[seq_id].prompt_token_ids
@@ -135,17 +136,17 @@ def _apply_logits_processors(
                 for logits_processor in logits_processors:
                     parameters = inspect.signature(logits_processor).parameters
                     if len(parameters) == 3:
-                        logits_row = logits_processor(prompt_tokens_ids,
-                                                      past_tokens_ids,
-                                                      logits_row)
+                        logits_row = logits_processor(
+                            prompt_tokens_ids, past_tokens_ids, logits_row
+                        )
                     else:
-                        logits_row = logits_processor(past_tokens_ids,
-                                                      logits_row)
+                        logits_row = logits_processor(past_tokens_ids, logits_row)
 
                 logits[logits_row_idx] = logits_row
 
         logits_processed += len(seq_group.sample_indices) + len(
-            seq_group.prompt_logprob_indices)
+            seq_group.prompt_logprob_indices
+        )
 
     if found_logits_processors:
         # verifies that no rows in logits were missed unexpectedly

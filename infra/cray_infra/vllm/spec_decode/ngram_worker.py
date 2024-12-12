@@ -26,8 +26,9 @@ class NGramWorker(NonLLMProposerWorkerBase):
         # Lazy initialization list.
         self._proposer: Top1Proposer
 
-    def set_ngram_window_size(self, ngram_prompt_lookup_min: int,
-                              ngram_prompt_lookup_max: int):
+    def set_ngram_window_size(
+        self, ngram_prompt_lookup_min: int, ngram_prompt_lookup_max: int
+    ):
         # Search valid candidate window between
         # ngram_prompt_lookup_min/ngram_prompt_lookup_max
         self.ngram_prompt_lookup_max = ngram_prompt_lookup_max
@@ -64,27 +65,26 @@ class NGramWorker(NonLLMProposerWorkerBase):
         token_id_list: List[Optional[torch.Tensor]] = []
         token_prob_list: List[Optional[torch.Tensor]] = []
         for idx, seq_group_metadata in enumerate(
-                execute_model_req.seq_group_metadata_list):
+            execute_model_req.seq_group_metadata_list
+        ):
             seq_data = next(iter(seq_group_metadata.seq_data.values()))
 
-            input_ids = torch.as_tensor(seq_data.get_token_ids(),
-                                        dtype=torch.long,
-                                        device=self.device)
+            input_ids = torch.as_tensor(
+                seq_data.get_token_ids(), dtype=torch.long, device=self.device
+            )
             input_length = seq_data.get_len()
 
             for ngram_size in range(
-                    min(self.ngram_prompt_lookup_max, input_length - 1),
-                    self.ngram_prompt_lookup_min - 1,
-                    -1,
+                min(self.ngram_prompt_lookup_max, input_length - 1),
+                self.ngram_prompt_lookup_min - 1,
+                -1,
             ):
                 ngram_tensor = input_ids[-ngram_size:]
                 if ngram_size == 1:
                     # Do not match itself and do not use unfold and all
-                    matches = (input_ids[:-1] == ngram_tensor)
+                    matches = input_ids[:-1] == ngram_tensor
                 else:
-                    windows = input_ids.unfold(dimension=0,
-                                               size=ngram_size,
-                                               step=1)
+                    windows = input_ids.unfold(dimension=0, size=ngram_size, step=1)
                     # Do not match itself
                     matches = (windows[:-1] == ngram_tensor).all(dim=-1)
 
@@ -97,16 +97,17 @@ class NGramWorker(NonLLMProposerWorkerBase):
                 first_match = matches.max(dim=-1)
                 if first_match.values.item():
                     proposal_start_idx = first_match.indices.add_(ngram_size)
-                    spec_indices = (
-                        proposal_start_idx).repeat(sample_len) + torch.arange(
-                            sample_len, device=self.device)
+                    spec_indices = (proposal_start_idx).repeat(
+                        sample_len
+                    ) + torch.arange(sample_len, device=self.device)
                     spec_indices.clamp_(max=input_ids.shape[-1] - 1)
                     res = input_ids.gather(dim=-1, index=spec_indices)
                     token_id_list.append(res)
                     token_prob_list.append(
                         torch.nn.functional.one_hot(
-                            res,
-                            num_classes=self.vocab_size).to(torch.float32))
+                            res, num_classes=self.vocab_size
+                        ).to(torch.float32)
+                    )
                     has_spec_out = True
                     break
             else:
@@ -125,11 +126,14 @@ class NGramWorker(NonLLMProposerWorkerBase):
                     SamplerOutput(
                         outputs=None,
                         sampled_token_probs=token_prob_list[idx],
-                        logprobs=torch.zeros((sample_len, self.vocab_size),
-                                             dtype=torch.float32,
-                                             device=self.device),
+                        logprobs=torch.zeros(
+                            (sample_len, self.vocab_size),
+                            dtype=torch.float32,
+                            device=self.device,
+                        ),
                         sampled_token_ids=token_id_list[idx],
-                    ))
+                    )
+                )
 
         return outputs, False
 
@@ -144,7 +148,8 @@ class NGramWorker(NonLLMProposerWorkerBase):
         speculative tokens per sequence is determined by max_proposal_len.
         """
         return self._proposer.get_spec_proposals(
-            execute_model_req, seq_ids_with_bonus_token_in_last_step)
+            execute_model_req, seq_ids_with_bonus_token_in_last_step
+        )
 
     def _raise_if_unsupported(
         self,
@@ -153,17 +158,17 @@ class NGramWorker(NonLLMProposerWorkerBase):
         """NGramWorker does not yet implement support for cache swap
         operations or beam search.
         """
-        if any([
+        if any(
+            [
                 execute_model_req.blocks_to_swap_in,
                 execute_model_req.blocks_to_swap_out,
-                execute_model_req.blocks_to_copy
-        ]):
-            raise NotImplementedError(
-                "NGramWorker does not support cache operations")
+                execute_model_req.blocks_to_copy,
+            ]
+        ):
+            raise NotImplementedError("NGramWorker does not support cache operations")
 
         if any(
-                len(seq_group_metadata.seq_data.keys()) != 1
-                for seq_group_metadata in
-                execute_model_req.seq_group_metadata_list):
-            raise NotImplementedError(
-                "NGramWorker does not support beam search.")
+            len(seq_group_metadata.seq_data.keys()) != 1
+            for seq_group_metadata in execute_model_req.seq_group_metadata_list
+        ):
+            raise NotImplementedError("NGramWorker does not support beam search.")

@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field, field_validator
 from torch.nn import Module
 
 from vllm.model_executor.layers.quantization.utils.quant_utils import (
-    FUSED_LAYER_NAME_MAPPING)
+    FUSED_LAYER_NAME_MAPPING,
+)
 
 
 class CompressionFormat(Enum):
@@ -55,7 +56,7 @@ class ActivationOrdering(str, Enum):
 
 class QuantizationArgs(BaseModel):
     """
-    User facing arguments used to define a quantization config 
+    User facing arguments used to define a quantization config
     for weights or activations
 
     :param num_bits: quantization bit depth
@@ -63,13 +64,13 @@ class QuantizationArgs(BaseModel):
     :param symmetric: whether or not quantization scale is symmetric
     :param strategy: string determining the scope of scale/zero-point to apply
     :param group_size: group length to use for the group strategy
-    :param block_structure: 2d block structure to use for the block 
+    :param block_structure: 2d block structure to use for the block
     strategy, must be of the format "2x4", "8x16", etc.
     :param dynamic: set True to perform dynamic quantization -
-        values will not be calibrated during calibration phase, 
-        instead during inference new quantization ranges will be 
+        values will not be calibrated during calibration phase,
+        instead during inference new quantization ranges will be
         observed with every sample. Defaults to False for static
-        quantization. Note that enabling dynamic quantization 
+        quantization. Note that enabling dynamic quantization
         will change the default observer to a memoryless one
     :param actorder: whether to apply group quantization in decreasing order of
         activation. Defaults to None for arbitrary ordering
@@ -85,14 +86,17 @@ class QuantizationArgs(BaseModel):
     actorder: Union[ActivationOrdering, bool, None] = None
     observer: str = Field(
         default="minmax",
-        description=("The class to use to compute the quantization param - "
-                     "scale and zero-point'"),
+        description=(
+            "The class to use to compute the quantization param - "
+            "scale and zero-point'"
+        ),
     )
     observer_kwargs: Dict[str, Any] = Field(
         default_factory=dict,
-        description=
-        ("optional dict of kwargs to be passed directly to torch quantization "
-         "Observers constructor excluding quantization range or symmetry"),
+        description=(
+            "optional dict of kwargs to be passed directly to torch quantization "
+            "Observers constructor excluding quantization range or symmetry"
+        ),
     )
 
     @field_validator("actorder", mode="before")
@@ -110,13 +114,12 @@ def is_activation_quantization_format(format: str) -> bool:
     _ACTIVATION_QUANTIZATION_FORMATS = [
         CompressionFormat.naive_quantized.value,
         CompressionFormat.int_quantized.value,
-        CompressionFormat.float_quantized.value
+        CompressionFormat.float_quantized.value,
     ]
     return format in _ACTIVATION_QUANTIZATION_FORMATS
 
 
-def should_ignore_layer(layer_name: Optional[str],
-                        ignore: Iterable[str]) -> bool:
+def should_ignore_layer(layer_name: Optional[str], ignore: Iterable[str]) -> bool:
     if layer_name is None:
         return False
 
@@ -141,7 +144,8 @@ def should_ignore_layer(layer_name: Optional[str],
         should_ignore_layer = None
         for shard_name in shard_names:
             should_ignore_shard = check_equal_or_regex_match(
-                layer_name=shard_name, targets=ignore)
+                layer_name=shard_name, targets=ignore
+            )
 
             # If shard_idx=0, set layer ignore to match shard.
             if should_ignore_layer is None:
@@ -149,24 +153,26 @@ def should_ignore_layer(layer_name: Optional[str],
 
             # If shard_idx=1+ confirm scheme matches prior shards.
             elif should_ignore_shard != should_ignore_layer:
-                raise ValueError(f"Found a different quantization schemes for "
-                                 f"{shard_proj_names} in {layer_name}. vLLM "
-                                 "requires all to use the same scheme.")
+                raise ValueError(
+                    f"Found a different quantization schemes for "
+                    f"{shard_proj_names} in {layer_name}. vLLM "
+                    "requires all to use the same scheme."
+                )
 
     # Unfused layers like down_proj and o_proj will match
     # the safetensors checkpoint already.
     else:
-        should_ignore_layer = check_equal_or_regex_match(layer_name=layer_name,
-                                                         targets=ignore)
+        should_ignore_layer = check_equal_or_regex_match(
+            layer_name=layer_name, targets=ignore
+        )
 
     assert should_ignore_layer is not None
     return should_ignore_layer
 
 
-def check_equal_or_regex_match(layer_name: str,
-                               targets: Iterable[str]) -> bool:
+def check_equal_or_regex_match(layer_name: str, targets: Iterable[str]) -> bool:
     """
-    Checks whether a layer_name is exactly equal or a regex match for 
+    Checks whether a layer_name is exactly equal or a regex match for
     if target starts with 're:' to any target in list.
     """
     for target in targets:
@@ -175,17 +181,18 @@ def check_equal_or_regex_match(layer_name: str,
     return False
 
 
-def find_matched_target(layer_name: Optional[str], module: Module,
-                        targets: Iterable[str]) -> str:
+def find_matched_target(
+    layer_name: Optional[str], module: Module, targets: Iterable[str]
+) -> str:
     """
     Helper function to look up which "target" in the compressed-tensors
     config that a layer corresponds to.
 
-    Recall that a compressed-tensors configs has a concept of 
+    Recall that a compressed-tensors configs has a concept of
     config_groups, where each layer can be quantized with with a different
     scheme.
 
-    targets in each config_group will be a list of either layer names 
+    targets in each config_group will be a list of either layer names
     (or regexes corresponding to layer names) or names of torch Modules.
 
     First, we try to match the layer_name with a target
@@ -199,20 +206,22 @@ def find_matched_target(layer_name: Optional[str], module: Module,
     if layer_name is None:
         layer_name = ""
 
-    matched_target = (_find_first_match(layer_name, targets)
-                      or _find_first_match(module.__class__.__name__, targets,
-                                           True))
+    matched_target = _find_first_match(layer_name, targets) or _find_first_match(
+        module.__class__.__name__, targets, True
+    )
 
     if matched_target is None:
-        raise ValueError(f"Unable to find matching target for {module} in the "
-                         "compressed-tensors config.")
+        raise ValueError(
+            f"Unable to find matching target for {module} in the "
+            "compressed-tensors config."
+        )
 
     return matched_target
 
 
-def _find_first_match(value: str,
-                      targets: Iterable[str],
-                      check_contains: bool = False) -> Optional[str]:
+def _find_first_match(
+    value: str, targets: Iterable[str], check_contains: bool = False
+) -> Optional[str]:
     """
     Returns first element of target that matches value either
     exactly or as a regex after 're:'. If check_contains is set to True,
@@ -224,9 +233,7 @@ def _find_first_match(value: str,
     """
 
     for target in targets:
-        if _is_equal_or_regex_match(value,
-                                    target,
-                                    check_contains=check_contains):
+        if _is_equal_or_regex_match(value, target, check_contains=check_contains):
             return target
     return None
 
@@ -248,9 +255,9 @@ def get_compressed_tensors_cache_scale(name: str) -> Optional[str]:
     return None
 
 
-def _is_equal_or_regex_match(value: str,
-                             target: str,
-                             check_contains: bool = False) -> bool:
+def _is_equal_or_regex_match(
+    value: str, target: str, check_contains: bool = False
+) -> bool:
     """
     Checks whether a value is exactly equal or a regex match for target
     if target starts with 're:'. If check_contains is set to True,

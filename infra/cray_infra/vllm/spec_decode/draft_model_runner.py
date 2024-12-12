@@ -11,20 +11,29 @@ try:
     except (ModuleNotFoundError, ImportError):
         # vllm_flash_attn is not installed, try the ROCm FA metadata
         from vllm.attention.backends.rocm_flash_attn import (
-            ROCmFlashAttentionMetadata as FlashAttentionMetadata)
+            ROCmFlashAttentionMetadata as FlashAttentionMetadata,
+        )
 except (ModuleNotFoundError, ImportError) as err:
     raise RuntimeError(
         "Draft model speculative decoding currently only supports"
-        "CUDA and ROCm flash attention backend.") from err
+        "CUDA and ROCm flash attention backend."
+    ) from err
 
-from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, LoRAConfig,
-                         ModelConfig, ObservabilityConfig, ParallelConfig,
-                         PromptAdapterConfig, SchedulerConfig)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    LoadConfig,
+    LoRAConfig,
+    ModelConfig,
+    ObservabilityConfig,
+    ParallelConfig,
+    PromptAdapterConfig,
+    SchedulerConfig,
+)
 from vllm.logger import init_logger
 from vllm.multimodal import MultiModalInputs
 from vllm.sequence import ExecuteModelRequest, IntermediateTensors
-from vllm.worker.model_runner import (ModelInputForGPUWithSamplingMetadata,
-                                      ModelRunner)
+from vllm.worker.model_runner import ModelInputForGPUWithSamplingMetadata, ModelRunner
 
 logger = init_logger(__name__)
 
@@ -84,13 +93,11 @@ class TP1DraftModelRunner(ModelRunner):
             observability_config=observability_config,
         )
 
-    def _update_sampling_metadata(self, sampling_metadata, num_seqs,
-                                  num_queries):
+    def _update_sampling_metadata(self, sampling_metadata, num_seqs, num_queries):
 
         assert sampling_metadata.num_prompts == 0
         assert len(sampling_metadata.seq_groups) == num_queries
-        assert sampling_metadata.selected_token_indices.shape == (
-            num_queries, )
+        assert sampling_metadata.selected_token_indices.shape == (num_queries,)
         # assert sampling_metadata.categorized_sample_indices == TODO: Add if needed # noqa: E501
 
         # Verify that all sequences are decodes
@@ -102,8 +109,9 @@ class TP1DraftModelRunner(ModelRunner):
             assert seq_group.sample_indices == [i]  # Simple
 
     def _gpu_advance_step(
-            self, model_input: ModelInputForGPUWithSamplingMetadata,
-            last_output: SamplerOutput
+        self,
+        model_input: ModelInputForGPUWithSamplingMetadata,
+        last_output: SamplerOutput,
     ) -> ModelInputForGPUWithSamplingMetadata:
         # Currently, we expect "decode mode" only
         assert not model_input.is_prompt
@@ -120,13 +128,13 @@ class TP1DraftModelRunner(ModelRunner):
         attn_metadata = model_input.attn_metadata
         assert isinstance(attn_metadata, FlashAttentionMetadata)
 
-        attn_metadata.advance_step(model_input, sampled_token_ids,
-                                   self.block_size, num_seqs, num_queries)
+        attn_metadata.advance_step(
+            model_input, sampled_token_ids, self.block_size, num_seqs, num_queries
+        )
 
         # Update sampling_metadata
         sampling_metadata = model_input.sampling_metadata
-        self._update_sampling_metadata(sampling_metadata, num_seqs,
-                                       num_queries)
+        self._update_sampling_metadata(sampling_metadata, num_seqs, num_queries)
 
         # Create new input
         new_model_input = self._model_input_cls(
@@ -150,13 +158,11 @@ class TP1DraftModelRunner(ModelRunner):
         if debug_advance_input:
             logger.debug("NEW INPUT: ")
             logger.debug("  input_tokens = %s", new_model_input.input_tokens)
-            logger.debug("  input_positions = %s",
-                         new_model_input.input_positions)
+            logger.debug("  input_positions = %s", new_model_input.input_positions)
             logger.debug("  seq_lens = %d", new_model_input.seq_lens)
             logger.debug("  query_lens = %d", new_model_input.query_lens)
             logger.debug("  attn_metadata:")
-            logger.debug("    seq_lens_tensor: %s",
-                         attn_metadata.seq_lens_tensor)
+            logger.debug("    seq_lens_tensor: %s", attn_metadata.seq_lens_tensor)
             logger.debug("    slot_mapping: %s", attn_metadata.slot_mapping)
             logger.debug("    block_tables: %s", attn_metadata.block_tables)
 
@@ -165,7 +171,7 @@ class TP1DraftModelRunner(ModelRunner):
     def supports_gpu_multi_step(self, execute_model_req: ExecuteModelRequest):
         """Determines if draft_model_runner GPU multi-step can be used.
         Currently required conditions are:
-            1. Only decodes 
+            1. Only decodes
             2. Only flash-attn
             3. No LORA
             4. No prompt_adapter_config
@@ -198,12 +204,12 @@ class TP1DraftModelRunner(ModelRunner):
         intermediate_tensors: Optional[IntermediateTensors] = None,
         num_steps: int = 1,
     ) -> Optional[List[SamplerOutput]]:
-        """Executes num_steps forward passes with advacement of input tensors 
+        """Executes num_steps forward passes with advacement of input tensors
         on the GPU. Look at supports_gpu_multi_step(..) for pre-conditions.
 
         Optimizations used:
             1. Input tensors are updated on the GPU directly
-            2. Skips GPU=>CPU serialization of sampler outputs (we don't need 
+            2. Skips GPU=>CPU serialization of sampler outputs (we don't need
                 them since we do batch expansion later that uses GPU outputs)
             3. Reuses sampling tensors (since we run only decodes and they have
                 a repeating sampling logic)
@@ -226,8 +232,9 @@ class TP1DraftModelRunner(ModelRunner):
             if self.lora_config is not None:
                 raise ValueError("TP1DraftModelRunner has no support for LORA")
             if self.prompt_adapter_config is not None:
-                raise ValueError("TP1DraftModelRunner has no support for "
-                                 "prompt_adapter_config")
+                raise ValueError(
+                    "TP1DraftModelRunner has no support for " "prompt_adapter_config"
+                )
             if model_input.multi_modal_kwargs:
                 raise ValueError(
                     "TP1DraftModelRunner has no support for multi_modal_kwargs"
@@ -236,15 +243,17 @@ class TP1DraftModelRunner(ModelRunner):
             if self.lora_config:
                 assert model_input.lora_requests is not None
                 assert model_input.lora_mapping is not None
-                self.set_active_loras(model_input.lora_requests,
-                                      model_input.lora_mapping)
+                self.set_active_loras(
+                    model_input.lora_requests, model_input.lora_mapping
+                )
 
             if self.prompt_adapter_config:
                 assert model_input.prompt_adapter_requests is not None
                 assert model_input.prompt_adapter_mapping is not None
                 self.set_active_prompt_adapters(
                     model_input.prompt_adapter_requests,
-                    model_input.prompt_adapter_mapping)
+                    model_input.prompt_adapter_mapping,
+                )
 
             self.attn_state.begin_forward(model_input)
 
@@ -256,13 +265,13 @@ class TP1DraftModelRunner(ModelRunner):
             if num_steps > 1:
                 raise ValueError(
                     "execute_model(..) of draft_model_runner can be called "
-                    "directly only with a single-step prefill")
+                    "directly only with a single-step prefill"
+                )
         else:
             # We can skip CPU samples for spec token generation.
             # (We do allow CPU samples for num_steps == 1 to support the
             # fallback case, where supports_gpu_multi_step(..) does not pass)
-            model_input.sampling_metadata.skip_sampler_cpu_output = (
-                not is_fallback)
+            model_input.sampling_metadata.skip_sampler_cpu_output = not is_fallback
 
             # Attn attr defines if we use cuda graphs
             use_cuda_graph = model_input.attn_metadata.use_cuda_graph
@@ -270,19 +279,24 @@ class TP1DraftModelRunner(ModelRunner):
         # Get model
         if use_cuda_graph:
             graph_batch_size = model_input.input_tokens.shape[0]
-            model_executable = (self.graph_runners[model_input.virtual_engine]
-                                [graph_batch_size])
+            model_executable = self.graph_runners[model_input.virtual_engine][
+                graph_batch_size
+            ]
 
             if previous_hidden_states is not None:
-                hidden_states = torch.cat([
-                    previous_hidden_states,
-                    torch.empty([
-                        graph_batch_size - previous_hidden_states.shape[0],
-                        *previous_hidden_states.shape[1:]
-                    ],
-                                dtype=previous_hidden_states.dtype,
-                                device=previous_hidden_states.device)
-                ])
+                hidden_states = torch.cat(
+                    [
+                        previous_hidden_states,
+                        torch.empty(
+                            [
+                                graph_batch_size - previous_hidden_states.shape[0],
+                                *previous_hidden_states.shape[1:],
+                            ],
+                            dtype=previous_hidden_states.dtype,
+                            device=previous_hidden_states.device,
+                        ),
+                    ]
+                )
             else:
                 hidden_states = None
         else:
@@ -293,8 +307,11 @@ class TP1DraftModelRunner(ModelRunner):
         for step in range(num_steps):
             multi_modal_kwargs = model_input.multi_modal_kwargs or {}
 
-            kwargs = {"previous_hidden_states": hidden_states} \
-                if previous_hidden_states is not None else {}
+            kwargs = (
+                {"previous_hidden_states": hidden_states}
+                if previous_hidden_states is not None
+                else {}
+            )
 
             # Run model
             with set_forward_context(model_input.attn_metadata):
@@ -304,21 +321,24 @@ class TP1DraftModelRunner(ModelRunner):
                     kv_caches=kv_caches,
                     attn_metadata=model_input.attn_metadata,
                     intermediate_tensors=intermediate_tensors,
-                    **MultiModalInputs.as_kwargs(multi_modal_kwargs,
-                                                 device=self.device),
+                    **MultiModalInputs.as_kwargs(
+                        multi_modal_kwargs, device=self.device
+                    ),
                     **kwargs,
                 )
 
             # Compute the logits.
-            logits = self.model.compute_logits(hidden_states,
-                                               model_input.sampling_metadata)
+            logits = self.model.compute_logits(
+                hidden_states, model_input.sampling_metadata
+            )
 
             # Sample the next token.
             outputs.append(
                 self.model.sample(
                     logits=logits,
                     sampling_metadata=model_input.sampling_metadata,
-                ))
+                )
+            )
 
             # Prepare inputs for the next step
             if step != num_steps - 1:

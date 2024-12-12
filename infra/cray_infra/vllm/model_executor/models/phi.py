@@ -45,40 +45,47 @@ from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig, LoRAConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
 from vllm.model_executor.layers.activation import get_act_fn
-from vllm.model_executor.layers.linear import (ColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    ColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    ParallelLMHead, VocabParallelEmbedding)
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsLoRA, SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class PhiAttention(nn.Module):
 
-    def __init__(self,
-                 config: PhiConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self,
+        config: PhiConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ):
         super().__init__()
         self.total_num_heads = config.num_attention_heads
         self.hidden_size = config.hidden_size
         self.head_size = self.hidden_size // self.total_num_heads
 
-        tensor_model_parallel_world_size = (
-            get_tensor_model_parallel_world_size())
+        tensor_model_parallel_world_size = get_tensor_model_parallel_world_size()
         assert self.total_num_heads % tensor_model_parallel_world_size == 0
-        self.num_heads = (self.total_num_heads //
-                          tensor_model_parallel_world_size)
+        self.num_heads = self.total_num_heads // tensor_model_parallel_world_size
 
         # pylint: disable=C0103
         self.qkv_proj = QKVParallelLinear(
@@ -95,8 +102,10 @@ class PhiAttention(nn.Module):
         )
 
         scaling = self.head_size**-0.5
-        rotary_dim = int(config.partial_rotary_factor *
-                         (config.hidden_size // config.num_attention_heads))
+        rotary_dim = int(
+            config.partial_rotary_factor
+            * (config.hidden_size // config.num_attention_heads)
+        )
         assert rotary_dim % 2 == 0
 
         # pylint: disable=C0301
@@ -110,11 +119,13 @@ class PhiAttention(nn.Module):
             max_position=max_position_embeddings,
             base=rope_theta,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_size,
-                              scaling,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_size,
+            scaling,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def forward(
         self,
@@ -133,9 +144,9 @@ class PhiAttention(nn.Module):
 
 class PhiMLP(nn.Module):
 
-    def __init__(self,
-                 config: PhiConfig,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self, config: PhiConfig, quant_config: Optional[QuantizationConfig] = None
+    ):
         super().__init__()
 
         n_inner = getattr(config, "n_inner", None)
@@ -162,13 +173,16 @@ class PhiMLP(nn.Module):
 
 class PhiLayer(nn.Module):
 
-    def __init__(self,
-                 config: PhiConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self,
+        config: PhiConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ):
         super().__init__()
-        self.input_layernorm = nn.LayerNorm(config.hidden_size,
-                                            eps=config.layer_norm_eps)
+        self.input_layernorm = nn.LayerNorm(
+            config.hidden_size, eps=config.layer_norm_eps
+        )
         self.self_attn = PhiAttention(config, cache_config, quant_config)
         self.mlp = PhiMLP(config, quant_config)
 
@@ -194,25 +208,30 @@ class PhiLayer(nn.Module):
 
 class PhiModel(nn.Module):
 
-    def __init__(self,
-                 config: PhiConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None,
-                 prefix: str = ""):
+    def __init__(
+        self,
+        config: PhiConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+        prefix: str = "",
+    ):
         super().__init__()
         self.config = config
         self.quant_config = quant_config
-        self.embed_tokens = VocabParallelEmbedding(config.vocab_size,
-                                                   config.hidden_size)
+        self.embed_tokens = VocabParallelEmbedding(
+            config.vocab_size, config.hidden_size
+        )
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
             lambda prefix: PhiLayer(config, cache_config, quant_config),
-            prefix=f"{prefix}.layers")
-        self.final_layernorm = nn.LayerNorm(config.hidden_size,
-                                            eps=config.layer_norm_eps)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(["hidden_states"],
-                                                    config.hidden_size))
+            prefix=f"{prefix}.layers",
+        )
+        self.final_layernorm = nn.LayerNorm(
+            config.hidden_size, eps=config.layer_norm_eps
+        )
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], config.hidden_size
+        )
 
     def forward(
         self,
@@ -269,7 +288,12 @@ class PhiForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         "v_proj": ("qkv_proj", 2),
     }
     default_bitsandbytes_target_modules = [
-        ".q_proj.", ".k_proj.", ".v_proj.", ".fc1.", ".fc2.", ".dense."
+        ".q_proj.",
+        ".k_proj.",
+        ".v_proj.",
+        ".fc1.",
+        ".fc2.",
+        ".dense.",
     ]
     # in TP, these weights are partitioned along the column dimension (dim=-1)
     column_parallel_weights_modules = [".fc2.", ".dense."]
@@ -295,14 +319,14 @@ class PhiForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
 
         self.model = PhiModel(config, cache_config, quant_config)
 
-        self.lm_head = ParallelLMHead(config.vocab_size,
-                                      config.hidden_size,
-                                      bias=True,
-                                      quant_config=quant_config)
+        self.lm_head = ParallelLMHead(
+            config.vocab_size, config.hidden_size, bias=True, quant_config=quant_config
+        )
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -312,8 +336,9 @@ class PhiForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata, intermediate_tensors)
+        hidden_states = self.model(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
 
         return hidden_states
 
@@ -322,8 +347,9 @@ class PhiForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata, self.lm_head.bias)
+        logits = self.logits_processor(
+            self.lm_head, hidden_states, sampling_metadata, self.lm_head.bias
+        )
         return logits
 
     def sample(
@@ -339,7 +365,7 @@ class PhiForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             # (param_name, shard_name, shard_id)
             ("qkv_proj", "q_proj", "q"),
             ("qkv_proj", "k_proj", "k"),
-            ("qkv_proj", "v_proj", "v")
+            ("qkv_proj", "v_proj", "v"),
         ]
         params_dict = dict(self.named_parameters())
 
@@ -347,7 +373,7 @@ class PhiForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             if "rotary_emb.inv_freq" in name:
                 continue
 
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
@@ -369,6 +395,5 @@ class PhiForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
                 if is_pp_missing_parameter(name, self):
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)

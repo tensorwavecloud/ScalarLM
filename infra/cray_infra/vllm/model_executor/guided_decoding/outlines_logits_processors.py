@@ -36,8 +36,7 @@ class BaseLogitsProcessor:
         self._guide: Guide = guide
         self._fsm_state: DefaultDict[int, int] = defaultdict(int)
 
-    def __call__(self, input_ids: List[int],
-                 scores: torch.Tensor) -> torch.Tensor:
+    def __call__(self, input_ids: List[int], scores: torch.Tensor) -> torch.Tensor:
         """Use the FSM to bias the logits before sampling the next token."""
         seq_id = hash(tuple(input_ids))
 
@@ -45,7 +44,8 @@ class BaseLogitsProcessor:
             last_token = input_ids[-1]
             last_seq_id = hash(tuple(input_ids[:-1]))
             self._fsm_state[seq_id] = self._guide.get_next_state(
-                state=self._fsm_state[last_seq_id], token_id=last_token)
+                state=self._fsm_state[last_seq_id], token_id=last_token
+            )
         else:
             # Note: this is a hack.
             # Lark pickling does not work properly (silent failure),
@@ -64,8 +64,7 @@ class BaseLogitsProcessor:
                     import_paths=[grammars.GRAMMAR_PATH],
                 )
 
-        instruction = self._guide.get_next_instruction(
-            state=self._fsm_state[seq_id])
+        instruction = self._guide.get_next_instruction(state=self._fsm_state[seq_id])
 
         if type(instruction) == Generate:  # noqa: E721
             allowed_tokens = instruction.tokens
@@ -73,12 +72,9 @@ class BaseLogitsProcessor:
             # TODO: support fast forward tokens
             allowed_tokens = [instruction.tokens[0]]
         else:
-            raise TypeError(
-                f"Unsupported instruction type {type(instruction)}")
+            raise TypeError(f"Unsupported instruction type {type(instruction)}")
 
-        mask = torch.full((scores.shape[-1], ),
-                          -math.inf,
-                          device=scores.device)
+        mask = torch.full((scores.shape[-1],), -math.inf, device=scores.device)
         mask[allowed_tokens] = 0
         scores.add_(mask)
         return scores
@@ -88,8 +84,7 @@ class RegexLogitsProcessor(BaseLogitsProcessor):
 
     @classmethod
     @cache()
-    def _get_guide(cls, regex_string: str,
-                   tokenizer: PreTrainedTokenizerBase) -> Guide:
+    def _get_guide(cls, regex_string: str, tokenizer: PreTrainedTokenizerBase) -> Guide:
         tokenizer = _adapt_tokenizer(tokenizer)
         return RegexGuide(regex_string, tokenizer)
 
@@ -104,15 +99,17 @@ class RegexLogitsProcessor(BaseLogitsProcessor):
             The model's tokenizer
 
         """
-        super().__init__(
-            RegexLogitsProcessor._get_guide(regex_string, tokenizer))
+        super().__init__(RegexLogitsProcessor._get_guide(regex_string, tokenizer))
 
 
 class JSONLogitsProcessor(RegexLogitsProcessor):
 
-    def __init__(self, schema: Union[str, Dict, BaseModel],
-                 tokenizer: PreTrainedTokenizerBase,
-                 whitespace_pattern: Union[str, None]):
+    def __init__(
+        self,
+        schema: Union[str, Dict, BaseModel],
+        tokenizer: PreTrainedTokenizerBase,
+        whitespace_pattern: Union[str, None],
+    ):
         """Compile the FSM that drives the JSON-guided generation.
 
         Parameters
@@ -138,7 +135,8 @@ class JSONLogitsProcessor(RegexLogitsProcessor):
             raise ValueError(
                 f"Cannot parse schema {schema}. The schema must be either "
                 f"a Pydantic object, a dictionary or a string that contains "
-                f"the JSON Schema specification")
+                f"the JSON Schema specification"
+            )
         regex_string = build_regex_from_schema(schema_str, whitespace_pattern)
         super().__init__(regex_string, tokenizer)
 
@@ -198,8 +196,8 @@ def _adapt_tokenizer(tokenizer: PreTrainedTokenizerBase):
         return string
 
     def change_decoder(
-        decoder: Callable[[List[int]],
-                          str]) -> Callable[[List[int]], List[str]]:
+        decoder: Callable[[List[int]], str]
+    ) -> Callable[[List[int]], List[str]]:
         """Sync vLLM's decoder with the outlines by returning list."""
 
         def new_decoder(inp_tokens: List[int]) -> List[str]:

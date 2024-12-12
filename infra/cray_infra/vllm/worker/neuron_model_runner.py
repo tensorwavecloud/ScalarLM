@@ -7,14 +7,12 @@ import torch
 from torch import nn
 from transformers_neuronx.config import GenerationConfig
 
-from vllm.config import (DeviceConfig, ModelConfig, ParallelConfig,
-                         SchedulerConfig)
+from vllm.config import DeviceConfig, ModelConfig, ParallelConfig, SchedulerConfig
 from vllm.logger import init_logger
 from vllm.model_executor import SamplingMetadata
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.model_executor.model_loader.neuron import get_neuron_model
-from vllm.multimodal import (MULTIMODAL_REGISTRY, BatchedTensorInputs,
-                             MultiModalInputs)
+from vllm.multimodal import MULTIMODAL_REGISTRY, BatchedTensorInputs, MultiModalInputs
 from vllm.sequence import IntermediateTensors, SequenceGroupMetadata
 from vllm.utils import is_pin_memory_available, make_tensor_with_pad
 from vllm.worker.model_runner_base import ModelRunnerBase, ModelRunnerInputBase
@@ -30,14 +28,14 @@ class ModelInputForNeuron(ModelRunnerInputBase):
     """
     Used by the NeuronModelRunner.
     """
+
     input_tokens: Optional[torch.Tensor] = None
     input_positions: Optional[torch.Tensor] = None
     input_block_ids: Optional[torch.Tensor] = None
     sampling_metadata: Optional["SamplingMetadata"] = None
     multi_modal_kwargs: Optional[BatchedTensorInputs] = None
 
-    def as_broadcastable_tensor_dict(
-            self) -> Dict[str, Union[int, torch.Tensor]]:
+    def as_broadcastable_tensor_dict(self) -> Dict[str, Union[int, torch.Tensor]]:
         raise NotImplementedError("ModelInputForNeuron cannot be broadcast.")
 
     @classmethod
@@ -67,16 +65,20 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
         self.scheduler_config = scheduler_config
 
         if model_config is not None and model_config.get_sliding_window():
-            logger.warning("Sliding window is not supported on Neuron. "
-                           "The model will run without sliding window.")
-        self.device_config = (device_config
-                              if device_config is not None else DeviceConfig())
+            logger.warning(
+                "Sliding window is not supported on Neuron. "
+                "The model will run without sliding window."
+            )
+        self.device_config = (
+            device_config if device_config is not None else DeviceConfig()
+        )
         self.device = self.device_config.device
         self.pin_memory = is_pin_memory_available()
 
         # Multi-modal data support
-        self.multi_modal_input_mapper = MULTIMODAL_REGISTRY \
-            .create_input_mapper(self.model_config)
+        self.multi_modal_input_mapper = MULTIMODAL_REGISTRY.create_input_mapper(
+            self.model_config
+        )
 
         # Lazy initialization.
         self.model: nn.Module  # initialize after load_model.
@@ -84,7 +86,8 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
         # Once NEURON_ON_DEVICE_SAMPLING_DISABLED is set to a non-zero value,
         # turn off on-device sampling.
         self._on_device_sampling_disabled = int(
-            os.getenv("NEURON_ON_DEVICE_SAMPLING_DISABLED", "0"))
+            os.getenv("NEURON_ON_DEVICE_SAMPLING_DISABLED", "0")
+        )
 
         # NEURON needs to update sampling parameters when request IDs change
         # across batches. This variable stores the previous batch's request IDs
@@ -102,28 +105,30 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
                 max_length=self.scheduler_config.max_model_len,
                 do_sample=True,
                 per_batch_line=True,
-                top_k=[self._MAX_NEURON_SAMPLING_TOP_K] \
-                    * self.scheduler_config.max_num_seqs,
+                top_k=[self._MAX_NEURON_SAMPLING_TOP_K]
+                * self.scheduler_config.max_num_seqs,
                 top_p=[1.0] * self.scheduler_config.max_num_seqs,
                 temperature=[1.0] * self.scheduler_config.max_num_seqs,
                 dynamic=True,
-                global_top_k=self._MAX_NEURON_SAMPLING_TOP_K)
+                global_top_k=self._MAX_NEURON_SAMPLING_TOP_K,
+            )
 
     def load_model(self) -> None:
         if find_spec("transformers_neuronx") is not None:
             self.model = get_neuron_model(
                 self.model_config,
                 parallel_config=self.parallel_config,
-                scheduler_config=self.scheduler_config)
+                scheduler_config=self.scheduler_config,
+            )
         else:
-            raise NotImplementedError(
-                "Supports only Transformer-NeuronX based models.")
+            raise NotImplementedError("Supports only Transformer-NeuronX based models.")
 
     def _prepare_prompt(
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
-    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor, List[int],
-               BatchedTensorInputs]:
+    ) -> Tuple[
+        torch.Tensor, torch.Tensor, torch.Tensor, List[int], BatchedTensorInputs
+    ]:
         assert len(seq_group_metadata_list) > 0
         input_tokens: List[List[int]] = []
         input_positions: List[List[int]] = []
@@ -161,24 +166,33 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
 
         max_seq_len = max(seq_lens)
         assert max_seq_len > 0
-        input_tokens = make_tensor_with_pad(input_tokens,
-                                            pad=0,
-                                            max_len=max_seq_len,
-                                            dtype=torch.long,
-                                            device=self.device)
-        input_positions = make_tensor_with_pad(input_positions,
-                                               pad=0,
-                                               max_len=max_seq_len,
-                                               dtype=torch.long,
-                                               device=self.device)
-        input_block_ids = torch.tensor(input_block_ids,
-                                       dtype=torch.long,
-                                       device=self.device)
+        input_tokens = make_tensor_with_pad(
+            input_tokens,
+            pad=0,
+            max_len=max_seq_len,
+            dtype=torch.long,
+            device=self.device,
+        )
+        input_positions = make_tensor_with_pad(
+            input_positions,
+            pad=0,
+            max_len=max_seq_len,
+            dtype=torch.long,
+            device=self.device,
+        )
+        input_block_ids = torch.tensor(
+            input_block_ids, dtype=torch.long, device=self.device
+        )
 
         multi_modal_kwargs = MultiModalInputs.batch(multi_modal_inputs_list)
 
-        return (input_tokens, input_positions, input_block_ids, seq_lens,
-                multi_modal_kwargs)
+        return (
+            input_tokens,
+            input_positions,
+            input_block_ids,
+            seq_lens,
+            multi_modal_kwargs,
+        )
 
     def _prepare_decode(
         self,
@@ -210,34 +224,29 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
                 assert len(block_table) == 1
                 input_block_ids.append(block_table[0])
 
-        input_tokens = make_tensor_with_pad(input_tokens,
-                                            pad=0,
-                                            max_len=1,
-                                            dtype=torch.long,
-                                            device=self.device)
-        input_positions = make_tensor_with_pad(input_positions,
-                                               pad=0,
-                                               max_len=1,
-                                               dtype=torch.long,
-                                               device=self.device)
-        context_lens = torch.tensor(context_lens,
-                                    dtype=torch.int,
-                                    device=self.device)
-        input_block_ids = torch.tensor(input_block_ids,
-                                       dtype=torch.long,
-                                       device=self.device)
+        input_tokens = make_tensor_with_pad(
+            input_tokens, pad=0, max_len=1, dtype=torch.long, device=self.device
+        )
+        input_positions = make_tensor_with_pad(
+            input_positions, pad=0, max_len=1, dtype=torch.long, device=self.device
+        )
+        context_lens = torch.tensor(context_lens, dtype=torch.int, device=self.device)
+        input_block_ids = torch.tensor(
+            input_block_ids, dtype=torch.long, device=self.device
+        )
 
         return input_tokens, input_positions, input_block_ids
 
     def make_model_input_from_broadcasted_tensor_dict(
-            self, tensor_dict: Dict[str, Any]) -> ModelInputForNeuron:
+        self, tensor_dict: Dict[str, Any]
+    ) -> ModelInputForNeuron:
         return ModelInputForNeuron.from_broadcasted_tensor_dict(tensor_dict)
 
     def prepare_model_input(
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
         virtual_engine: int = 0,
-        finished_requests_ids: Optional[List[str]] = None
+        finished_requests_ids: Optional[List[str]] = None,
     ) -> ModelInputForNeuron:
         multi_modal_kwargs = None
         # NOTE: We assume that all sequences in the group are all prompts or
@@ -245,12 +254,17 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
         is_prompt = seq_group_metadata_list[0].is_prompt
         # Prepare input tensors.
         if is_prompt:
-            (input_tokens, input_positions, input_block_ids, seq_lens,
-             multi_modal_kwargs
-             ) = self._prepare_prompt(seq_group_metadata_list)
+            (
+                input_tokens,
+                input_positions,
+                input_block_ids,
+                seq_lens,
+                multi_modal_kwargs,
+            ) = self._prepare_prompt(seq_group_metadata_list)
         else:
-            (input_tokens, input_positions,
-             input_block_ids) = self._prepare_decode(seq_group_metadata_list)
+            (input_tokens, input_positions, input_block_ids) = self._prepare_decode(
+                seq_group_metadata_list
+            )
             seq_lens = None
         sampling_metadata = SamplingMetadata.prepare(
             seq_group_metadata_list,
@@ -261,7 +275,8 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
             seq_lens,
             self.device,
             self.pin_memory,
-            generators=self.get_generators(finished_requests_ids))
+            generators=self.get_generators(finished_requests_ids),
+        )
 
         if not self._on_device_sampling_disabled:
             # Once the request IDs are changed in current iteration, we will
@@ -274,30 +289,31 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
                 self._update_neuron_sampling_params(sampling_metadata)
                 self._previous_batch_request_ids = current_batch_request_ids
 
-        return ModelInputForNeuron(input_tokens=input_tokens,
-                                   input_positions=input_positions,
-                                   input_block_ids=input_block_ids,
-                                   sampling_metadata=sampling_metadata,
-                                   multi_modal_kwargs=multi_modal_kwargs)
+        return ModelInputForNeuron(
+            input_tokens=input_tokens,
+            input_positions=input_positions,
+            input_block_ids=input_block_ids,
+            sampling_metadata=sampling_metadata,
+            multi_modal_kwargs=multi_modal_kwargs,
+        )
 
-    def _update_neuron_sampling_params(self,
-                                       sampling_metadata: SamplingMetadata):
+    def _update_neuron_sampling_params(self, sampling_metadata: SamplingMetadata):
         # Update Neuron sampling parameters (GenerationConfig in Neuron)
         current_sampling_params = self.model_config.neuron_sampling_params
         assert current_sampling_params is not None, (
             f"Failed to update sampling_params, "
-            f"current sampling params is {current_sampling_params}")
+            f"current sampling params is {current_sampling_params}"
+        )
 
         top_k = current_sampling_params.top_k
         top_p = current_sampling_params.top_p
         temperature = current_sampling_params.temperature
-        for index, sequence_group_to_sample in enumerate(
-                sampling_metadata.seq_groups):
+        for index, sequence_group_to_sample in enumerate(sampling_metadata.seq_groups):
             top_k[index] = self._convert_to_neuron_top_k(
-                sequence_group_to_sample.sampling_params.top_k)
+                sequence_group_to_sample.sampling_params.top_k
+            )
             top_p[index] = sequence_group_to_sample.sampling_params.top_p
-            temperature[index] = \
-                sequence_group_to_sample.sampling_params.temperature
+            temperature[index] = sequence_group_to_sample.sampling_params.temperature
 
         self.model.model.update_generation_config(current_sampling_params)
 
@@ -315,22 +331,23 @@ class NeuronModelRunner(ModelRunnerBase[ModelInputForNeuron]):
         num_steps: int = 1,
     ) -> Optional[List[SamplerOutput]]:
         if num_steps > 1:
-            raise ValueError(
-                "NeuronModelRunner does not support multi-step execution.")
+            raise ValueError("NeuronModelRunner does not support multi-step execution.")
 
         hidden_states = self.model(
             input_ids=model_input.input_tokens,
             positions=model_input.input_positions,
             input_block_ids=model_input.input_block_ids,
-            **MultiModalInputs.as_kwargs(model_input.multi_modal_kwargs or {},
-                                         device=self.device),
+            **MultiModalInputs.as_kwargs(
+                model_input.multi_modal_kwargs or {}, device=self.device
+            ),
         )
 
         # Compute the logits only if the on-device sampling is turned off as
         # on-device sampling outputs the token ids.
         if self._on_device_sampling_disabled:
-            logits = self.model.compute_logits(hidden_states,
-                                               model_input.sampling_metadata)
+            logits = self.model.compute_logits(
+                hidden_states, model_input.sampling_metadata
+            )
         else:
             logits = hidden_states
 

@@ -9,4 +9,4 @@ from .internvl import InternVLChatConfig
 
 
 class NVLM_D_Config(InternVLChatConfig):
-    model_type = 'NVLM_D'
+    model_type = "NVLM_D"

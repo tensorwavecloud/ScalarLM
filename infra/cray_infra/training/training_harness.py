@@ -25,19 +25,13 @@ class TrainingHarness:
     def checkpoint(self, model, checkpoint_state, checkpoint_name):
         job_config = get_job_config()
 
-        checkpoint_path = os.path.join(
-            job_config["job_directory"],
-            checkpoint_name
-        )
+        checkpoint_path = os.path.join(job_config["job_directory"], checkpoint_name)
 
         torch.save(checkpoint_state, checkpoint_path)
 
         logger.info(f"Checkpoint saved to {checkpoint_path}")
 
-        saved_model_path = os.path.join(
-            job_config["job_directory"],
-            "saved_model"
-        )
+        saved_model_path = os.path.join(job_config["job_directory"], "saved_model")
 
         model.save_pretrained(saved_model_path)
 

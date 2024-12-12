@@ -40,10 +40,10 @@ def _sgmv_expand_slice_kernel(
 ):
     """
 
-    Similar to the 'sgmv_expand' operator, but with an added parameter 
-    'slice_offset'. The reason for not reusing the 'sgmv_expand' operator 
-    might be that in the future, we could implement a fusion operator to 
-    achieve the current functionality instead of having to call it multiple 
+    Similar to the 'sgmv_expand' operator, but with an added parameter
+    'slice_offset'. The reason for not reusing the 'sgmv_expand' operator
+    might be that in the future, we could implement a fusion operator to
+    achieve the current functionality instead of having to call it multiple
     times.
     """
     pid = tl.program_id(axis=0)
@@ -64,22 +64,26 @@ def _sgmv_expand_slice_kernel(
     ram = tl.max_contiguous(tl.multiple_of(offset_m % M, BLOCK_M), BLOCK_M)
     rbn = tl.max_contiguous(tl.multiple_of(offset_n % N, BLOCK_N), BLOCK_N)
 
-    a_ptr = (input_ptr + cur_seq_start * xm_stride + ram[:, None] * xm_stride +
-             offset_k[None, :] * xk_stride, )
-    b_ptr = (lora_ptr + l0_stride * lora_index +
-             offset_k[:, None] * lora_n_stride + rbn[None, :] * lora_k_stride)
+    a_ptr = (
+        input_ptr
+        + cur_seq_start * xm_stride
+        + ram[:, None] * xm_stride
+        + offset_k[None, :] * xk_stride,
+    )
+    b_ptr = (
+        lora_ptr
+        + l0_stride * lora_index
+        + offset_k[:, None] * lora_n_stride
+        + rbn[None, :] * lora_k_stride
+    )
     accumulator = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
     for k in range(tl.cdiv(K, BLOCK_K)):
         if EVEN_K:
             tiled_a = tl.load(a_ptr)
             tiled_b = tl.load(b_ptr)
         else:
-            tiled_a = tl.load(a_ptr,
-                              mask=offset_k[None, :] < K - k * BLOCK_K,
-                              other=0)
-            tiled_b = tl.load(b_ptr,
-                              mask=offset_k[:, None] < K - k * BLOCK_K,
-                              other=0)
+            tiled_a = tl.load(a_ptr, mask=offset_k[None, :] < K - k * BLOCK_K, other=0)
+            tiled_b = tl.load(b_ptr, mask=offset_k[:, None] < K - k * BLOCK_K, other=0)
         if CAST_TYPE:
             tiled_a = tiled_a.to(lora_ptr.dtype.element_ty)
         accumulator += tl.dot(
@@ -91,11 +95,11 @@ def _sgmv_expand_slice_kernel(
     tiled_c = accumulator.to(lora_ptr.dtype.element_ty)
     offset_cm = cur_seq_start + tl.arange(0, BLOCK_M) + pid_m * BLOCK_M
     offset_cn = tl.arange(0, BLOCK_N) + pid_n * BLOCK_N + slice_offset
-    c_ptr = (out_ptr + offset_cm[:, None] * cm_stride +
-             offset_cn[None, :] * cn_stride)
+    c_ptr = out_ptr + offset_cm[:, None] * cm_stride + offset_cn[None, :] * cn_stride
     M = tl.load(seq_lens + cur_batch)
-    c_mask = (offset_cm[:, None] < (cur_seq_start + M)) & (offset_cn[None, :] <
-                                                           (slice_offset + N))
+    c_mask = (offset_cm[:, None] < (cur_seq_start + M)) & (
+        offset_cn[None, :] < (slice_offset + N)
+    )
     if ADD_INPUTS:
         tiled_out = tl.load(c_ptr, mask=c_mask)
         tiled_c += tiled_out
@@ -135,11 +139,11 @@ def _sgmv_expand_slice(
         batches (int): batch size
         max_seq_length (int): The max sequence lengths of the sequences
             in the batch
-        token_nums (int): The token numbers in the batch. Used to verify if the 
+        token_nums (int): The token numbers in the batch. Used to verify if the
             token numbers in the inputs matches the one in the metadata.
         slice_offset (int): output_tensor's offset
         slice_size (int): current output_tensor's size
-        add_inputs (bool, optional): Defaults to False, adds the final lora 
+        add_inputs (bool, optional): Defaults to False, adds the final lora
             results to the output.
     """
 
@@ -174,8 +178,8 @@ def _sgmv_expand_slice(
     ADD_INPUTS = add_inputs
     CAST_TYPE = False
     if inputs.dtype == torch.float32 and lora_b_weights.dtype in [
-            torch.float16,
-            torch.bfloat16,
+        torch.float16,
+        torch.bfloat16,
     ]:
         CAST_TYPE = True
     grid = (
@@ -210,8 +214,8 @@ def _sgmv_expand_slice(
 
 
 try:
-    sgmv_expand_slice = torch.library.custom_op("lora::sgmv_expand_slice",
-                                                _sgmv_expand_slice,
-                                                mutates_args=["output_tensor"])
+    sgmv_expand_slice = torch.library.custom_op(
+        "lora::sgmv_expand_slice", _sgmv_expand_slice, mutates_args=["output_tensor"]
+    )
 except AttributeError:
     sgmv_expand_slice = _sgmv_expand_slice

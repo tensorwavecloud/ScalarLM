@@ -71,23 +71,23 @@ class UltravoxConfig(transformers.PretrainedConfig):
             # Avoid circular import
             from vllm.transformers_utils.config import get_config
 
-            self.text_config = get_config(text_model_id,
-                                          trust_remote_code=False)
+            self.text_config = get_config(text_model_id, trust_remote_code=False)
         else:
             text_config = text_config or {}
-            self.text_config = transformers.CONFIG_MAPPING[text_config.get(
-                "model_type", "llama")](**text_config)
+            self.text_config = transformers.CONFIG_MAPPING[
+                text_config.get("model_type", "llama")
+            ](**text_config)
 
         if audio_model_id is not None:
             # Avoid circular import
             from vllm.transformers_utils.config import get_config
 
-            self.audio_config = get_config(audio_model_id,
-                                           trust_remote_code=False)
+            self.audio_config = get_config(audio_model_id, trust_remote_code=False)
         else:
             audio_config = audio_config or {}
-            self.audio_config = transformers.CONFIG_MAPPING[audio_config.get(
-                "model_type", "whisper")](**audio_config)
+            self.audio_config = transformers.CONFIG_MAPPING[
+                audio_config.get("model_type", "whisper")
+            ](**audio_config)
 
         self.text_model_lora_config = text_model_lora_config or {}
         self.audio_model_lora_config = audio_model_lora_config or {}

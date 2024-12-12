@@ -27,7 +27,7 @@ class AsyncCray:
     async def generate(self, prompts, model_name, max_tokens):
         api_url = make_api_url("v1/generate")
         async with aiohttp.ClientSession() as session:
-            params = {"prompts" : prompts }
+            params = {"prompts": prompts}
 
             if model_name is not None:
                 params["model"] = model_name

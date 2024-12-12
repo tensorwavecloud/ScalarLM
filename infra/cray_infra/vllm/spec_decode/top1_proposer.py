@@ -4,8 +4,7 @@ import torch
 
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.sequence import ExecuteModelRequest, SequenceGroupMetadata
-from vllm.spec_decode.interfaces import (SpeculativeProposals,
-                                         SpeculativeProposer)
+from vllm.spec_decode.interfaces import SpeculativeProposals, SpeculativeProposer
 from vllm.spec_decode.proposer_worker_base import ProposerWorkerBase
 from vllm.spec_decode.util import sampler_output_to_torch
 
@@ -77,17 +76,18 @@ class Top1Proposer(SpeculativeProposer):
             maybe_sampler_output, transposed = self._worker.sampler_output(
                 execute_model_req=nonzero_execute_model_req,
                 sample_len=proposal_len,
-                seq_ids_with_bonus_token_in_last_step=\
-                    seq_ids_with_bonus_token_in_last_step,
+                seq_ids_with_bonus_token_in_last_step=seq_ids_with_bonus_token_in_last_step,
             )
             (
                 proposal_lens,
                 maybe_sampler_output,
                 nonzero_proposal_len_indices,
-            ) = self._remove_no_proposal_seqs(proposal_lens,
-                                              maybe_sampler_output,
-                                              nonzero_proposal_len_indices,
-                                              transposed)
+            ) = self._remove_no_proposal_seqs(
+                proposal_lens,
+                maybe_sampler_output,
+                nonzero_proposal_len_indices,
+                transposed,
+            )
         else:
             # If no sequences can be speculated, set sampler output to None.
             maybe_sampler_output = None
@@ -108,7 +108,8 @@ class Top1Proposer(SpeculativeProposer):
             proposal_token_ids=proposal_tokens,
             proposal_probs=proposal_probs,
             proposal_lens=proposal_lens,
-            no_proposals=maybe_sampler_output is None)
+            no_proposals=maybe_sampler_output is None,
+        )
 
         return proposals
 
@@ -141,8 +142,10 @@ class Top1Proposer(SpeculativeProposer):
             # If max_proposal_len is defined, then we shall not exceed this
             # quota for nonzero_proposal
             new_k = 0
-            if (self.max_proposal_len is None
-                    or seq_len + proposal_len < self.max_proposal_len):
+            if (
+                self.max_proposal_len is None
+                or seq_len + proposal_len < self.max_proposal_len
+            ):
                 new_k = proposal_len
                 nonzero_proposal_len_seqs.append(seq_group_metadata)
                 nonzero_proposal_len_indices.append(i)
@@ -156,8 +159,9 @@ class Top1Proposer(SpeculativeProposer):
         )
 
     @staticmethod
-    def _remove_no_proposal_seqs(proposal_lens, maybe_sampler_output,
-                                 nonzero_proposal_len_indices, transposed):
+    def _remove_no_proposal_seqs(
+        proposal_lens, maybe_sampler_output, nonzero_proposal_len_indices, transposed
+    ):
         """Remove sequences from nonzero_proposal_len_indices and reset
         their proposal_len to 0 the draft worker does not provide a proposal
         (maybe_sampler_output=None). This can avoid scoring overheads.
@@ -169,19 +173,17 @@ class Top1Proposer(SpeculativeProposer):
         # because it seems not straightforward for draft workers outputting
         # transposed sampler outputs to handle the case of no proposal.
         if maybe_sampler_output is None or transposed:
-            return (proposal_lens, maybe_sampler_output,
-                    nonzero_proposal_len_indices)
+            return (proposal_lens, maybe_sampler_output, nonzero_proposal_len_indices)
 
         new_proposal_lens: List[int] = []
         new_nonzero_proposal_len_indices: List[int] = []
         new_maybe_sampler_output: List[SamplerOutput] = []
         nonzero_proposal_len_idx_ptr = 0
         seq_idx = 0
-        while seq_idx < len(
-                proposal_lens) and nonzero_proposal_len_idx_ptr < len(
-                    nonzero_proposal_len_indices):
-            if seq_idx < nonzero_proposal_len_indices[
-                    nonzero_proposal_len_idx_ptr]:
+        while seq_idx < len(proposal_lens) and nonzero_proposal_len_idx_ptr < len(
+            nonzero_proposal_len_indices
+        ):
+            if seq_idx < nonzero_proposal_len_indices[nonzero_proposal_len_idx_ptr]:
                 # Sequence is not in the original nonzero_proposal_len_indices,
                 # meaning that it has a proposal length of 0 before sending to
                 # the draft worker.
@@ -198,7 +200,8 @@ class Top1Proposer(SpeculativeProposer):
                     new_proposal_lens.append(proposal_lens[seq_idx])
                     new_nonzero_proposal_len_indices.append(seq_idx)
                     new_maybe_sampler_output.append(
-                        maybe_sampler_output[nonzero_proposal_len_idx_ptr])
+                        maybe_sampler_output[nonzero_proposal_len_idx_ptr]
+                    )
                 nonzero_proposal_len_idx_ptr += 1
             seq_idx += 1
 
@@ -208,8 +211,11 @@ class Top1Proposer(SpeculativeProposer):
         # We assume sampler_output will not be a list of all Nones.
         # In this case this function should not be called.
         assert new_maybe_sampler_output
-        return (new_proposal_lens, new_maybe_sampler_output,
-                new_nonzero_proposal_len_indices)
+        return (
+            new_proposal_lens,
+            new_maybe_sampler_output,
+            new_nonzero_proposal_len_indices,
+        )
 
     def _merge_outputs(
         self,
@@ -226,24 +232,21 @@ class Top1Proposer(SpeculativeProposer):
         if maybe_sampler_output is None:
             # If no speculative tokens, the sampler output will be None.
             # In this case we return empty proposals.
-            proposal_tokens = torch.tensor(-1,
-                                           dtype=torch.long,
-                                           device=self._device).expand(
-                                               batch_size, proposal_len)
-            proposal_probs = torch.tensor(0,
-                                          dtype=torch.float32,
-                                          device=self._device).expand(
-                                              batch_size, proposal_len,
-                                              self._vocab_size)
-            proposal_lens_tensor = torch.tensor(0,
-                                                dtype=torch.long,
-                                                device=self._device).expand(
-                                                    len(proposal_lens))
+            proposal_tokens = torch.tensor(
+                -1, dtype=torch.long, device=self._device
+            ).expand(batch_size, proposal_len)
+            proposal_probs = torch.tensor(
+                0, dtype=torch.float32, device=self._device
+            ).expand(batch_size, proposal_len, self._vocab_size)
+            proposal_lens_tensor = torch.tensor(
+                0, dtype=torch.long, device=self._device
+            ).expand(len(proposal_lens))
             return proposal_tokens, proposal_probs, proposal_lens_tensor
 
         sampler_output = maybe_sampler_output
         proposal_tokens, proposal_probs, *_ = sampler_output_to_torch(
-            sampler_output, sampler_transposed)
+            sampler_output, sampler_transposed
+        )
 
         # Now, reformat the output GPU tensors such that each sequence has
         # a proposal. the proposal can be empty, e.g. [-1, -1, -1]
@@ -264,9 +267,9 @@ class Top1Proposer(SpeculativeProposer):
             entire_proposal_probs,
         )
 
-        proposal_lens_tensor = torch.zeros(batch_size,
-                                           dtype=torch.long,
-                                           device=self._device)
+        proposal_lens_tensor = torch.zeros(
+            batch_size, dtype=torch.long, device=self._device
+        )
         proposal_lens_tensor[nonzero_proposal_len_indices] = proposal_len
 
         return proposal_tokens, proposal_probs, proposal_lens_tensor

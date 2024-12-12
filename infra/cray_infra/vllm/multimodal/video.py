@@ -46,7 +46,8 @@ class VideoPlugin(ImagePlugin):
         return cached_get_video_processor(
             model_config.model,
             trust_remote_code=model_config.trust_remote_code,
-            **mm_processor_kwargs)
+            **mm_processor_kwargs,
+        )
 
     def _default_input_mapper(
         self,
@@ -63,8 +64,10 @@ class VideoPlugin(ImagePlugin):
                 mm_processor_kwargs,
             )
             if video_processor is None:
-                raise RuntimeError("No HuggingFace processor is available "
-                                   "to process the image object")
+                raise RuntimeError(
+                    "No HuggingFace processor is available "
+                    "to process the image object"
+                )
             try:
                 # NOTE: Similar to image; it may be a good idea to filter and
                 # pass mm_processor_kwargs here too, but for now we don't to
@@ -77,8 +80,7 @@ class VideoPlugin(ImagePlugin):
 
             return MultiModalInputs(batch_data)
         elif is_list_of(data, np.ndarray):
-            raise NotImplementedError(
-                "Multi video for a prompt is not supported yet")
+            raise NotImplementedError("Multi video for a prompt is not supported yet")
 
         raise TypeError(f"Invalid video type: {type(data)}")
 

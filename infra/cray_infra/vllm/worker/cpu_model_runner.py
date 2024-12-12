@@ -7,25 +7,33 @@ import torch
 from torch import nn
 
 from vllm.attention import AttentionMetadata, get_attn_backend
-from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, LoRAConfig,
-                         ModelConfig, ParallelConfig, PromptAdapterConfig,
-                         SchedulerConfig)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    LoadConfig,
+    LoRAConfig,
+    ModelConfig,
+    ParallelConfig,
+    PromptAdapterConfig,
+    SchedulerConfig,
+)
 from vllm.logger import init_logger
 from vllm.model_executor import SamplingMetadata
 from vllm.model_executor.layers.rotary_embedding import MRotaryEmbedding
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.model_executor.model_loader import get_model
-from vllm.multimodal import (MULTIMODAL_REGISTRY, BatchedTensorInputs,
-                             MultiModalInputs)
-from vllm.sequence import (IntermediateTensors, SequenceData,
-                           SequenceGroupMetadata)
+from vllm.multimodal import MULTIMODAL_REGISTRY, BatchedTensorInputs, MultiModalInputs
+from vllm.sequence import IntermediateTensors, SequenceData, SequenceGroupMetadata
 from vllm.utils import make_tensor_with_pad
 from vllm.worker.model_runner_base import (
-    ModelRunnerBase, ModelRunnerInputBase, ModelRunnerInputBuilderBase,
+    ModelRunnerBase,
+    ModelRunnerInputBase,
+    ModelRunnerInputBuilderBase,
     _add_attn_metadata_broadcastable_dict,
     _add_sampling_metadata_broadcastable_dict,
     _init_attn_metadata_from_tensor_dict,
-    _init_sampling_metadata_from_tensor_dict)
+    _init_sampling_metadata_from_tensor_dict,
+)
 
 if TYPE_CHECKING:
     from vllm.attention.backends.abstract import AttentionBackend
@@ -40,6 +48,7 @@ class ModelInputForCPU(ModelRunnerInputBase):
     """
     Base class contains metadata needed for the base model forward pass on CPU
     """
+
     input_tokens: Optional[torch.Tensor] = None
     input_positions: Optional[torch.Tensor] = None
     attn_metadata: Optional["AttentionMetadata"] = None
@@ -48,8 +57,7 @@ class ModelInputForCPU(ModelRunnerInputBase):
     seq_lens: Optional[List[int]] = None
     query_lens: Optional[List[int]] = None
 
-    def as_broadcastable_tensor_dict(
-            self) -> Dict[str, Union[int, torch.Tensor]]:
+    def as_broadcastable_tensor_dict(self) -> Dict[str, Union[int, torch.Tensor]]:
         tensor_dict = {
             "input_tokens": self.input_tokens,
             "input_positions": self.input_positions,
@@ -63,11 +71,12 @@ class ModelInputForCPU(ModelRunnerInputBase):
     def from_broadcasted_tensor_dict(
         cls: Type["ModelInputForCPU"],
         tensor_dict: Dict[str, Any],
-        attn_backend: Optional["AttentionBackend"] = None
+        attn_backend: Optional["AttentionBackend"] = None,
     ) -> "ModelInputForCPU":
         if attn_backend is not None:
             tensor_dict = _init_attn_metadata_from_tensor_dict(
-                attn_backend, tensor_dict)
+                attn_backend, tensor_dict
+            )
         return cls(**tensor_dict)
 
 
@@ -76,6 +85,7 @@ class ModelInputForCPUWithSamplingMetadata(ModelInputForCPU):
     """
     Used by the ModelRunner.
     """
+
     sampling_metadata: Optional["SamplingMetadata"] = None
 
     def as_broadcastable_tensor_dict(self) -> Dict[str, Any]:
@@ -84,8 +94,7 @@ class ModelInputForCPUWithSamplingMetadata(ModelInputForCPU):
             "input_positions": self.input_positions,
         }
         _add_attn_metadata_broadcastable_dict(tensor_dict, self.attn_metadata)
-        _add_sampling_metadata_broadcastable_dict(tensor_dict,
-                                                  self.sampling_metadata)
+        _add_sampling_metadata_broadcastable_dict(tensor_dict, self.sampling_metadata)
         return tensor_dict
 
     @classmethod
@@ -97,15 +106,18 @@ class ModelInputForCPUWithSamplingMetadata(ModelInputForCPU):
         tensor_dict = _init_sampling_metadata_from_tensor_dict(tensor_dict)
         if attn_backend is not None:
             tensor_dict = _init_attn_metadata_from_tensor_dict(
-                attn_backend, tensor_dict)
+                attn_backend, tensor_dict
+            )
         return cls(**tensor_dict)
 
 
 class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
 
-    def __init__(self,
-                 runner: "CPUModelRunner",
-                 finished_requests_ids: Optional[List[str]] = None) -> None:
+    def __init__(
+        self,
+        runner: "CPUModelRunner",
+        finished_requests_ids: Optional[List[str]] = None,
+    ) -> None:
         super().__init__()
         self.seq_group_metadata_list: List[SequenceGroupMetadata] = []
         self.runner = runner
@@ -126,13 +138,17 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
         is_prompt = self.seq_group_metadata_list[0].is_prompt
         # Prepare input tensors.
         if is_prompt:
-            (input_tokens, input_positions, attn_metadata, seq_lens,
-             multi_modal_kwargs) = self._prepare_prompt(
-                 self.seq_group_metadata_list)
+            (
+                input_tokens,
+                input_positions,
+                attn_metadata,
+                seq_lens,
+                multi_modal_kwargs,
+            ) = self._prepare_prompt(self.seq_group_metadata_list)
         else:
-            (input_tokens, input_positions,
-             attn_metadata) = self._prepare_decode(
-                 self.seq_group_metadata_list)
+            (input_tokens, input_positions, attn_metadata) = self._prepare_decode(
+                self.seq_group_metadata_list
+            )
             seq_lens = None
 
         return self.model_input_cls(
@@ -147,9 +163,13 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
             query_lens=seq_lens,
         )
 
-    def _compute_multi_modal_input(self, seq_data: SequenceData, mm_data,
-                                   computed_len: int,
-                                   mm_processor_kwargs: Dict[str, Any]):
+    def _compute_multi_modal_input(
+        self,
+        seq_data: SequenceData,
+        mm_data,
+        computed_len: int,
+        mm_processor_kwargs: Dict[str, Any],
+    ):
         mm_kwargs = self.multi_modal_input_mapper(mm_data, mm_processor_kwargs)
 
         # special processing for mrope position deltas.
@@ -159,12 +179,13 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
             video_grid_thw = mm_kwargs.get("video_grid_thw", None)
             assert image_grid_thw is not None or video_grid_thw is not None, (
                 "mrope embedding type requires multi-modal input mapper "
-                "returns 'image_grid_thw' or 'video_grid_thw'.")
+                "returns 'image_grid_thw' or 'video_grid_thw'."
+            )
 
             hf_config = self.runner.model_config.hf_config
             token_ids = seq_data.get_token_ids()
 
-            mrope_positions, mrope_position_delta = \
+            mrope_positions, mrope_position_delta = (
                 MRotaryEmbedding.get_input_positions(
                     token_ids,
                     image_grid_thw=image_grid_thw,
@@ -173,18 +194,19 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
                     video_token_id=hf_config.video_token_id,
                     vision_start_token_id=hf_config.vision_start_token_id,
                     vision_end_token_id=hf_config.vision_end_token_id,
-                    spatial_merge_size=hf_config.vision_config.
-                    spatial_merge_size,
+                    spatial_merge_size=hf_config.vision_config.spatial_merge_size,
                     context_len=computed_len,
                 )
+            )
             seq_data.mrope_position_delta = mrope_position_delta
         return mm_kwargs, mrope_positions
 
     def _prepare_prompt(
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
-    ) -> Tuple[torch.Tensor, torch.Tensor, AttentionMetadata, List[int],
-               BatchedTensorInputs]:
+    ) -> Tuple[
+        torch.Tensor, torch.Tensor, AttentionMetadata, List[int], BatchedTensorInputs
+    ]:
         assert len(seq_group_metadata_list) > 0
         input_tokens: List[int] = []
         input_positions: List[int] = []
@@ -209,10 +231,13 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
             input_tokens.extend(prompt_tokens)  # Token ids
 
             mrope_positions = None
-            if (mm_data := seq_group_metadata.multi_modal_data):
+            if mm_data := seq_group_metadata.multi_modal_data:
                 mm_kwargs, mrope_positions = self._compute_multi_modal_input(
-                    seq_data, mm_data, computed_len,
-                    seq_group_metadata.mm_processor_kwargs)
+                    seq_data,
+                    mm_data,
+                    computed_len,
+                    seq_group_metadata.mm_processor_kwargs,
+                )
                 multi_modal_inputs_list.append(mm_kwargs)
 
             # Token position ids
@@ -240,8 +265,7 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
                     slot_mapping.append(_PAD_SLOT_ID)
                     continue
 
-                block_number = block_table[i //
-                                           self.block_size]  # type: ignore
+                block_number = block_table[i // self.block_size]  # type: ignore
                 block_offset = i % self.block_size  # type: ignore
                 slot = block_number * self.block_size + block_offset
                 slot_mapping.append(slot)
@@ -253,16 +277,17 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
 
         num_prompt_tokens = len(input_tokens)
 
-        input_tokens = torch.tensor(input_tokens,
-                                    dtype=torch.long,
-                                    device=self.device)  # type: ignore
-        input_positions = torch.tensor(input_positions
-                                       or input_mrope_positions,
-                                       dtype=torch.long,
-                                       device=self.device)  # type: ignore
-        slot_mapping = torch.tensor(slot_mapping,
-                                    dtype=torch.long,
-                                    device=self.device)  # type: ignore
+        input_tokens = torch.tensor(
+            input_tokens, dtype=torch.long, device=self.device
+        )  # type: ignore
+        input_positions = torch.tensor(
+            input_positions or input_mrope_positions,
+            dtype=torch.long,
+            device=self.device,
+        )  # type: ignore
+        slot_mapping = torch.tensor(
+            slot_mapping, dtype=torch.long, device=self.device
+        )  # type: ignore
 
         attn_metadata = self.attn_backend.make_metadata(
             is_prompt=True,
@@ -278,8 +303,13 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
 
         multi_modal_kwargs = MultiModalInputs.batch(multi_modal_inputs_list)
 
-        return (input_tokens, input_positions, attn_metadata, seq_lens,
-                multi_modal_kwargs)
+        return (
+            input_tokens,
+            input_positions,
+            attn_metadata,
+            seq_lens,
+            multi_modal_kwargs,
+        )
 
     def _prepare_decode(
         self,
@@ -318,8 +348,11 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
                 else:
                     input_positions.append(position)
 
-                seq_len = seq_len if self.sliding_window is None else min(
-                    seq_len, self.sliding_window)
+                seq_len = (
+                    seq_len
+                    if self.sliding_window is None
+                    else min(seq_len, self.sliding_window)
+                )
                 seq_lens.append(seq_len)
 
                 block_table = seq_group_metadata.block_tables[seq_id]
@@ -329,8 +362,7 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
                 slot_mapping.append(slot)
 
                 if self.sliding_window is not None:
-                    sliding_window_blocks = (self.sliding_window //
-                                             self.block_size)
+                    sliding_window_blocks = self.sliding_window // self.block_size
                     block_table = block_table[-sliding_window_blocks:]
                 block_tables.append(block_table)
 
@@ -341,19 +373,14 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
 
         max_decode_seq_len = max(seq_lens)
 
-        input_tokens = torch.tensor(input_tokens,
-                                    dtype=torch.long,
-                                    device=self.device)
-        input_positions = torch.tensor(input_positions
-                                       or input_mrope_positions,
-                                       dtype=torch.long,
-                                       device=self.device)
-        slot_mapping = torch.tensor(slot_mapping,
-                                    dtype=torch.long,
-                                    device=self.device)
-        seq_lens_tensor = torch.tensor(seq_lens,
-                                       dtype=torch.int,
-                                       device=self.device)
+        input_tokens = torch.tensor(input_tokens, dtype=torch.long, device=self.device)
+        input_positions = torch.tensor(
+            input_positions or input_mrope_positions,
+            dtype=torch.long,
+            device=self.device,
+        )
+        slot_mapping = torch.tensor(slot_mapping, dtype=torch.long, device=self.device)
+        seq_lens_tensor = torch.tensor(seq_lens, dtype=torch.int, device=self.device)
 
         block_tables = make_tensor_with_pad(
             block_tables,
@@ -382,7 +409,8 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
 
 class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
     _model_input_cls: Type[ModelInputForCPUWithSamplingMetadata] = (
-        ModelInputForCPUWithSamplingMetadata)
+        ModelInputForCPUWithSamplingMetadata
+    )
     _builder_cls: Type[ModelInputForCPUBuilder] = ModelInputForCPUBuilder
 
     def __init__(
@@ -429,8 +457,9 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
 
         # Multi-modal data support
         self.mm_registry = MULTIMODAL_REGISTRY
-        self.multi_modal_input_mapper = self.mm_registry \
-            .create_input_mapper(self.model_config)
+        self.multi_modal_input_mapper = self.mm_registry.create_input_mapper(
+            self.model_config
+        )
         self.mm_registry.init_mm_limits_per_prompt(self.model_config)
 
         # Lazy initialization.
@@ -446,13 +475,15 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         return rope_scaling.get("type", None) == "mrope"
 
     def load_model(self) -> None:
-        self.model = get_model(model_config=self.model_config,
-                               load_config=self.load_config,
-                               device_config=self.device_config,
-                               lora_config=self.lora_config,
-                               parallel_config=self.parallel_config,
-                               scheduler_config=self.scheduler_config,
-                               cache_config=self.cache_config)
+        self.model = get_model(
+            model_config=self.model_config,
+            load_config=self.load_config,
+            device_config=self.device_config,
+            lora_config=self.lora_config,
+            parallel_config=self.parallel_config,
+            scheduler_config=self.scheduler_config,
+            cache_config=self.cache_config,
+        )
 
     def make_model_input_from_broadcasted_tensor_dict(
         self,
@@ -466,7 +497,7 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
     def _prepare_model_input_tensors(
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
-        finished_requests_ids: Optional[List[str]] = None
+        finished_requests_ids: Optional[List[str]] = None,
     ) -> ModelInputForCPUWithSamplingMetadata:
         """Helper method to prepare the model input based on a given sequence
         group. Prepares metadata needed for the base model forward pass but not
@@ -483,26 +514,31 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         self,
         seq_group_metadata_list: List[SequenceGroupMetadata],
         virtual_engine: int = 0,
-        finished_requests_ids: Optional[List[str]] = None
+        finished_requests_ids: Optional[List[str]] = None,
     ) -> ModelInputForCPUWithSamplingMetadata:
         """Prepare the model input based on a given sequence group, including
         metadata for the sampling step.
 
         """
         model_input = self._prepare_model_input_tensors(
-            seq_group_metadata_list, finished_requests_ids)
+            seq_group_metadata_list, finished_requests_ids
+        )
         # Sampling metadata is only required for the final pp group
         generators = self.get_generators(finished_requests_ids)
-        sampling_metadata = SamplingMetadata.prepare(seq_group_metadata_list,
-                                                     model_input.seq_lens,
-                                                     model_input.query_lens,
-                                                     self.device,
-                                                     pin_memory=False,
-                                                     generators=generators)
+        sampling_metadata = SamplingMetadata.prepare(
+            seq_group_metadata_list,
+            model_input.seq_lens,
+            model_input.query_lens,
+            self.device,
+            pin_memory=False,
+            generators=generators,
+        )
 
-        return dataclasses.replace(model_input,
-                                   sampling_metadata=sampling_metadata,
-                                   virtual_engine=virtual_engine)
+        return dataclasses.replace(
+            model_input,
+            sampling_metadata=sampling_metadata,
+            virtual_engine=virtual_engine,
+        )
 
     @torch.no_grad()
     def execute_model(
@@ -513,30 +549,24 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         num_steps: int = 1,
     ) -> Optional[List[SamplerOutput]]:
         if num_steps > 1:
-            raise ValueError(
-                "CPU worker does not support multi-step execution.")
+            raise ValueError("CPU worker does not support multi-step execution.")
 
         model_executable = self.model
         execute_model_kwargs = {
-            "input_ids":
-            model_input.input_tokens,
-            "positions":
-            model_input.input_positions,
-            "kv_caches":
-            kv_caches,
-            "attn_metadata":
-            model_input.attn_metadata,
-            **MultiModalInputs.as_kwargs(model_input.multi_modal_kwargs or {},
-                                         device=self.device),
-            "intermediate_tensors":
-            intermediate_tensors,
+            "input_ids": model_input.input_tokens,
+            "positions": model_input.input_positions,
+            "kv_caches": kv_caches,
+            "attn_metadata": model_input.attn_metadata,
+            **MultiModalInputs.as_kwargs(
+                model_input.multi_modal_kwargs or {}, device=self.device
+            ),
+            "intermediate_tensors": intermediate_tensors,
         }
 
         hidden_states = model_executable(**execute_model_kwargs)
 
         # Compute the logits.
-        logits = self.model.compute_logits(hidden_states,
-                                           model_input.sampling_metadata)
+        logits = self.model.compute_logits(hidden_states, model_input.sampling_metadata)
 
         # Only perform sampling in the driver worker.
         if not self.is_driver_worker:

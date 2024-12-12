@@ -2,15 +2,27 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from dataclasses import dataclass, fields
 from enum import Enum, auto
-from typing import (TYPE_CHECKING, Any, Dict, Generic, List, Optional, Set,
-                    Tuple, Type, TypeVar)
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    Type,
+    TypeVar,
+)
 
 import torch
 
 if TYPE_CHECKING:
-    from vllm.worker.model_runner_base import (ModelRunnerBase,
-                                               ModelRunnerInputBase,
-                                               ModelRunnerInputBuilderBase)
+    from vllm.worker.model_runner_base import (
+        ModelRunnerBase,
+        ModelRunnerInputBase,
+        ModelRunnerInputBuilderBase,
+    )
 
 
 class AttentionType(Enum):
@@ -52,8 +64,7 @@ class AttentionBackend(ABC):
         raise NotImplementedError
 
     @classmethod
-    def make_metadata_builder(cls, *args,
-                              **kwargs) -> "AttentionMetadataBuilder":
+    def make_metadata_builder(cls, *args, **kwargs) -> "AttentionMetadataBuilder":
         return cls.get_builder_cls()(*args, **kwargs)
 
     @staticmethod
@@ -83,15 +94,21 @@ class AttentionBackend(ABC):
     ) -> None:
         raise NotImplementedError
 
-    def advance_step(self, model_input: "ModelRunnerInputBase",
-                     sampled_token_ids: Optional[torch.Tensor],
-                     block_size: int, num_seqs: int, num_queries: int) -> None:
+    def advance_step(
+        self,
+        model_input: "ModelRunnerInputBase",
+        sampled_token_ids: Optional[torch.Tensor],
+        block_size: int,
+        num_seqs: int,
+        num_queries: int,
+    ) -> None:
         raise NotImplementedError
 
 
 @dataclass
 class AttentionMetadata:
     """Attention metadata for prefill and decode batched together."""
+
     # Total number of prefill requests.
     num_prefills: int
     # Number of prefill tokens.
@@ -119,9 +136,7 @@ class AttentionMetadata:
         attention."""
         pass
 
-    def asdict_zerocopy(self,
-                        skip_fields: Optional[Set[str]] = None
-                        ) -> Dict[str, Any]:
+    def asdict_zerocopy(self, skip_fields: Optional[Set[str]] = None) -> Dict[str, Any]:
         """Similar to dataclasses.asdict, but avoids deepcopying."""
         if skip_fields is None:
             skip_fields = set()
@@ -129,7 +144,8 @@ class AttentionMetadata:
         # similar handling.
         return {
             field.name: getattr(self, field.name)
-            for field in fields(self) if field.name not in skip_fields
+            for field in fields(self)
+            if field.name not in skip_fields
         }
 
 
@@ -141,8 +157,7 @@ class AttentionState(ABC, Generic[T]):
     lifetime of the model runner."""
 
     @abstractmethod
-    def __init__(self, runner: "ModelRunnerBase"):
-        ...
+    def __init__(self, runner: "ModelRunnerBase"): ...
 
     @abstractmethod
     @contextmanager
@@ -157,26 +172,25 @@ class AttentionState(ABC, Generic[T]):
 
     @abstractmethod
     def graph_capture_get_metadata_for_batch(
-            self,
-            batch_size: int,
-            is_encoder_decoder_model: bool = False) -> T:
+        self, batch_size: int, is_encoder_decoder_model: bool = False
+    ) -> T:
         """Get attention metadata for CUDA graph capture of batch_size."""
         ...
 
     @abstractmethod
     def get_graph_input_buffers(
-            self,
-            attn_metadata: T,
-            is_encoder_decoder_model: bool = False) -> Dict[str, Any]:
+        self, attn_metadata: T, is_encoder_decoder_model: bool = False
+    ) -> Dict[str, Any]:
         """Get attention-specific input buffers for CUDA graph capture."""
         ...
 
     @abstractmethod
     def prepare_graph_input_buffers(
-            self,
-            input_buffers: Dict[str, Any],
-            attn_metadata: T,
-            is_encoder_decoder_model: bool = False) -> None:
+        self,
+        input_buffers: Dict[str, Any],
+        attn_metadata: T,
+        is_encoder_decoder_model: bool = False,
+    ) -> None:
         """In-place modify input buffers dict for CUDA graph replay."""
         ...
 
@@ -194,8 +208,13 @@ class AttentionMetadataBuilder(ABC, Generic[T]):
         raise NotImplementedError
 
     @abstractmethod
-    def build(self, seq_lens: List[int], query_lens: List[int],
-              cuda_graph_pad_size: int, batch_size: int) -> T:
+    def build(
+        self,
+        seq_lens: List[int],
+        query_lens: List[int],
+        cuda_graph_pad_size: int,
+        batch_size: int,
+    ) -> T:
         """Build attention metadata with on-device tensors."""
         raise NotImplementedError
 

@@ -15,13 +15,13 @@ from .llama import LlamaModel
 class LlamaEmbeddingModel(nn.Module, SupportsPP):
     """A model that uses Llama with additional embedding functionalities.
 
-   This class encapsulates the LlamaModel and provides an interface for
-   embedding operations and customized pooling functions.
+    This class encapsulates the LlamaModel and provides an interface for
+    embedding operations and customized pooling functions.
 
-   Attributes:
-       model: An instance of LlamaModel used for forward operations.
-       _pooler: An instance of Pooler used for pooling operations.
-   """
+    Attributes:
+        model: An instance of LlamaModel used for forward operations.
+        _pooler: An instance of Pooler used for pooling operations.
+    """
 
     def __init__(
         self,
@@ -31,7 +31,8 @@ class LlamaEmbeddingModel(nn.Module, SupportsPP):
         self.model = LlamaModel(**kwargs)
         self._pooler = Pooler(pooling_type=PoolingType.LAST, normalize=True)
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -42,8 +43,14 @@ class LlamaEmbeddingModel(nn.Module, SupportsPP):
         intermediate_tensors: Optional[IntermediateTensors] = None,
         inputs_embeds: Optional[torch.Tensor] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        return self.model(input_ids, positions, kv_caches, attn_metadata,
-                          intermediate_tensors, inputs_embeds)
+        return self.model(
+            input_ids,
+            positions,
+            kv_caches,
+            attn_metadata,
+            intermediate_tensors,
+            inputs_embeds,
+        )
 
     def pooler(
         self,

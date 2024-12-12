@@ -26,22 +26,27 @@ from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
 from vllm.logger import init_logger
 from vllm.model_executor.layers.activation import GeluAndMul
 from vllm.model_executor.layers.layernorm import GemmaRMSNorm
-from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    MergedColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
-from vllm.model_executor.layers.vocab_parallel_embedding import (
-    VocabParallelEmbedding)
+from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsLoRA, SupportsPP
-from .utils import (AutoWeightsLoader, is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    AutoWeightsLoader,
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 logger = init_logger(__name__)
 
@@ -58,18 +63,17 @@ class Gemma2MLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
-            bias=False,
-            quant_config=quant_config)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           quant_config=quant_config)
+            hidden_size, [intermediate_size] * 2, bias=False, quant_config=quant_config
+        )
+        self.down_proj = RowParallelLinear(
+            intermediate_size, hidden_size, bias=False, quant_config=quant_config
+        )
         if not (hidden_act == hidden_activation == "gelu_pytorch_tanh"):
             raise ValueError(
                 "Gemma2 uses `gelu_pytorch_tanh` as the hidden activation "
                 "function. Please set `hidden_act` and `hidden_activation` to "
-                "`gelu_pytorch_tanh`.")
+                "`gelu_pytorch_tanh`."
+            )
         self.act_fn = GeluAndMul(approximate="tanh")
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -81,18 +85,20 @@ class Gemma2MLP(nn.Module):
 
 class Gemma2Attention(nn.Module):
 
-    def __init__(self,
-                 layer_idx: int,
-                 config: Gemma2Config,
-                 hidden_size: int,
-                 num_heads: int,
-                 num_kv_heads: int,
-                 head_dim: int,
-                 max_position_embeddings: int,
-                 rope_theta: float,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None,
-                 attn_logits_soft_cap: Optional[float] = None) -> None:
+    def __init__(
+        self,
+        layer_idx: int,
+        config: Gemma2Config,
+        hidden_size: int,
+        num_heads: int,
+        num_kv_heads: int,
+        head_dim: int,
+        max_position_embeddings: int,
+        rope_theta: float,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+        attn_logits_soft_cap: Optional[float] = None,
+    ) -> None:
         super().__init__()
         self.layer_idx = layer_idx
         self.config = config
@@ -142,16 +148,17 @@ class Gemma2Attention(nn.Module):
         # FIXME(woosuk): While Gemma 2 uses sliding window attention for every
         # odd layer, vLLM currently ignores it and uses global attention for
         # all layers.
-        use_sliding_window = (layer_idx % 2 == 1
-                              and config.sliding_window is not None)
+        use_sliding_window = layer_idx % 2 == 1 and config.sliding_window is not None
         del use_sliding_window  # Unused.
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config,
-                              logits_soft_cap=attn_logits_soft_cap)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+            logits_soft_cap=attn_logits_soft_cap,
+        )
 
     def forward(
         self,
@@ -200,14 +207,16 @@ class Gemma2DecoderLayer(nn.Module):
             hidden_activation=config.hidden_activation,
             quant_config=quant_config,
         )
-        self.input_layernorm = GemmaRMSNorm(config.hidden_size,
-                                            eps=config.rms_norm_eps)
-        self.post_attention_layernorm = GemmaRMSNorm(config.hidden_size,
-                                                     eps=config.rms_norm_eps)
-        self.pre_feedforward_layernorm = GemmaRMSNorm(config.hidden_size,
-                                                      eps=config.rms_norm_eps)
-        self.post_feedforward_layernorm = GemmaRMSNorm(config.hidden_size,
-                                                       eps=config.rms_norm_eps)
+        self.input_layernorm = GemmaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = GemmaRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
+        self.pre_feedforward_layernorm = GemmaRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
+        self.post_feedforward_layernorm = GemmaRMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
     def forward(
         self,
@@ -221,8 +230,7 @@ class Gemma2DecoderLayer(nn.Module):
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
         else:
-            hidden_states, residual = self.input_layernorm(
-                hidden_states, residual)
+            hidden_states, residual = self.input_layernorm(hidden_states, residual)
         hidden_states = self.self_attn(
             positions=positions,
             hidden_states=hidden_states,
@@ -232,7 +240,8 @@ class Gemma2DecoderLayer(nn.Module):
         hidden_states = self.post_attention_layernorm(hidden_states)
 
         hidden_states, residual = self.pre_feedforward_layernorm(
-            hidden_states, residual)
+            hidden_states, residual
+        )
         hidden_states = self.mlp(hidden_states)
         hidden_states = self.post_feedforward_layernorm(hidden_states)
         return hidden_states, residual
@@ -256,9 +265,11 @@ class Gemma2Model(nn.Module):
         )
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: Gemma2DecoderLayer(int(prefix.split(".")[
-                -1]), config, cache_config, quant_config),
-            prefix=f"{prefix}.layers")
+            lambda prefix: Gemma2DecoderLayer(
+                int(prefix.split(".")[-1]), config, cache_config, quant_config
+            ),
+            prefix=f"{prefix}.layers",
+        )
         self.norm = GemmaRMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
         # Normalize the embedding by sqrt(hidden_size)
@@ -267,9 +278,9 @@ class Gemma2Model(nn.Module):
         # See https://github.com/huggingface/transformers/pull/29402
         normalizer = self.config.hidden_size**0.5
         self.register_buffer("normalizer", torch.tensor(normalizer))
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(
-                ["hidden_states", "residual"], config.hidden_size))
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states", "residual"], config.hidden_size
+        )
 
     def forward(
         self,
@@ -301,10 +312,9 @@ class Gemma2Model(nn.Module):
                 residual,
             )
         if not get_pp_group().is_last_rank:
-            return IntermediateTensors({
-                "hidden_states": hidden_states,
-                "residual": residual
-            })
+            return IntermediateTensors(
+                {"hidden_states": hidden_states, "residual": residual}
+            )
         hidden_states, _ = self.norm(hidden_states, residual)
         return hidden_states
 
@@ -320,7 +330,7 @@ class Gemma2Model(nn.Module):
         params_dict = dict(self.named_parameters())
         loaded_params: Set[str] = set()
         for name, loaded_weight in weights:
-            for (param_name, shard_name, shard_id) in stacked_params_mapping:
+            for param_name, shard_name, shard_id in stacked_params_mapping:
                 if shard_name not in name:
                     continue
                 name = name.replace(shard_name, param_name)
@@ -340,16 +350,15 @@ class Gemma2Model(nn.Module):
                 if is_pp_missing_parameter(name, self):
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)
             loaded_params.add(name)
 
         unloaded_params = params_dict.keys() - loaded_params
         if unloaded_params:
             logger.warning(
-                "Some weights are not initialized from checkpoints: %s",
-                unloaded_params)
+                "Some weights are not initialized from checkpoints: %s", unloaded_params
+            )
 
 
 class Gemma2ForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
@@ -412,10 +421,12 @@ class Gemma2ForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         self.quant_config = quant_config
         self.model = Gemma2Model(config, cache_config, quant_config)
         self.logits_processor = LogitsProcessor(
-            config.vocab_size, soft_cap=config.final_logit_softcapping)
+            config.vocab_size, soft_cap=config.final_logit_softcapping
+        )
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -425,8 +436,9 @@ class Gemma2ForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata, intermediate_tensors)
+        hidden_states = self.model(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
@@ -434,8 +446,9 @@ class Gemma2ForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.model.embed_tokens, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(
+            self.model.embed_tokens, hidden_states, sampling_metadata
+        )
         return logits
 
     def sample(
@@ -449,7 +462,6 @@ class Gemma2ForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
         loader = AutoWeightsLoader(
             self,
-            skip_prefixes=(["lm_head."]
-                           if self.config.tie_word_embeddings else None),
+            skip_prefixes=(["lm_head."] if self.config.tie_word_embeddings else None),
         )
         loader.load_weights(weights)

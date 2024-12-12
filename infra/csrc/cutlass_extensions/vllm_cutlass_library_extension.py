@@ -24,7 +24,7 @@ VLLMDataTypeNames: Dict[Union[VLLMDataType, DataType], str] = {
     **{
         VLLMDataType.u4b8: "u4b8",
         VLLMDataType.u8b128: "u8b128",
-    }
+    },
 }
 
 VLLMDataTypeTag: Dict[Union[VLLMDataType, DataType], str] = {
@@ -32,18 +32,16 @@ VLLMDataTypeTag: Dict[Union[VLLMDataType, DataType], str] = {
     **{
         VLLMDataType.u4b8: "cutlass::vllm_uint4b8_t",
         VLLMDataType.u8b128: "cutlass::vllm_uint8b128_t",
-    }
+    },
 }
 
-VLLMKernelScheduleTag: Dict[Union[
-    MixedInputKernelScheduleType, KernelScheduleType], str] = {
-        **KernelScheduleTag,  # type: ignore
-        **{
-            MixedInputKernelScheduleType.TmaWarpSpecializedMixedInput:
-            "cutlass::gemm::KernelTmaWarpSpecializedMixedInput",
-            MixedInputKernelScheduleType.TmaWarpSpecializedPingpongMixedInput:
-            "cutlass::gemm::KernelTmaWarpSpecializedPingpongMixedInput",
-            MixedInputKernelScheduleType.TmaWarpSpecializedCooperativeMixedInput:
-            "cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput",
-        }
-    }
+VLLMKernelScheduleTag: Dict[
+    Union[MixedInputKernelScheduleType, KernelScheduleType], str
+] = {
+    **KernelScheduleTag,  # type: ignore
+    **{
+        MixedInputKernelScheduleType.TmaWarpSpecializedMixedInput: "cutlass::gemm::KernelTmaWarpSpecializedMixedInput",
+        MixedInputKernelScheduleType.TmaWarpSpecializedPingpongMixedInput: "cutlass::gemm::KernelTmaWarpSpecializedPingpongMixedInput",
+        MixedInputKernelScheduleType.TmaWarpSpecializedCooperativeMixedInput: "cutlass::gemm::KernelTmaWarpSpecializedCooperativeMixedInput",
+    },
+}

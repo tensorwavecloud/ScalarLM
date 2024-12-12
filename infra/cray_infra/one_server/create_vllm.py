@@ -11,13 +11,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 async def create_vllm(port, running_status):
 
     os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"
     os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     parser = FlexibleArgumentParser(
-        description="vLLM OpenAI-Compatible RESTful API server.")
+        description="vLLM OpenAI-Compatible RESTful API server."
+    )
     parser = make_arg_parser(parser)
     args = parser.parse_args(args=["--enable-lora"])
 
@@ -29,4 +31,3 @@ async def create_vllm(port, running_status):
     logger.info(f"Running vLLM with args: {args}")
 
     await run_server(args)
-

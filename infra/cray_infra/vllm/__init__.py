@@ -7,8 +7,12 @@ from vllm.entrypoints.llm import LLM
 from vllm.executor.ray_utils import initialize_ray_cluster
 from vllm.inputs import PromptType, TextPrompt, TokensPrompt
 from vllm.model_executor.models import ModelRegistry
-from vllm.outputs import (CompletionOutput, EmbeddingOutput,
-                          EmbeddingRequestOutput, RequestOutput)
+from vllm.outputs import (
+    CompletionOutput,
+    EmbeddingOutput,
+    EmbeddingRequestOutput,
+    RequestOutput,
+)
 from vllm.pooling_params import PoolingParams
 from vllm.sampling_params import SamplingParams
 

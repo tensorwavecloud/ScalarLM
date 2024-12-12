@@ -2,10 +2,18 @@ from typing import Callable, List, Optional, Tuple, Type, Union
 
 import torch
 
-from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, LoRAConfig,
-                         ModelConfig, ObservabilityConfig, ParallelConfig,
-                         PromptAdapterConfig, SchedulerConfig,
-                         SpeculativeConfig)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    LoadConfig,
+    LoRAConfig,
+    ModelConfig,
+    ObservabilityConfig,
+    ParallelConfig,
+    PromptAdapterConfig,
+    SchedulerConfig,
+    SpeculativeConfig,
+)
 from vllm.executor.executor_base import ExecutorAsyncBase
 from vllm.executor.gpu_executor import GPUExecutor
 from vllm.logger import init_logger
@@ -35,8 +43,9 @@ class XPUExecutor(GPUExecutor):
         observability_config: Optional[ObservabilityConfig],
     ) -> None:
         assert device_config.device_type == "xpu"
-        assert (not speculative_config
-                ), "Speculative decoding not yet supported for XPU backend"
+        assert (
+            not speculative_config
+        ), "Speculative decoding not yet supported for XPU backend"
 
         model_config = _verify_and_get_model_config(model_config)
 
@@ -55,11 +64,11 @@ class XPUExecutor(GPUExecutor):
         self._init_executor()
 
     def _get_worker_module_and_class(
-            self) -> Tuple[str, str, Optional[Callable[[], Type[WorkerBase]]]]:
+        self,
+    ) -> Tuple[str, str, Optional[Callable[[], Type[WorkerBase]]]]:
         worker_class_fn = None
         if self.speculative_config is not None:
-            raise NotImplementedError(
-                "XPU does not support speculative decoding")
+            raise NotImplementedError("XPU does not support speculative decoding")
         else:
             worker_module_name = "vllm.worker.xpu_worker"
             worker_class_name = "XPUWorker"
@@ -78,19 +87,19 @@ class XPUExecutorAsync(XPUExecutor, ExecutorAsyncBase):
         self,
         execute_model_req: ExecuteModelRequest,
     ) -> List[SamplerOutput]:
-        output = await make_async(self.driver_worker.execute_model
-                                  )(execute_model_req=execute_model_req)
+        output = await make_async(self.driver_worker.execute_model)(
+            execute_model_req=execute_model_req
+        )
         return output
 
 
 def _verify_and_get_model_config(config: ModelConfig) -> ModelConfig:
     if config.dtype == torch.bfloat16:
-        logger.warning(
-            "bfloat16 is not fully supported on XPU, casting to float16.")
+        logger.warning("bfloat16 is not fully supported on XPU, casting to float16.")
         config.dtype = torch.float16
     if not config.enforce_eager:
         logger.warning(
-            "CUDA graph is not supported on XPU, fallback to the eager "
-            "mode.")
+            "CUDA graph is not supported on XPU, fallback to the eager " "mode."
+        )
         config.enforce_eager = True
     return config

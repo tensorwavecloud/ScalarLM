@@ -31,22 +31,29 @@ from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
 from vllm.model_executor.layers.activation import SiluAndMul
-from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    MergedColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    ParallelLMHead, VocabParallelEmbedding)
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class OlmoAttention(nn.Module):
@@ -65,15 +72,13 @@ class OlmoAttention(nn.Module):
         super().__init__()
         self.config = config
         self.hidden_size = config.hidden_size
-        tensor_model_parallel_world_size = (
-            get_tensor_model_parallel_world_size())
+        tensor_model_parallel_world_size = get_tensor_model_parallel_world_size()
         self.total_num_heads = config.num_attention_heads
 
         assert self.hidden_size % self.total_num_heads == 0
         assert self.total_num_heads % tensor_model_parallel_world_size == 0
 
-        self.num_heads = (self.total_num_heads //
-                          tensor_model_parallel_world_size)
+        self.num_heads = self.total_num_heads // tensor_model_parallel_world_size
         self.head_dim = self.hidden_size // self.total_num_heads
         self.max_position_embeddings = config.max_position_embeddings
         self.rope_theta = config.rope_theta
@@ -96,11 +101,13 @@ class OlmoAttention(nn.Module):
             base=self.rope_theta,
         )
         self.scaling = self.head_dim**-0.5
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              scale=self.scaling,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            scale=self.scaling,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
         # Attention output projection.
         self.o_proj = RowParallelLinear(
@@ -180,10 +187,12 @@ class OlmoDecoderLayer(nn.Module):
     (plus another skip connection).
     """
 
-    def __init__(self,
-                 config: OlmoConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self,
+        config: OlmoConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ):
         super().__init__()
         # Attention block.
         self.self_attn = OlmoAttention(config, cache_config, quant_config)
@@ -192,12 +201,12 @@ class OlmoDecoderLayer(nn.Module):
         self.mlp = OlmoMLP(config, quant_config)
 
         # LayerNorm
-        self.input_layernorm = nn.LayerNorm(config.hidden_size,
-                                            elementwise_affine=False,
-                                            bias=False)
-        self.post_attention_layernorm = nn.LayerNorm(config.hidden_size,
-                                                     elementwise_affine=False,
-                                                     bias=False)
+        self.input_layernorm = nn.LayerNorm(
+            config.hidden_size, elementwise_affine=False, bias=False
+        )
+        self.post_attention_layernorm = nn.LayerNorm(
+            config.hidden_size, elementwise_affine=False, bias=False
+        )
 
     def forward(
         self,
@@ -209,8 +218,9 @@ class OlmoDecoderLayer(nn.Module):
         # Attention block.
         residual = hidden_states
         hidden_states = self.input_layernorm(hidden_states)
-        hidden_states = self.self_attn(positions, hidden_states, kv_cache,
-                                       attn_metadata)
+        hidden_states = self.self_attn(
+            positions, hidden_states, kv_cache, attn_metadata
+        )
         hidden_states = hidden_states + residual
 
         # MLP block.
@@ -223,27 +233,30 @@ class OlmoDecoderLayer(nn.Module):
 
 class OlmoModel(nn.Module):
 
-    def __init__(self,
-                 config: OlmoConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None,
-                 prefix: str = ""):
+    def __init__(
+        self,
+        config: OlmoConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+        prefix: str = "",
+    ):
         super().__init__()
         self.config = config
 
-        self.embed_tokens = VocabParallelEmbedding(config.vocab_size,
-                                                   config.hidden_size)
+        self.embed_tokens = VocabParallelEmbedding(
+            config.vocab_size, config.hidden_size
+        )
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: OlmoDecoderLayer(config, cache_config, quant_config
-                                            ),
-            prefix=f"{prefix}.layers")
-        self.norm = nn.LayerNorm(config.hidden_size,
-                                 elementwise_affine=False,
-                                 bias=False)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(["hidden_states"],
-                                                    config.hidden_size))
+            lambda prefix: OlmoDecoderLayer(config, cache_config, quant_config),
+            prefix=f"{prefix}.layers",
+        )
+        self.norm = nn.LayerNorm(
+            config.hidden_size, elementwise_affine=False, bias=False
+        )
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], config.hidden_size
+        )
 
     def forward(
         self,
@@ -290,10 +303,12 @@ class OlmoForCausalLM(nn.Module, SupportsPP):
     Extremely barebones HF model wrapper.
     """
 
-    def __init__(self,
-                 config: OlmoConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self,
+        config: OlmoConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ):
         super().__init__()
         self.config = config
         self.model = OlmoModel(config, cache_config, quant_config)
@@ -310,7 +325,8 @@ class OlmoForCausalLM(nn.Module, SupportsPP):
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -334,8 +350,7 @@ class OlmoForCausalLM(nn.Module, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -359,8 +374,7 @@ class OlmoForCausalLM(nn.Module, SupportsPP):
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
-            if ("rotary_emb.cos_cached" in name
-                    or "rotary_emb.sin_cached" in name):
+            if "rotary_emb.cos_cached" in name or "rotary_emb.sin_cached" in name:
                 # Models trained using ColossalAI may include these tensors in
                 # the checkpoint. Skip them.
                 continue
@@ -369,7 +383,7 @@ class OlmoForCausalLM(nn.Module, SupportsPP):
             # processed with quantization, LoRA, fine-tuning, etc.
             if self.config.tie_word_embeddings and "lm_head.weight" in name:
                 continue
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
@@ -389,6 +403,5 @@ class OlmoForCausalLM(nn.Module, SupportsPP):
                 if is_pp_missing_parameter(name, self):
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)
