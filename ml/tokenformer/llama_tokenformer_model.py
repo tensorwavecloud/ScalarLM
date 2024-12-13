@@ -1,5 +1,5 @@
 from ml.tokenformer.llama_tokenformer_layers import LlamaTokenformerDecoderLayer
-from ml.tokenformer.tokenformer_model_manager import TokenformerModelManager
+from infra.cray_infra.vllm.tokenformer.tokenformer_model_manager import TokenformerModelManager
 import logging
 
 logger = logging.getLogger(__name__)

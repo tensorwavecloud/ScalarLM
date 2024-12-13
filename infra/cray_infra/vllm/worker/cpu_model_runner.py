@@ -34,6 +34,7 @@ from vllm.worker.model_runner_base import (
     _init_attn_metadata_from_tensor_dict,
     _init_sampling_metadata_from_tensor_dict,
 )
+from vllm.lora.worker_manager import WorkerTokenformerManager
 
 if TYPE_CHECKING:
     from vllm.attention.backends.abstract import AttentionBackend
@@ -484,6 +485,17 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             scheduler_config=self.scheduler_config,
             cache_config=self.cache_config,
         )
+        
+        logger.info(f"Model: {self.model}")
+
+        self.tokenformer_manager = WorkerTokenformerManager(
+                self.lora_config,
+                self.device,
+            )
+        logger.info("Creating Tokenformer model...")
+        self.model = self.tokenformer_manager.create_tokenformer_manager(self.model).to(torch.bfloat16)
+        logger.info(f"Tokenformer Model: {self.model}")
+        
 
     def make_model_input_from_broadcasted_tensor_dict(
         self,

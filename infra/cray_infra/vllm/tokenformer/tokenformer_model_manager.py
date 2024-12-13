@@ -52,16 +52,13 @@ class TokenformerAttentionAdapter(nn.Module):
         kv_cache: Optional[torch.Tensor],
         attn_metadata: AttentionMetadata,
         attn_type: AttentionType = AttentionType.DECODER,
-        attn_mask = None,
-        dropout_p = 0.0,
-        is_causal: bool = False
     ) -> torch.Tensor:
         base_layer_results = self.layer(query=query, 
                                         key=key, 
                                         value=value, 
-                                        attn_mask=attn_mask, 
-                                        dropout_p=dropout_p, 
-                                        is_causal=is_causal)
+                                        kv_cache=kv_cache, 
+                                        attn_metadata=attn_metadata, 
+                                        attn_type=attn_type)
         
         tokenformer_results = torch.nn.functional.scaled_dot_product_attention(
             query=query, 
@@ -150,7 +147,7 @@ class TokenformerModelManager(AdapterModelManager):
         logger.info(f"Wrapping layer {name} with TokenformerAttentionAdaptor")
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(model, name, TokenformerAttentionAdapter(layer, model.config.intermediate_size))
+        self._recursive_setattr(model, name, TokenformerAttentionAdapter(layer, model.config.hidden_size))
 
     def _insert_tokenformer_adapter_modules(self): 
         # Add tokenformer adapters for mlp and attention
