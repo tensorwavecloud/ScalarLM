@@ -14,6 +14,8 @@ from streaming_form_data import StreamingFormDataParser
 from streaming_form_data.validators import MaxSizeValidator
 from streaming_form_data.validators import ValidationError
 
+from typing import Dict
+
 import os
 import tempfile
 import hashlib
@@ -90,14 +92,16 @@ async def upload_training_data(request: Request):
 
         file_hash = get_file_hash(temp_filepath)
 
-        config = get_config()
+        train_args = params.value
 
-        data_directory = config["data_directory"]
+        job_directory = get_job_directory(train_args)
 
-        os.makedirs(data_directory, exist_ok=True)
+        train_args["job_directory"] = job_directory
+
+        os.makedirs(job_directory, exist_ok=True)
 
         final_filepath = os.path.join(
-            data_directory, file_hash.hexdigest() + ".jsonlines"
+            job_directory, "dataset_" + file_hash.hexdigest() + ".jsonlines"
         )
 
         os.rename(temp_filepath, final_filepath)
@@ -128,7 +132,7 @@ async def upload_training_data(request: Request):
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File is missing"
         )
 
-    return final_filepath, params.value
+    return final_filepath, train_args
 
 
 def get_temp_filepath():
@@ -161,3 +165,13 @@ class MaxBodySizeValidator:
         self.body_len += len(chunk)
         if self.body_len > self.max_size:
             raise MaxBodySizeException(body_len=self.body_len)
+
+def get_job_directory(train_args: Dict):
+    contents = json.dumps(train_args)
+    hash_id = hashlib.sha256(contents.encode()).hexdigest()
+
+    config = get_config()
+
+    job_directory = os.path.join(config["training_job_directory"], hash_id)
+
+    return job_directory

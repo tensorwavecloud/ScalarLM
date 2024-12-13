@@ -16,6 +16,7 @@ async def create_vllm(port, running_status):
 
     os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"
     os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
+    os.environ["VLLM_LOGGING_LEVEL"] = "DEBUG"
 
     parser = FlexibleArgumentParser(
         description="vLLM OpenAI-Compatible RESTful API server."

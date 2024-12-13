@@ -25,6 +25,7 @@ cray_image = (
     modal.Image.from_registry(
         "gdiamos/masint-cpu:latest",
         secret=modal.Secret.from_name("dockerhub-credentials"),
+        force_build=True,
     )
     .pip_install("fastapi >= 0.107.0", "pydantic >= 2.9")
     .copy_local_file(

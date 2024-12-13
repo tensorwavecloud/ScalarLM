@@ -36,6 +36,10 @@ class ServerStatus:
         self.tasks = []
 
     async def shutdown(self):
+        for task in self.tasks:
+            logger.debug(f"Task {task} is cancelled")
+            task.cancel()
+
         for server in self.servers:
             logger.debug(f"Server {server} is cancelled")
             await server.shutdown()

@@ -9,8 +9,6 @@ class Config(BaseModel):
     # 10GB using 1024 for KB, 1024 for MB, 1024 for GB
     max_upload_file_size: int = 1024 * 1024 * 1024 * 10
 
-    data_directory: str = "/app/cray/datasets"
-
     train_job_entrypoint: str = "/app/cray/scripts/train_job_entrypoint.sh"
     training_job_directory: str = "/app/cray/jobs"
 
@@ -22,3 +20,9 @@ class Config(BaseModel):
     vllm_api_url: str = "http://localhost:8001"
 
     generate_batch_size: int = 4
+
+    response_timeout: int = 60 # seconds
+    inference_work_queue_timeout: int = 30 # seconds
+
+    inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
+

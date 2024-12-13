@@ -11,7 +11,7 @@ def model_setup():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     tokenizer = LlamaTokenizer.from_pretrained(model_name)
     model1 = LlamaForCausalLM.from_pretrained(model_name).to(device)
-    model2 = create_llama_tokenformer_model(model_name).to(device)
+    model2 = create_llama_tokenformer_model(model1).to(device)
     return model1, model2, tokenizer, device
 
 
