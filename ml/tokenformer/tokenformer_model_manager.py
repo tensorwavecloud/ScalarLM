@@ -2,6 +2,7 @@ import torch
 from torch import nn
 from typing import Optional, Any, Dict
 from infra.cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
+from infra.cray_infra.vllm.attention import AttentionMetadata, AttentionType
 import logging
 import os
 
@@ -48,11 +49,19 @@ class TokenformerAttentionAdapter(nn.Module):
         query,
         key,
         value,
-        attn_mask,
-        dropout_p,
-        is_causal
-    ):
-        base_layer_results = self.layer(query, key, value, attn_mask, dropout_p, is_causal)
+        kv_cache: Optional[torch.Tensor],
+        attn_metadata: AttentionMetadata,
+        attn_type: AttentionType = AttentionType.DECODER,
+        attn_mask = None,
+        dropout_p = 0.0,
+        is_causal: bool = False
+    ) -> torch.Tensor:
+        base_layer_results = self.layer(query=query, 
+                                        key=key, 
+                                        value=value, 
+                                        attn_mask=attn_mask, 
+                                        dropout_p=dropout_p, 
+                                        is_causal=is_causal)
         
         tokenformer_results = torch.nn.functional.scaled_dot_product_attention(
             query=query, 
