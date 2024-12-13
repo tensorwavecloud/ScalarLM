@@ -1,6 +1,7 @@
 **/*.swp
 **/*.so
 models
+infra/slurm_configs/slur.conf
 
 *.DS_Store
 **/__pycache__/
