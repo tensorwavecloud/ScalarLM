@@ -3,14 +3,15 @@ import os
 
 import modal
 
-'''
+"""
 vllm_image = modal.Image.debian_slim(python_version="3.12").pip_install(
     "vllm==0.6.3post1", "fastapi[standard]==0.115.4"
 )
-'''
+"""
 
-vllm_image = modal.Image.from_dockerfile("Dockerfile.cuda", 
-                                        context_mount=modal.Mount.from_local_dir(".", remote_path="."))
+vllm_image = modal.Image.from_dockerfile(
+    "Dockerfile.cuda", context_mount=modal.Mount.from_local_dir(".", remote_path=".")
+)
 
 MODELS_DIR = "/llamas"
 MODEL_NAME = "neuralmagic/Meta-Llama-3.1-8B-Instruct-FP8"
@@ -23,13 +24,16 @@ except modal.exception.NotFoundError:
 app = modal.App("example-vllm-openai-compatible")
 
 N_GPU = 1  # tip: for best results, first upgrade to more powerful GPUs, and only then increase GPU count
-TOKEN = os.environ.get("MODAL_OPENAI_API_KEY") # auth token. for production use, replace with a modal.Secret
+TOKEN = os.environ.get(
+    "MODAL_OPENAI_API_KEY"
+)  # auth token. for production use, replace with a modal.Secret
 
 MINUTES = 60  # seconds
 HOURS = 60 * MINUTES
 
+
 @app.function(
-    #mounts=[data_mount],
+    # mounts=[data_mount],
     image=vllm_image,
     gpu=modal.gpu.H100(count=N_GPU),
     container_idle_timeout=5 * MINUTES,
@@ -130,6 +134,7 @@ def serve():
     )
 
     return web_app
+
 
 def get_model_config(engine):
     import asyncio

@@ -1,5 +1,4 @@
-from typing import (Iterable, List, Literal, Mapping, Optional, Tuple,
-                    TypedDict, Union)
+from typing import Iterable, List, Literal, Mapping, Optional, Tuple, TypedDict, Union
 
 import torch
 from torch import nn
@@ -18,8 +17,12 @@ from vllm.multimodal.utils import cached_get_tokenizer
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsMultiModal, SupportsPP
-from .siglip import (SiglipVisionModel, dummy_image_for_siglip,
-                     dummy_seq_data_for_siglip, get_max_siglip_image_tokens)
+from .siglip import (
+    SiglipVisionModel,
+    dummy_image_for_siglip,
+    dummy_seq_data_for_siglip,
+    get_max_siglip_image_tokens,
+)
 from .utils import AutoWeightsLoader, merge_multimodal_embeddings
 
 logger = init_logger(__name__)
@@ -40,8 +43,7 @@ class PaliGemmaImageEmbeddingInputs(TypedDict):
     """
 
 
-PaliGemmaImageInputs = Union[PaliGemmaImagePixelInputs,
-                             PaliGemmaImageEmbeddingInputs]
+PaliGemmaImageInputs = Union[PaliGemmaImagePixelInputs, PaliGemmaImageEmbeddingInputs]
 
 
 def get_max_paligemma_image_tokens(ctx: InputContext):
@@ -51,8 +53,9 @@ def get_max_paligemma_image_tokens(ctx: InputContext):
     return get_max_siglip_image_tokens(vision_config)
 
 
-def dummy_data_for_paligemma(ctx: InputContext, seq_len: int,
-                             mm_counts: Mapping[str, int]):
+def dummy_data_for_paligemma(
+    ctx: InputContext, seq_len: int, mm_counts: Mapping[str, int]
+):
     hf_config = ctx.get_hf_config(PaliGemmaConfig)
     vision_config = hf_config.vision_config
     num_images = mm_counts["image"]
@@ -69,13 +72,12 @@ def dummy_data_for_paligemma(ctx: InputContext, seq_len: int,
 
 
 def input_processor_for_paligemma(ctx: InputContext, llm_inputs: LLMInputs):
-
     """
     The correct prompt format needs to be:
     '<image>' * image_feature_size + '<bos>' + prompt + '\n'
 
     See https://github.com/huggingface/transformers/blob/25245ec26dc29bcf6102e1b4ddd0dfd02e720cf5/src/transformers/models/paligemma/processing_paligemma.py#L55
-    """ # noqa
+    """  # noqa
 
     multi_modal_data = llm_inputs.get("multi_modal_data")
     if multi_modal_data is None or "image" not in multi_modal_data:
@@ -98,17 +100,21 @@ def input_processor_for_paligemma(ctx: InputContext, llm_inputs: LLMInputs):
         logger.warning(
             "The image token '%s' was detected in the prompt and "
             "will be removed. Please follow the proper prompt format"
-            " documented on HuggingFace.", image_token_str)
+            " documented on HuggingFace.",
+            image_token_str,
+        )
         orig_prompt = orig_prompt.replace(image_token_str, "")
         orig_prompt_ids.remove(hf_config.image_token_index)
 
     new_prompt = f"{image_token_str_pad}{bos_token}{orig_prompt}\n"
-    new_token_ids = image_token_ids_pad + orig_prompt_ids + [108]  #newline
+    new_token_ids = image_token_ids_pad + orig_prompt_ids + [108]  # newline
 
     # NOTE: Create a defensive copy of the original inputs
-    return LLMInputs(prompt_token_ids=new_token_ids,
-                     prompt=new_prompt,
-                     multi_modal_data=multi_modal_data)
+    return LLMInputs(
+        prompt_token_ids=new_token_ids,
+        prompt=new_prompt,
+        multi_modal_data=multi_modal_data,
+    )
 
 
 class PaliGemmaMultiModalProjector(nn.Module):
@@ -127,14 +133,15 @@ class PaliGemmaMultiModalProjector(nn.Module):
 @MULTIMODAL_REGISTRY.register_max_image_tokens(get_max_paligemma_image_tokens)
 @INPUT_REGISTRY.register_dummy_data(dummy_data_for_paligemma)
 @INPUT_REGISTRY.register_input_processor(input_processor_for_paligemma)
-class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
-                                        SupportsPP):
+class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP):
 
-    def __init__(self,
-                 config: PaliGemmaConfig,
-                 multimodal_config: MultiModalConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None) -> None:
+    def __init__(
+        self,
+        config: PaliGemmaConfig,
+        multimodal_config: MultiModalConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ) -> None:
         super().__init__()
 
         self.config = config
@@ -143,16 +150,19 @@ class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
         self.vision_tower = SiglipVisionModel(config.vision_config)
         self.multi_modal_projector = PaliGemmaMultiModalProjector(
             vision_hidden_size=config.vision_config.hidden_size,
-            projection_dim=config.vision_config.projection_dim)
+            projection_dim=config.vision_config.projection_dim,
+        )
 
         self.quant_config = quant_config
-        self.language_model = GemmaForCausalLM(config.text_config,
-                                               cache_config, quant_config)
+        self.language_model = GemmaForCausalLM(
+            config.text_config, cache_config, quant_config
+        )
         logit_scale = getattr(config, "logit_scale", 1.0)
         self.language_model.logits_processor.scale *= logit_scale
 
         self.make_empty_intermediate_tensors = (
-            self.language_model.make_empty_intermediate_tensors)
+            self.language_model.make_empty_intermediate_tensors
+        )
 
     @property
     def sampler(self):
@@ -167,12 +177,14 @@ class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
             expected_expr = ("batch_size", *map(str, expected_dims))
             raise ValueError(
                 f"The expected shape of pixel values is {expected_expr}. "
-                f"You supplied {tuple(data.shape)}.")
+                f"You supplied {tuple(data.shape)}."
+            )
 
         return data
 
     def _parse_and_validate_image_input(
-            self, **kwargs: object) -> Optional[PaliGemmaImageInputs]:
+        self, **kwargs: object
+    ) -> Optional[PaliGemmaImageInputs]:
         pixel_values = kwargs.pop("pixel_values", None)
         image_embeds = kwargs.pop("image_embeds", None)
 
@@ -181,8 +193,9 @@ class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
 
         if pixel_values is not None:
             if not isinstance(pixel_values, torch.Tensor):
-                raise ValueError("Incorrect type of pixel values. "
-                                 f"Got type: {type(pixel_values)}")
+                raise ValueError(
+                    "Incorrect type of pixel values. " f"Got type: {type(pixel_values)}"
+                )
 
             # Remove the N dimension until multiple images are supported.
             pixel_values = pixel_values.squeeze(1)
@@ -194,8 +207,10 @@ class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
 
         if image_embeds is not None:
             if not isinstance(image_embeds, torch.Tensor):
-                raise ValueError("Incorrect type of image embeddings. "
-                                 f"Got type: {type(image_embeds)}")
+                raise ValueError(
+                    "Incorrect type of image embeddings. "
+                    f"Got type: {type(image_embeds)}"
+                )
 
             # Remove the N dimension until multiple images are supported.
             image_embeds = image_embeds.squeeze(1)
@@ -235,13 +250,15 @@ class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
 
         return self.multi_modal_projector(image_features)
 
-    def forward(self,
-                input_ids: torch.Tensor,
-                positions: torch.Tensor,
-                kv_caches: List[torch.Tensor],
-                attn_metadata: AttentionMetadata,
-                intermediate_tensors: Optional[IntermediateTensors] = None,
-                **kwargs: object) -> Union[SamplerOutput, IntermediateTensors]:
+    def forward(
+        self,
+        input_ids: torch.Tensor,
+        positions: torch.Tensor,
+        kv_caches: List[torch.Tensor],
+        attn_metadata: AttentionMetadata,
+        intermediate_tensors: Optional[IntermediateTensors] = None,
+        **kwargs: object,
+    ) -> Union[SamplerOutput, IntermediateTensors]:
         if intermediate_tensors is not None:
             input_ids = None
             inputs_embeds = None
@@ -249,29 +266,33 @@ class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
             parsed_image_input = self._parse_and_validate_image_input(**kwargs)
 
             if parsed_image_input is not None:
-                vision_embeddings = self._process_image_input(
-                    parsed_image_input)
+                vision_embeddings = self._process_image_input(parsed_image_input)
                 # https://github.com/huggingface/transformers/blob/main/src/transformers/models/paligemma/modeling_paligemma.py#L294 # noqa
-                vision_embeddings = vision_embeddings * (
-                    self.config.hidden_size**-0.5)
+                vision_embeddings = vision_embeddings * (self.config.hidden_size**-0.5)
 
                 inputs_embeds = self.language_model.model.get_input_embeddings(
-                    input_ids)
+                    input_ids
+                )
 
                 inputs_embeds = merge_multimodal_embeddings(
-                    input_ids, inputs_embeds, vision_embeddings,
-                    self.config.image_token_index)
+                    input_ids,
+                    inputs_embeds,
+                    vision_embeddings,
+                    self.config.image_token_index,
+                )
 
                 input_ids = None
             else:
                 inputs_embeds = None
 
-        hidden_states = self.language_model.model(input_ids,
-                                                  positions,
-                                                  kv_caches,
-                                                  attn_metadata,
-                                                  intermediate_tensors,
-                                                  inputs_embeds=inputs_embeds)
+        hidden_states = self.language_model.model(
+            input_ids,
+            positions,
+            kv_caches,
+            attn_metadata,
+            intermediate_tensors,
+            inputs_embeds=inputs_embeds,
+        )
 
         return hidden_states
 
@@ -280,8 +301,7 @@ class PaliGemmaForConditionalGeneration(nn.Module, SupportsMultiModal,
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        return self.language_model.compute_logits(hidden_states,
-                                                  sampling_metadata)
+        return self.language_model.compute_logits(hidden_states, sampling_metadata)
 
     def sample(
         self,

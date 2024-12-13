@@ -16,8 +16,9 @@ logger = logging.getLogger(__name__)
 
 generate_router = APIRouter(prefix="/generate")
 
+
 @generate_router.post("")
-async def generate_endpoint(request : GenerateRequest):
+async def generate_endpoint(request: GenerateRequest):
     return await generate(request)
 
 @generate_router.post("/get_results")
@@ -31,4 +32,5 @@ async def get_work_endpoint(request : GetWorkRequest):
 @generate_router.post("/finish_work")
 async def finish_work_endpoint(requests : FinishWorkRequests):
     return await finish_work(requests)
+
 

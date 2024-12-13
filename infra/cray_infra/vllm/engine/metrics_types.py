@@ -22,6 +22,7 @@ from vllm.spec_decode.metrics import SpecDecodeWorkerMetrics
 @dataclass
 class Stats:
     """Created by LLMEngine for use by StatLogger."""
+
     now: float
 
     # System stats (should have _sys suffix)
@@ -58,8 +59,7 @@ class Stats:
 
 class SupportsMetricsInfo(Protocol):
 
-    def metrics_info(self) -> Dict[str, str]:
-        ...
+    def metrics_info(self) -> Dict[str, str]: ...
 
 
 class StatLoggerBase(ABC):

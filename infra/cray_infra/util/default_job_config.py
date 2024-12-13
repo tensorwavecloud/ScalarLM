@@ -1,10 +1,12 @@
 from pydantic import BaseModel
 
+
 class LoraConfig(BaseModel):
-    r : int = 32
-    target_modules : str = "all-linear"
-    use_rslora : bool = True
-    modules_to_save : list = ["lm_head"]
+    r: int = 32
+    target_modules: str = "all-linear"
+    use_rslora: bool = True
+    modules_to_save: list = ["lm_head"]
+
 
 class JobConfig(BaseModel):
 
@@ -18,8 +20,8 @@ class JobConfig(BaseModel):
     steps_per_checkpoint: int = 100
     batch_size: int = 1
 
-    gpus : int = 1
-    nodes : int = 1
+    gpus: int = 1
+    nodes: int = 1
 
     lora_config: str = LoraConfig()
 
@@ -27,6 +29,3 @@ class JobConfig(BaseModel):
     timeout: int = 4 * 60 * 60
 
     training_history_length: int = 1024
-
-
-

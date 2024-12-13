@@ -8,28 +8,38 @@ from transformers import PretrainedConfig
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
-from vllm.distributed import (get_pp_group, get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size,
-                              split_tensor_along_last_dim,
-                              tensor_model_parallel_all_gather)
+from vllm.distributed import (
+    get_pp_group,
+    get_tensor_model_parallel_rank,
+    get_tensor_model_parallel_world_size,
+    split_tensor_along_last_dim,
+    tensor_model_parallel_all_gather,
+)
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.layernorm import RMSNorm
-from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    MergedColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    ParallelLMHead, VocabParallelEmbedding)
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class InternLM2MLP(nn.Module):
@@ -43,16 +53,16 @@ class InternLM2MLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
-            bias=False,
-            quant_config=quant_config)
-        self.w2 = RowParallelLinear(intermediate_size,
-                                    hidden_size,
-                                    bias=False,
-                                    quant_config=quant_config)
+            hidden_size, [intermediate_size] * 2, bias=False, quant_config=quant_config
+        )
+        self.w2 = RowParallelLinear(
+            intermediate_size, hidden_size, bias=False, quant_config=quant_config
+        )
         if hidden_act != "silu":
-            raise ValueError(f"Unsupported activation: {hidden_act}. "
-                             "Only silu is supported for now.")
+            raise ValueError(
+                f"Unsupported activation: {hidden_act}. "
+                "Only silu is supported for now."
+            )
         self.act_fn = SiluAndMul()
 
     def forward(self, x):
@@ -122,12 +132,14 @@ class InternLM2Attention(nn.Module):
             base=rope_theta,
             rope_scaling=rope_scaling,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def split_qkv(self, qkv: torch.Tensor):
         seq_len = qkv.shape[0]
@@ -138,16 +150,16 @@ class InternLM2Attention(nn.Module):
             qkv = qkv[::3] + qkv[1::3] + qkv[2::3]
             qkv = torch.cat(qkv, dim=-1)
 
-        qkv = qkv.view(seq_len, self.total_num_kv_heads,
-                       self.key_value_groups + 2, self.head_dim)
+        qkv = qkv.view(
+            seq_len, self.total_num_kv_heads, self.key_value_groups + 2, self.head_dim
+        )
         q, k, v = torch.split(qkv, [self.key_value_groups, 1, 1], dim=-2)
         q = q.reshape(seq_len, self.q_size * self.tp_size)
         k = k.reshape(seq_len, self.kv_size * self.tp_size)
         v = v.reshape(seq_len, self.kv_size * self.tp_size)
 
         if self.tp_size > 1:
-            splitter = partial(split_tensor_along_last_dim,
-                               num_partitions=self.tp_size)
+            splitter = partial(split_tensor_along_last_dim, num_partitions=self.tp_size)
             q = splitter(q)[self.tp_rank]
             k = splitter(k)[self.tp_rank]
             v = splitter(v)[self.tp_rank]
@@ -180,8 +192,7 @@ class InternLMDecoderLayer(nn.Module):
         self.hidden_size = config.hidden_size
         rope_theta = getattr(config, "rope_theta", 10000)
         rope_scaling = getattr(config, "rope_scaling", None)
-        max_position_embeddings = getattr(config, "max_position_embeddings",
-                                          8192)
+        max_position_embeddings = getattr(config, "max_position_embeddings", 8192)
         self.attention = InternLM2Attention(
             hidden_size=self.hidden_size,
             num_heads=config.num_attention_heads,
@@ -198,8 +209,7 @@ class InternLMDecoderLayer(nn.Module):
             hidden_act=config.hidden_act,
             quant_config=quant_config,
         )
-        self.attention_norm = RMSNorm(config.hidden_size,
-                                      eps=config.rms_norm_eps)
+        self.attention_norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
         self.ffn_norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
     def forward(
@@ -215,8 +225,7 @@ class InternLMDecoderLayer(nn.Module):
             residual = hidden_states
             hidden_states = self.attention_norm(hidden_states)
         else:
-            hidden_states, residual = self.attention_norm(
-                hidden_states, residual)
+            hidden_states, residual = self.attention_norm(hidden_states, residual)
         hidden_states = self.attention(
             positions=positions,
             hidden_states=hidden_states,
@@ -249,13 +258,13 @@ class InternLM2Model(nn.Module):
         )
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: InternLMDecoderLayer(config, cache_config,
-                                                quant_config),
-            prefix=f"{prefix}.layers")
+            lambda prefix: InternLMDecoderLayer(config, cache_config, quant_config),
+            prefix=f"{prefix}.layers",
+        )
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(
-                ["hidden_states", "residual"], config.hidden_size))
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states", "residual"], config.hidden_size
+        )
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
         return self.tok_embeddings(input_ids)
@@ -289,10 +298,9 @@ class InternLM2Model(nn.Module):
                 residual,
             )
         if not get_pp_group().is_last_rank:
-            return IntermediateTensors({
-                "hidden_states": hidden_states,
-                "residual": residual
-            })
+            return IntermediateTensors(
+                {"hidden_states": hidden_states, "residual": residual}
+            )
         hidden_states, _ = self.norm(hidden_states, residual)
         return hidden_states
 
@@ -309,15 +317,16 @@ class InternLM2ForCausalLM(nn.Module, SupportsPP):
         self.config = config
         self.quant_config = quant_config
         self.model = InternLM2Model(config, cache_config, quant_config)
-        self.output = ParallelLMHead(config.vocab_size,
-                                     config.hidden_size,
-                                     quant_config=quant_config)
+        self.output = ParallelLMHead(
+            config.vocab_size, config.hidden_size, quant_config=quant_config
+        )
         if self.config.tie_word_embeddings:
             self.output.weight = self.model.tok_embeddings.weight
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -327,8 +336,9 @@ class InternLM2ForCausalLM(nn.Module, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors],
     ) -> torch.Tensor:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata, intermediate_tensors)
+        hidden_states = self.model(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
@@ -336,8 +346,7 @@ class InternLM2ForCausalLM(nn.Module, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.output, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.output, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -358,7 +367,7 @@ class InternLM2ForCausalLM(nn.Module, SupportsPP):
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
@@ -378,6 +387,5 @@ class InternLM2ForCausalLM(nn.Module, SupportsPP):
                 if is_pp_missing_parameter(name, self):
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)

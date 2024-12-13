@@ -4,10 +4,8 @@ import torch
 
 from vllm import _custom_ops as ops
 from vllm.model_executor.layers.linear import LinearBase, LinearMethodBase
-from vllm.model_executor.layers.quantization.base_config import (
-    QuantizationConfig)
-from vllm.model_executor.parameter import (GroupQuantScaleParameter,
-                                           PackedvLLMParameter)
+from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
+from vllm.model_executor.parameter import GroupQuantScaleParameter, PackedvLLMParameter
 
 
 class AWQConfig(QuantizationConfig):
@@ -29,13 +27,16 @@ class AWQConfig(QuantizationConfig):
         if self.weight_bits != 4:
             raise ValueError(
                 "Currently, only 4-bit weight quantization is supported for "
-                f"AWQ, but got {self.weight_bits} bits.")
+                f"AWQ, but got {self.weight_bits} bits."
+            )
         self.pack_factor = 32 // self.weight_bits
 
     def __repr__(self) -> str:
-        return (f"AWQConfig(weight_bits={self.weight_bits}, "
-                f"group_size={self.group_size}, "
-                f"zero_point={self.zero_point})")
+        return (
+            f"AWQConfig(weight_bits={self.weight_bits}, "
+            f"group_size={self.group_size}, "
+            f"zero_point={self.zero_point})"
+        )
 
     def get_name(self) -> str:
         return "awq"
@@ -63,8 +64,9 @@ class AWQConfig(QuantizationConfig):
         zero_point = cls.get_from_keys(config, ["zero_point"])
         return cls(weight_bits, group_size, zero_point)
 
-    def get_quant_method(self, layer: torch.nn.Module,
-                         prefix: str) -> Optional["AWQLinearMethod"]:
+    def get_quant_method(
+        self, layer: torch.nn.Module, prefix: str
+    ) -> Optional["AWQLinearMethod"]:
         if isinstance(layer, LinearBase):
             return AWQLinearMethod(self)
         return None
@@ -83,23 +85,30 @@ class AWQLinearMethod(LinearMethodBase):
     def __init__(self, quant_config: AWQConfig):
         self.quant_config = quant_config
 
-    def create_weights(self, layer: torch.nn.Module,
-                       input_size_per_partition: int,
-                       output_partition_sizes: List[int], input_size: int,
-                       output_size: int, params_dtype: torch.dtype,
-                       **extra_weight_attrs):
+    def create_weights(
+        self,
+        layer: torch.nn.Module,
+        input_size_per_partition: int,
+        output_partition_sizes: List[int],
+        input_size: int,
+        output_size: int,
+        params_dtype: torch.dtype,
+        **extra_weight_attrs,
+    ):
         if input_size_per_partition % self.quant_config.group_size != 0:
             raise ValueError(
                 "The input size is not aligned with the quantized "
                 "weight shape. This can be caused by too large "
-                "tensor parallel size.")
+                "tensor parallel size."
+            )
 
         output_size_per_partition = sum(output_partition_sizes)
         if output_size_per_partition % self.quant_config.pack_factor != 0:
             raise ValueError(
                 "The output size is not aligned with the quantized "
                 "weight shape. This can be caused by too large "
-                "tensor parallel size.")
+                "tensor parallel size."
+            )
 
         weight_loader = extra_weight_attrs.get("weight_loader")
         qweight = PackedvLLMParameter(
@@ -112,7 +121,8 @@ class AWQLinearMethod(LinearMethodBase):
             output_dim=1,
             packed_dim=1,
             packed_factor=self.quant_config.pack_factor,
-            weight_loader=weight_loader)
+            weight_loader=weight_loader,
+        )
 
         qzeros = PackedvLLMParameter(
             data=torch.empty(
@@ -124,38 +134,40 @@ class AWQLinearMethod(LinearMethodBase):
             output_dim=1,
             packed_dim=1,
             packed_factor=self.quant_config.pack_factor,
-            weight_loader=weight_loader)
+            weight_loader=weight_loader,
+        )
 
-        scales = GroupQuantScaleParameter(data=torch.empty(
-            input_size_per_partition // self.quant_config.group_size,
-            output_size_per_partition,
-            dtype=params_dtype,
-        ),
-                                          input_dim=0,
-                                          output_dim=1,
-                                          weight_loader=weight_loader)
+        scales = GroupQuantScaleParameter(
+            data=torch.empty(
+                input_size_per_partition // self.quant_config.group_size,
+                output_size_per_partition,
+                dtype=params_dtype,
+            ),
+            input_dim=0,
+            output_dim=1,
+            weight_loader=weight_loader,
+        )
 
         layer.register_parameter("qweight", qweight)
         layer.register_parameter("qzeros", qzeros)
         layer.register_parameter("scales", scales)
 
     def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
-        layer.qweight = torch.nn.Parameter(layer.qweight.data,
-                                           requires_grad=False)
-        layer.qzeros = torch.nn.Parameter(layer.qzeros.data,
-                                          requires_grad=False)
-        layer.scales = torch.nn.Parameter(layer.scales.data,
-                                          requires_grad=False)
+        layer.qweight = torch.nn.Parameter(layer.qweight.data, requires_grad=False)
+        layer.qzeros = torch.nn.Parameter(layer.qzeros.data, requires_grad=False)
+        layer.scales = torch.nn.Parameter(layer.scales.data, requires_grad=False)
 
-    def apply(self,
-              layer: torch.nn.Module,
-              x: torch.Tensor,
-              bias: Optional[torch.Tensor] = None) -> torch.Tensor:
+    def apply(
+        self,
+        layer: torch.nn.Module,
+        x: torch.Tensor,
+        bias: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         qweight = layer.qweight
         scales = layer.scales
         qzeros = layer.qzeros
         pack_factor = self.quant_config.pack_factor
-        out_shape = (x.shape[:-1] + (qweight.shape[-1] * pack_factor, ))
+        out_shape = x.shape[:-1] + (qweight.shape[-1] * pack_factor,)
         reshaped_x = x.reshape(-1, x.shape[-1])
 
         # num_tokens >= threshold
@@ -165,8 +177,7 @@ class AWQLinearMethod(LinearMethodBase):
             out = ops.awq_dequantize(qweight, scales, qzeros, 0, 0, 0)
             out = torch.matmul(reshaped_x, out)
         else:
-            out = ops.awq_gemm(reshaped_x, qweight, scales, qzeros,
-                               pack_factor)
+            out = ops.awq_gemm(reshaped_x, qweight, scales, qzeros, pack_factor)
         if bias is not None:
             out.add_(bias)
         return out.reshape(out_shape)

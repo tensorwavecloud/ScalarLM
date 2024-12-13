@@ -24,7 +24,7 @@ async def serve_http(app: FastAPI, **uvicorn_kwargs: Any):
         if methods is None or path is None:
             continue
 
-        logger.info("Route: %s, Methods: %s", path, ', '.join(methods))
+        logger.info("Route: %s, Methods: %s", path, ", ".join(methods))
 
     config = uvicorn.Config(app, **uvicorn_kwargs)
     server = uvicorn.Server(config)
@@ -53,7 +53,10 @@ async def serve_http(app: FastAPI, **uvicorn_kwargs: Any):
         if process is not None:
             logger.debug(
                 "port %s is used by process %s launched with command:\n%s",
-                port, process, " ".join(process.cmdline()))
+                port,
+                process,
+                " ".join(process.cmdline()),
+            )
         logger.info("Shutting down FastAPI HTTP server.")
         return server.shutdown()
 
@@ -67,10 +70,12 @@ def _add_shutdown_handlers(app: FastAPI, server: uvicorn.Server) -> None:
         It probably has, in which case the server will no longer be able to
         handle requests. Trigger a graceful shutdown with a SIGTERM."""
         engine = request.app.state.engine_client
-        if (not envs.VLLM_KEEP_ALIVE_ON_ENGINE_DEATH and engine.errored
-                and not engine.is_running):
-            logger.fatal("AsyncLLMEngine has failed, terminating server "
-                         "process")
+        if (
+            not envs.VLLM_KEEP_ALIVE_ON_ENGINE_DEATH
+            and engine.errored
+            and not engine.is_running
+        ):
+            logger.fatal("AsyncLLMEngine has failed, terminating server " "process")
             # See discussions here on shutting down a uvicorn server
             # https://github.com/encode/uvicorn/discussions/1103
             # In this case we cannot await the server shutdown here because
@@ -85,8 +90,9 @@ def _add_shutdown_handlers(app: FastAPI, server: uvicorn.Server) -> None:
         """Kill the server if the async engine is already dead. It will
         not handle any further requests."""
         if not envs.VLLM_KEEP_ALIVE_ON_ENGINE_DEATH:
-            logger.fatal("AsyncLLMEngine is already dead, terminating server "
-                         "process")
+            logger.fatal(
+                "AsyncLLMEngine is already dead, terminating server " "process"
+            )
             server.should_exit = True
 
         return Response(status_code=HTTPStatus.INTERNAL_SERVER_ERROR)
@@ -96,8 +102,7 @@ def _add_shutdown_handlers(app: FastAPI, server: uvicorn.Server) -> None:
         """Kill the server if the mq engine is already dead. It will
         not handle any further requests."""
         if not envs.VLLM_KEEP_ALIVE_ON_ENGINE_DEATH:
-            logger.fatal("MQLLMEngine is already dead, terminating server "
-                         "process")
+            logger.fatal("MQLLMEngine is already dead, terminating server " "process")
             server.should_exit = True
 
         return Response(status_code=HTTPStatus.INTERNAL_SERVER_ERROR)

@@ -1,4 +1,3 @@
-
 from cray_infra.training.training_job_status import TrainingJobStatus
 from cray_infra.training.training_harness import TrainingHarness
 from cray_infra.training.print_logo import print_logo
@@ -40,4 +39,3 @@ class MegatronTrainer:
 def print_exception():
     exc_type, exc_value, exc_traceback = sys.exc_info()
     traceback.print_exception(exc_type, exc_value, exc_traceback)
-

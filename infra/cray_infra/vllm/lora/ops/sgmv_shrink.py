@@ -63,10 +63,18 @@ def _sgmv_shrink_kernel(
     ram = tl.max_contiguous(tl.multiple_of(offset_m % M, BLOCK_M), BLOCK_M)
     rbn = tl.max_contiguous(tl.multiple_of(offset_n % N, BLOCK_N), BLOCK_N)
 
-    a_ptr = (input_ptr + cur_seq_start * xm_stride + ram[:, None] * xm_stride +
-             offset_k[None, :] * xk_stride)
-    b_ptr = (lora_ptr + l0_stride * lora_index + rbn[None, :] * lora_k_stride +
-             offset_k[:, None] * lora_n_stride)
+    a_ptr = (
+        input_ptr
+        + cur_seq_start * xm_stride
+        + ram[:, None] * xm_stride
+        + offset_k[None, :] * xk_stride
+    )
+    b_ptr = (
+        lora_ptr
+        + l0_stride * lora_index
+        + rbn[None, :] * lora_k_stride
+        + offset_k[:, None] * lora_n_stride
+    )
 
     accumulator = tl.zeros((BLOCK_M, BLOCK_N), dtype=tl.float32)
     for k in range(0, tl.cdiv(K, BLOCK_K * SPLIT_K)):
@@ -75,12 +83,8 @@ def _sgmv_shrink_kernel(
             tiled_b = tl.load(b_ptr)
         else:
             k_remaining = K - k * (BLOCK_K * SPLIT_K)
-            tiled_a = tl.load(a_ptr,
-                              mask=offset_k[None, :] < k_remaining,
-                              other=0.0)
-            tiled_b = tl.load(b_ptr,
-                              mask=offset_k[:, None] < k_remaining,
-                              other=0.0)
+            tiled_a = tl.load(a_ptr, mask=offset_k[None, :] < k_remaining, other=0.0)
+            tiled_b = tl.load(b_ptr, mask=offset_k[:, None] < k_remaining, other=0.0)
         accumulator += tl.dot(tiled_a, tiled_b)
 
         a_ptr += BLOCK_K * SPLIT_K * xk_stride
@@ -88,10 +92,8 @@ def _sgmv_shrink_kernel(
     offset_cm = cur_seq_start + tl.arange(0, BLOCK_M) + pid_m * BLOCK_M
 
     offset_cn = tl.arange(0, BLOCK_N) + pid_n * BLOCK_N
-    c_ptr = (out_ptr + offset_cm[:, None] * cm_stride +
-             offset_cn[None, :] * cn_stride)
-    c_mask = (offset_cm[:, None] <
-              (cur_seq_start + M)) & (offset_cn[None, :] < N)
+    c_ptr = out_ptr + offset_cm[:, None] * cm_stride + offset_cn[None, :] * cn_stride
+    c_mask = (offset_cm[:, None] < (cur_seq_start + M)) & (offset_cn[None, :] < N)
     accumulator *= scaling
     # handles write-back with reduction-splitting
     if SPLIT_K == 1:
@@ -129,9 +131,9 @@ def _sgmv_shrink(
             corresponding to each batch. An index of -1 means no lora should be
             applied.
         batches (int): batch size
-        max_seq_length (int): The max sequence lengths of the sequences in the 
+        max_seq_length (int): The max sequence lengths of the sequences in the
             batch.
-        token_nums (int): The token numbers in the batch. Used to verify if the 
+        token_nums (int): The token numbers in the batch. Used to verify if the
             token numbers in the inputs matches the one in the metadata.
         scaling (float): Scaling factor.
     """
@@ -194,8 +196,8 @@ def _sgmv_shrink(
 
 
 try:
-    sgmv_shrink = torch.library.custom_op("lora::sgmv_shrink",
-                                          _sgmv_shrink,
-                                          mutates_args=["output_tensor"])
+    sgmv_shrink = torch.library.custom_op(
+        "lora::sgmv_shrink", _sgmv_shrink, mutates_args=["output_tensor"]
+    )
 except AttributeError:
     sgmv_shrink = _sgmv_shrink

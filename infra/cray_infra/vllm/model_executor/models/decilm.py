@@ -63,10 +63,12 @@ class DeciLMForCausalLM(LlamaForCausalLM):
     ) -> None:
         config.num_key_value_heads = max(config.num_key_value_heads_per_layer)
         delattr(config, "num_key_value_heads_per_layer")
-        super().__init__(config=config,
-                         cache_config=cache_config,
-                         quant_config=quant_config,
-                         lora_config=lora_config)
+        super().__init__(
+            config=config,
+            cache_config=cache_config,
+            quant_config=quant_config,
+            lora_config=lora_config,
+        )
 
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
         stacked_params_mapping = [
@@ -85,7 +87,7 @@ class DeciLMForCausalLM(LlamaForCausalLM):
             if "k_proj" in name or "v_proj" in name:
                 loaded_weight = self._degroup_weight(loaded_weight)
 
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
@@ -105,8 +107,7 @@ class DeciLMForCausalLM(LlamaForCausalLM):
                 if is_pp_missing_parameter(name, self):
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)
 
     def _degroup_weight(self, loaded_weight: torch.Tensor) -> torch.Tensor:
@@ -118,12 +119,10 @@ class DeciLMForCausalLM(LlamaForCausalLM):
         assert n_repeats == int(n_repeats)
 
         n_repeats = int(n_repeats)
-        loaded_weight = loaded_weight.view(num_kv_heads, head_size,
-                                           hidden_size)
-        loaded_weight = torch.repeat_interleave(loaded_weight,
-                                                repeats=n_repeats,
-                                                dim=0)
-        loaded_weight = loaded_weight.reshape(target_num_kv_heads * head_size,
-                                              hidden_size)
+        loaded_weight = loaded_weight.view(num_kv_heads, head_size, hidden_size)
+        loaded_weight = torch.repeat_interleave(loaded_weight, repeats=n_repeats, dim=0)
+        loaded_weight = loaded_weight.reshape(
+            target_num_kv_heads * head_size, hidden_size
+        )
 
         return loaded_weight

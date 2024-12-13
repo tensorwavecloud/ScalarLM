@@ -50,8 +50,8 @@ class PagedAttention:
         *args,
     ) -> None:
         ipex_modules.PagedAttention.reshape_and_cache(
-            key, value, key_cache, value_cache,
-            slot_mapping.flatten().int())
+            key, value, key_cache, value_cache, slot_mapping.flatten().int()
+        )
 
     @staticmethod
     def forward_decode(
@@ -71,17 +71,30 @@ class PagedAttention:
     ) -> torch.Tensor:
         output = torch.empty_like(query)
         block_size = value_cache.shape[2]
-        head_mapping = torch.arange(
-            0,
-            num_kv_heads,
-            device="cpu",
-            dtype=torch.int32,
-        ).view(num_kv_heads,
-               1).repeat_interleave(query.size(1) // num_kv_heads).flatten()
+        head_mapping = (
+            torch.arange(
+                0,
+                num_kv_heads,
+                device="cpu",
+                dtype=torch.int32,
+            )
+            .view(num_kv_heads, 1)
+            .repeat_interleave(query.size(1) // num_kv_heads)
+            .flatten()
+        )
         ipex_modules.PagedAttention.single_query_cached_kv_attention(
-            output, query.contiguous(), key_cache, value_cache, head_mapping,
-            scale, block_tables, context_lens, block_size, max_context_len,
-            alibi_slopes)
+            output,
+            query.contiguous(),
+            key_cache,
+            value_cache,
+            head_mapping,
+            scale,
+            block_tables,
+            context_lens,
+            block_size,
+            max_context_len,
+            alibi_slopes,
+        )
 
         return output
 

@@ -8,32 +8,39 @@ import torch.nn as nn
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
-from vllm.distributed import (get_pp_group, get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size)
+from vllm.distributed import (
+    get_pp_group,
+    get_tensor_model_parallel_rank,
+    get_tensor_model_parallel_world_size,
+)
 from vllm.model_executor.layers.activation import get_act_fn
-from vllm.model_executor.layers.linear import (ColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    ColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
-from vllm.model_executor.layers.vocab_parallel_embedding import (
-    VocabParallelEmbedding)
+from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 from vllm.transformers_utils.configs.mpt import MPTConfig
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 def _get_alibi_slopes(
     total_num_heads: int,
     alibi_bias_max: int,
 ) -> torch.Tensor:
-    next_power_of_2 = 2**math.ceil(math.log2(total_num_heads))
+    next_power_of_2 = 2 ** math.ceil(math.log2(total_num_heads))
     m = torch.arange(1, next_power_of_2 + 1, dtype=torch.float32)
     m = m.mul(alibi_bias_max / next_power_of_2)
     slopes = 1.0 / torch.pow(2, m)
@@ -58,7 +65,7 @@ class MPTAttention(nn.Module):
         self.qk_ln = config.attn_config["qk_ln"]
         self.alibi_bias_max = config.attn_config["alibi_bias_max"]
         if "kv_n_heads" in config.attn_config:
-            self.total_num_kv_heads = config.attn_config['kv_n_heads']
+            self.total_num_kv_heads = config.attn_config["kv_n_heads"]
         else:
             self.total_num_kv_heads = self.total_num_heads
         assert not config.attn_config["prefix_lm"]
@@ -102,19 +109,20 @@ class MPTAttention(nn.Module):
         tp_rank = get_tensor_model_parallel_rank()
         head_start = tp_rank * self.num_heads
         head_end = (tp_rank + 1) * self.num_heads
-        alibi_slopes = _get_alibi_slopes(self.total_num_heads,
-                                         self.alibi_bias_max)
+        alibi_slopes = _get_alibi_slopes(self.total_num_heads, self.alibi_bias_max)
         alibi_slopes = alibi_slopes[head_start:head_end].tolist()
 
         self.head_dim = self.d_model // self.total_num_heads
         scaling = self.head_dim**-0.5
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              scaling,
-                              alibi_slopes=alibi_slopes,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            scaling,
+            alibi_slopes=alibi_slopes,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def forward(
         self,
@@ -224,17 +232,17 @@ class MPTModel(nn.Module):
         self.start_layer, self.end_layer, self.blocks = make_layers(
             config.n_layers,
             lambda prefix: MPTBlock(config, cache_config, quant_config),
-            prefix=f"{prefix}.blocks")
+            prefix=f"{prefix}.blocks",
+        )
         self.norm_f = nn.LayerNorm(config.d_model)
         if config.no_bias:
             for module in self.modules():
-                if hasattr(module, "bias") and isinstance(
-                        module.bias, nn.Parameter):
+                if hasattr(module, "bias") and isinstance(module.bias, nn.Parameter):
                     # Remove the bias term in Linear and LayerNorm.
                     module.register_parameter("bias", None)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(["hidden_states"],
-                                                    config.d_model))
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], config.d_model
+        )
 
     def forward(
         self,
@@ -282,7 +290,8 @@ class MPTForCausalLM(nn.Module, SupportsPP):
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.transformer.make_empty_intermediate_tensors)
+            self.transformer.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -292,8 +301,9 @@ class MPTForCausalLM(nn.Module, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.transformer(input_ids, positions, kv_caches,
-                                         attn_metadata, intermediate_tensors)
+        hidden_states = self.transformer(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
@@ -301,8 +311,7 @@ class MPTForCausalLM(nn.Module, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -322,6 +331,5 @@ class MPTForCausalLM(nn.Module, SupportsPP):
             if is_pp_missing_parameter(name, self):
                 continue
             param = params_dict[name]
-            weight_loader = getattr(param, "weight_loader",
-                                    default_weight_loader)
+            weight_loader = getattr(param, "weight_loader", default_weight_loader)
             weight_loader(param, loaded_weight)

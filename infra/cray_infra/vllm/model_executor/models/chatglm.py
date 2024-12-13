@@ -13,23 +13,30 @@ from vllm.config import CacheConfig, LoRAConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.layernorm import RMSNorm
-from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    MergedColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    ParallelLMHead, VocabParallelEmbedding)
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 from vllm.transformers_utils.configs import ChatGLMConfig
 
 from .interfaces import SupportsLoRA, SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class GLMAttention(nn.Module):
@@ -47,9 +54,11 @@ class GLMAttention(nn.Module):
         assert self.total_num_heads % tp_size == 0
         self.num_heads = self.total_num_heads // tp_size
         self.multi_query_attention = config.multi_query_attention
-        self.total_num_kv_heads = (config.multi_query_group_num
-                                   if config.multi_query_attention else
-                                   config.num_attention_heads)
+        self.total_num_kv_heads = (
+            config.multi_query_group_num
+            if config.multi_query_attention
+            else config.num_attention_heads
+        )
         if self.total_num_kv_heads >= tp_size:
             # Number of KV heads is greater than TP size, so we partition
             # the KV heads across multiple tensor parallel GPUs.
@@ -89,12 +98,14 @@ class GLMAttention(nn.Module):
             base=10000 * rope_ratio,
             is_neox_style=False,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def forward(
         self,
@@ -176,14 +187,16 @@ class GLMBlock(nn.Module):
     ):
         super().__init__()
         self.apply_residual_connection_post_layernorm = (
-            config.apply_residual_connection_post_layernorm)
+            config.apply_residual_connection_post_layernorm
+        )
 
         self.fp32_residual_connection = config.fp32_residual_connection
 
         layer_norm_func = RMSNorm if config.rmsnorm else LayerNorm
         # Layernorm on the input data.
-        self.input_layernorm = layer_norm_func(config.hidden_size,
-                                               eps=config.layernorm_epsilon)
+        self.input_layernorm = layer_norm_func(
+            config.hidden_size, eps=config.layernorm_epsilon
+        )
 
         # Self attention.
         self.self_attention = GLMAttention(config, cache_config, quant_config)
@@ -191,7 +204,8 @@ class GLMBlock(nn.Module):
 
         # Layernorm on the attention output
         self.post_attention_layernorm = layer_norm_func(
-            config.hidden_size, eps=config.layernorm_epsilon)
+            config.hidden_size, eps=config.layernorm_epsilon
+        )
 
         # MLP
         self.mlp = GLMMLP(config, quant_config)
@@ -263,7 +277,8 @@ class GLMTransformer(nn.Module):
             layer_norm_func = RMSNorm if config.rmsnorm else LayerNorm
             # Final layer norm before output.
             self.final_layernorm = layer_norm_func(
-                config.hidden_size, eps=config.layernorm_epsilon)
+                config.hidden_size, eps=config.layernorm_epsilon
+            )
 
     def forward(
         self,
@@ -297,20 +312,21 @@ class ChatGLMModel(nn.Module):
     ):
         super().__init__()
 
-        self.embedding = VocabParallelEmbedding(config.padded_vocab_size,
-                                                config.hidden_size)
+        self.embedding = VocabParallelEmbedding(
+            config.padded_vocab_size, config.hidden_size
+        )
 
         self.num_layers = config.num_layers
         self.multi_query_group_num = config.multi_query_group_num
         self.kv_channels = config.kv_channels
         self.encoder = GLMTransformer(config, cache_config, quant_config)
 
-        self.output_layer = ParallelLMHead(config.padded_vocab_size,
-                                           config.hidden_size,
-                                           quant_config=quant_config)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(["hidden_states"],
-                                                    config.hidden_size))
+        self.output_layer = ParallelLMHead(
+            config.padded_vocab_size, config.hidden_size, quant_config=quant_config
+        )
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], config.hidden_size
+        )
 
     def forward(
         self,
@@ -341,7 +357,7 @@ class ChatGLMModel(nn.Module):
 class ChatGLMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
     packed_modules_mapping = {
         "query_key_value": ["query_key_value"],
-        "dense_h_to_4h": ["dense_h_to_4h"]
+        "dense_h_to_4h": ["dense_h_to_4h"],
     }
     # LoRA specific attributes
     supported_lora_modules = [
@@ -366,17 +382,16 @@ class ChatGLMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         self.lora_config = lora_config
 
         self.quant_config = quant_config
-        self.max_position_embeddings = getattr(config, "max_sequence_length",
-                                               8192)
+        self.max_position_embeddings = getattr(config, "max_sequence_length", 8192)
         self.transformer = ChatGLMModel(config, cache_config, quant_config)
         if self.config.tie_word_embeddings:
-            self.transformer.output_layer.weight = (
-                self.transformer.embedding.weight)
+            self.transformer.output_layer.weight = self.transformer.embedding.weight
         self.lm_head = self.transformer.output_layer
         self.logits_processor = LogitsProcessor(config.padded_vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.transformer.make_empty_intermediate_tensors)
+            self.transformer.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -386,8 +401,9 @@ class ChatGLMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.transformer(input_ids, positions, kv_caches,
-                                         attn_metadata, intermediate_tensors)
+        hidden_states = self.transformer(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
@@ -395,8 +411,7 @@ class ChatGLMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -420,6 +435,5 @@ class ChatGLMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             if is_pp_missing_parameter(name, self):
                 continue
             param = params_dict[name]
-            weight_loader = getattr(param, "weight_loader",
-                                    default_weight_loader)
+            weight_loader = getattr(param, "weight_loader", default_weight_loader)
             weight_loader(param, loaded_weight)

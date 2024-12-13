@@ -1,19 +1,21 @@
 import torch
 
 from vllm.model_executor.layers.quantization.base_config import (
-    QuantizationConfig, QuantizeMethodBase)
+    QuantizationConfig,
+    QuantizeMethodBase,
+)
 from vllm.utils import print_warning_once
 
 
 class BaseKVCacheMethod(QuantizeMethodBase):
     """
     Quant method that adds `_k_scale` and `_v_scale` attributes to the
-    Attention layer to support loading those scaling factors from checkpoints. 
+    Attention layer to support loading those scaling factors from checkpoints.
     The k/v_scale will be used to:
         - quantize k/v_cache entries before saving them to the cache
         - dequantize k/v_cache entries before fetching them from the cache
 
-    :param quant_config: the appropriate QuantizationConfig 
+    :param quant_config: the appropriate QuantizationConfig
     """
 
     def __init__(self, quant_config: QuantizationConfig):
@@ -26,14 +28,11 @@ class BaseKVCacheMethod(QuantizeMethodBase):
         # Initialize the KV cache scales to -1.0, which is an invalid value.
         # If the k/v_scale appears in the checkpoint, it will be
         # overwritten when loading weights.
-        layer.k_scale = torch.nn.Parameter(torch.tensor(-1.0),
-                                           requires_grad=False)
-        layer.v_scale = torch.nn.Parameter(torch.tensor(-1.0),
-                                           requires_grad=False)
+        layer.k_scale = torch.nn.Parameter(torch.tensor(-1.0), requires_grad=False)
+        layer.v_scale = torch.nn.Parameter(torch.tensor(-1.0), requires_grad=False)
 
     def apply(self, layer: torch.nn.Module) -> torch.Tensor:
-        raise RuntimeError(
-            f"{self.__class__.__name__}.apply should not be called.")
+        raise RuntimeError(f"{self.__class__.__name__}.apply should not be called.")
 
     def process_weights_after_loading(self, layer: torch.nn.Module) -> None:
         # If the kv-cache dtype is auto, we enforce the k/v_scale to be 1.0
@@ -57,20 +56,24 @@ class BaseKVCacheMethod(QuantizeMethodBase):
                 k_scale = scale_to_duplicate.to("cpu").tolist()
                 v_scale = scale_to_duplicate.to("cpu").tolist()
 
-            if not isinstance(k_scale, float) or not isinstance(
-                    v_scale, float):
-                raise ValueError("Only support per-tensor scaling factor "
-                                 "for fp8 KV cache")
+            if not isinstance(k_scale, float) or not isinstance(v_scale, float):
+                raise ValueError(
+                    "Only support per-tensor scaling factor " "for fp8 KV cache"
+                )
 
             # These are used in the final Attention.forward()
             layer._k_scale = k_scale
             layer._v_scale = v_scale
-            if (layer._k_scale == 1.0 and layer._v_scale == 1.0
-                    and "e5m2" not in layer.kv_cache_dtype):
+            if (
+                layer._k_scale == 1.0
+                and layer._v_scale == 1.0
+                and "e5m2" not in layer.kv_cache_dtype
+            ):
                 print_warning_once(
                     "Using KV cache scaling factor 1.0 for fp8_e4m3. This "
                     "may cause accuracy issues. Please make sure k/v_scale "
-                    "scaling factors are available in the fp8 checkpoint.")
+                    "scaling factors are available in the fp8 checkpoint."
+                )
 
         del layer.k_scale
         del layer.v_scale

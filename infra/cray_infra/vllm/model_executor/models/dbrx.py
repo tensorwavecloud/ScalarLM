@@ -6,27 +6,40 @@ import torch.nn as nn
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
-from vllm.distributed import (get_pp_group, get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size)
+from vllm.distributed import (
+    get_pp_group,
+    get_tensor_model_parallel_rank,
+    get_tensor_model_parallel_world_size,
+)
 from vllm.model_executor.layers.fused_moe import FusedMoE
-from vllm.model_executor.layers.linear import (QKVParallelLinear,
-                                               ReplicatedLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    QKVParallelLinear,
+    ReplicatedLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    DEFAULT_VOCAB_PADDING_SIZE, ParallelLMHead, VocabParallelEmbedding)
+    DEFAULT_VOCAB_PADDING_SIZE,
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import (
-    default_weight_loader, maybe_remap_kv_scale_name)
+    default_weight_loader,
+    maybe_remap_kv_scale_name,
+)
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 from vllm.transformers_utils.configs.dbrx import DbrxConfig
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class DbrxRouter(nn.Module):
@@ -78,12 +91,12 @@ class DbrxExperts(FusedMoE):
         self.config = config
         self.tp_size = get_tensor_model_parallel_world_size()
         self.d_model = config.d_model
-        self.intermediate_size = (self.config.ffn_config.ffn_hidden_size //
-                                  self.tp_size)
+        self.intermediate_size = self.config.ffn_config.ffn_hidden_size // self.tp_size
 
     # Define custom weight loader for dbrx model
-    def weight_loader(self, param: nn.Parameter, loaded_weight: torch.Tensor,
-                      weight_name: str):
+    def weight_loader(
+        self, param: nn.Parameter, loaded_weight: torch.Tensor, weight_name: str
+    ):
         tp_rank = get_tensor_model_parallel_rank()
         param_data = param.data
         shard_size = self.intermediate_size
@@ -101,9 +114,7 @@ class DbrxExperts(FusedMoE):
                 loaded_weight,
                 [-1, self.intermediate_size * self.tp_size, self.d_model],
             )
-            param_data[:,
-                       shard_size:2 * shard_size, :] = loaded_weight[:,
-                                                                     shard, :]
+            param_data[:, shard_size : 2 * shard_size, :] = loaded_weight[:, shard, :]
         if weight_name.endswith("w2"):
             loaded_weight = torch.reshape(
                 loaded_weight,
@@ -134,9 +145,9 @@ class DbrxMoE(nn.Module):
 
         self.router = DbrxRouter(config, self.params_dtype)
 
-        self.experts = DbrxExperts(config=config,
-                                   quant_config=quant_config,
-                                   params_dtype=self.params_dtype)
+        self.experts = DbrxExperts(
+            config=config, quant_config=quant_config, params_dtype=self.params_dtype
+        )
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         orig_shape = hidden_states.shape
@@ -203,12 +214,14 @@ class DbrxAttention(nn.Module):
         self.q_size = self.num_heads * self.head_dim
         self.kv_size = self.num_kv_heads * self.head_dim
         self.scaling = self.head_dim**-0.5
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def forward(
         self,
@@ -271,8 +284,7 @@ class DbrxBlock(nn.Module):
         quant_config: Optional[QuantizationConfig] = None,
     ):
         super().__init__()
-        self.norm_attn_norm = DbrxFusedNormAttention(config, cache_config,
-                                                     quant_config)
+        self.norm_attn_norm = DbrxFusedNormAttention(config, cache_config, quant_config)
         self.ffn = DbrxMoE(config, quant_config)
 
     def forward(
@@ -314,13 +326,12 @@ class DbrxModel(nn.Module):
         )
         self.norm_f = nn.LayerNorm(config.d_model, eps=1e-5)
         for module in self.modules():
-            if hasattr(module, "bias") and isinstance(module.bias,
-                                                      nn.Parameter):
+            if hasattr(module, "bias") and isinstance(module.bias, nn.Parameter):
                 # Remove the bias term in Linear and LayerNorm.
                 module.register_parameter("bias", None)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(["hidden_states"],
-                                                    config.d_model))
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], config.d_model
+        )
 
     def forward(
         self,
@@ -360,8 +371,7 @@ class DbrxForCausalLM(nn.Module, SupportsPP):
         super().__init__()
         self.config = config
         if config.tie_word_embeddings:
-            raise ValueError(
-                "tie_word_embeddings is not supported for Dbrx models.")
+            raise ValueError("tie_word_embeddings is not supported for Dbrx models.")
         self.quant_config = quant_config
         self.unpadded_vocab_size = config.vocab_size
         self.transformer = DbrxModel(config, cache_config, quant_config)
@@ -372,11 +382,13 @@ class DbrxForCausalLM(nn.Module, SupportsPP):
             padding_size=DEFAULT_VOCAB_PADDING_SIZE,
             quant_config=quant_config,
         )
-        self.logits_processor = LogitsProcessor(self.unpadded_vocab_size,
-                                                config.vocab_size)
+        self.logits_processor = LogitsProcessor(
+            self.unpadded_vocab_size, config.vocab_size
+        )
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.transformer.make_empty_intermediate_tensors)
+            self.transformer.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -386,8 +398,9 @@ class DbrxForCausalLM(nn.Module, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.transformer(input_ids, positions, kv_caches,
-                                         attn_metadata, intermediate_tensors)
+        hidden_states = self.transformer(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
@@ -395,8 +408,7 @@ class DbrxForCausalLM(nn.Module, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -409,10 +421,13 @@ class DbrxForCausalLM(nn.Module, SupportsPP):
 
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
 
-        expert_params_mapping = [(
-            "w13_weight" if weight_name in ["w1", "v1"] else "w2_weight",
-            f"mlp.{weight_name}",
-        ) for weight_name in ["w1", "v1", "w2"]]
+        expert_params_mapping = [
+            (
+                "w13_weight" if weight_name in ["w1", "v1"] else "w2_weight",
+                f"mlp.{weight_name}",
+            )
+            for weight_name in ["w1", "v1", "w2"]
+        ]
         params_dict = dict(self.named_parameters(remove_duplicate=False))
         for name, loaded_weight in weights:
             for param_name, weight_name in expert_params_mapping:
@@ -434,6 +449,5 @@ class DbrxForCausalLM(nn.Module, SupportsPP):
                 if is_pp_missing_parameter(name, self):
                     continue
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)

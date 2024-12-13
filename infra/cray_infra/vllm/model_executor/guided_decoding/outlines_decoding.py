@@ -8,7 +8,10 @@ from typing import Tuple, Union
 from transformers import PreTrainedTokenizerBase
 
 from vllm.model_executor.guided_decoding.outlines_logits_processors import (
-    CFGLogitsProcessor, JSONLogitsProcessor, RegexLogitsProcessor)
+    CFGLogitsProcessor,
+    JSONLogitsProcessor,
+    RegexLogitsProcessor,
+)
 from vllm.sampling_params import GuidedDecodingParams
 
 
@@ -51,8 +54,7 @@ global_thread_pool = None  # used for generating logits processor fsm
 
 async def get_outlines_guided_decoding_logits_processor(
     guided_params: GuidedDecodingParams, tokenizer: PreTrainedTokenizerBase
-) -> Union[JSONLogitsProcessor, RegexLogitsProcessor, CFGLogitsProcessor,
-           None]:
+) -> Union[JSONLogitsProcessor, RegexLogitsProcessor, CFGLogitsProcessor, None]:
     """
     Given an OpenAI-compatible request, check for guided decoding parameters
     and get the necessary logits processor for the given guide.
@@ -65,19 +67,22 @@ async def get_outlines_guided_decoding_logits_processor(
         return None
 
     if global_thread_pool is None:
-        global_thread_pool = concurrent.futures.ThreadPoolExecutor(
-            max_workers=2)
+        global_thread_pool = concurrent.futures.ThreadPoolExecutor(max_workers=2)
     loop = asyncio.get_running_loop()
 
-    return await loop.run_in_executor(global_thread_pool,
-                                      _get_logits_processor, guide, tokenizer,
-                                      mode, guided_params.whitespace_pattern)
+    return await loop.run_in_executor(
+        global_thread_pool,
+        _get_logits_processor,
+        guide,
+        tokenizer,
+        mode,
+        guided_params.whitespace_pattern,
+    )
 
 
 def get_local_outlines_guided_decoding_logits_processor(
     guided_params: GuidedDecodingParams, tokenizer: PreTrainedTokenizerBase
-) -> Union[JSONLogitsProcessor, RegexLogitsProcessor, CFGLogitsProcessor,
-           None]:
+) -> Union[JSONLogitsProcessor, RegexLogitsProcessor, CFGLogitsProcessor, None]:
     """
     Given an OpenAI-compatible request, check for guided decoding parameters
     and get the necessary logits processor for the given guide.
@@ -88,12 +93,13 @@ def get_local_outlines_guided_decoding_logits_processor(
     if not guide or not mode:
         return None
 
-    return _get_logits_processor(guide, tokenizer, mode,
-                                 guided_params.whitespace_pattern)
+    return _get_logits_processor(
+        guide, tokenizer, mode, guided_params.whitespace_pattern
+    )
 
 
 def _get_guide_and_mode(
-    guided_params: GuidedDecodingParams
+    guided_params: GuidedDecodingParams,
 ) -> Union[Tuple[str, GuidedDecodingMode], Tuple[None, None]]:
     if guided_params.json:
         if isinstance(guided_params.json, dict):
@@ -106,9 +112,7 @@ def _get_guide_and_mode(
         return guided_params.regex, GuidedDecodingMode.REGEX
     elif guided_params.choice:
         # choice just uses regex
-        choices = [
-            regex_escape(str(choice)) for choice in guided_params.choice
-        ]
+        choices = [regex_escape(str(choice)) for choice in guided_params.choice]
         choices_regex = "(" + "|".join(choices) + ")"
         return choices_regex, GuidedDecodingMode.CHOICE
     elif guided_params.grammar:
@@ -120,8 +124,10 @@ def _get_guide_and_mode(
 
 
 def _get_logits_processor(
-    guide: str, tokenizer: PreTrainedTokenizerBase, mode: GuidedDecodingMode,
-    whitespace_pattern: Union[str, None]
+    guide: str,
+    tokenizer: PreTrainedTokenizerBase,
+    mode: GuidedDecodingMode,
+    whitespace_pattern: Union[str, None],
 ) -> Union[JSONLogitsProcessor, RegexLogitsProcessor, CFGLogitsProcessor]:
     if mode == GuidedDecodingMode.JSON:
         return JSONLogitsProcessor(guide, tokenizer, whitespace_pattern)

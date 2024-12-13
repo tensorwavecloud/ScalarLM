@@ -21,9 +21,9 @@ def infer_device() -> str:
     return "cpu"
 
 
-def load_peft_weights(model_id: str,
-                      device: Optional[str] = None,
-                      **hf_hub_download_kwargs) -> dict:
+def load_peft_weights(
+    model_id: str, device: Optional[str] = None, **hf_hub_download_kwargs
+) -> dict:
     r"""
     A helper method to load the PEFT weights from the HuggingFace Hub or locally
 
@@ -34,12 +34,14 @@ def load_peft_weights(model_id: str,
         device (`str`):
             The device to load the weights onto.
         hf_hub_download_kwargs (`dict`):
-            Additional arguments to pass to the `hf_hub_download` method when 
+            Additional arguments to pass to the `hf_hub_download` method when
             loading from the HuggingFace Hub.
     """
-    path = (os.path.join(model_id, hf_hub_download_kwargs["subfolder"])
-            if hf_hub_download_kwargs.get("subfolder", None) is not None else
-            model_id)
+    path = (
+        os.path.join(model_id, hf_hub_download_kwargs["subfolder"])
+        if hf_hub_download_kwargs.get("subfolder", None) is not None
+        else model_id
+    )
 
     if device is None:
         device = infer_device()
@@ -55,10 +57,11 @@ def load_peft_weights(model_id: str,
         if token is None:
             token = hf_hub_download_kwargs.get("use_auth_token", None)
 
-        hub_filename = (os.path.join(hf_hub_download_kwargs["subfolder"],
-                                     SAFETENSORS_WEIGHTS_NAME)
-                        if hf_hub_download_kwargs.get("subfolder", None)
-                        is not None else SAFETENSORS_WEIGHTS_NAME)
+        hub_filename = (
+            os.path.join(hf_hub_download_kwargs["subfolder"], SAFETENSORS_WEIGHTS_NAME)
+            if hf_hub_download_kwargs.get("subfolder", None) is not None
+            else SAFETENSORS_WEIGHTS_NAME
+        )
         has_remote_safetensors_file = file_exists(
             repo_id=model_id,
             filename=hub_filename,
@@ -77,19 +80,20 @@ def load_peft_weights(model_id: str,
             )
         else:
             try:
-                filename = hf_hub_download(model_id, WEIGHTS_NAME,
-                                           **hf_hub_download_kwargs)
+                filename = hf_hub_download(
+                    model_id, WEIGHTS_NAME, **hf_hub_download_kwargs
+                )
             except EntryNotFoundError:
                 raise ValueError(  # noqa: B904
                     f"Can't find weights for {model_id} in {model_id} or \
                     in the Hugging Face Hub. "
                     f"Please check that the file {WEIGHTS_NAME} or \
-                    {SAFETENSORS_WEIGHTS_NAME} is present at {model_id}.")
+                    {SAFETENSORS_WEIGHTS_NAME} is present at {model_id}."
+                )
 
     if use_safetensors:
         adapters_weights = safe_load_file(filename, device=device)
     else:
-        adapters_weights = torch.load(filename,
-                                      map_location=torch.device(device))
+        adapters_weights = torch.load(filename, map_location=torch.device(device))
 
     return adapters_weights

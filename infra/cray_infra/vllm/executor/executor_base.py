@@ -1,10 +1,18 @@
 from abc import ABC, abstractmethod
 from typing import List, Optional, Set, Tuple
 
-from vllm.config import (CacheConfig, DeviceConfig, LoadConfig, LoRAConfig,
-                         ModelConfig, ObservabilityConfig, ParallelConfig,
-                         PromptAdapterConfig, SchedulerConfig,
-                         SpeculativeConfig)
+from vllm.config import (
+    CacheConfig,
+    DeviceConfig,
+    LoadConfig,
+    LoRAConfig,
+    ModelConfig,
+    ObservabilityConfig,
+    ParallelConfig,
+    PromptAdapterConfig,
+    SchedulerConfig,
+    SpeculativeConfig,
+)
 from vllm.lora.request import LoRARequest
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.prompt_adapter.request import PromptAdapterRequest
@@ -67,10 +75,8 @@ class ExecutorBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def initialize_cache(self, num_gpu_blocks: int,
-                         num_cpu_blocks: int) -> None:
-        """Initialize the KV cache with the given size in blocks.
-        """
+    def initialize_cache(self, num_gpu_blocks: int, num_cpu_blocks: int) -> None:
+        """Initialize the KV cache with the given size in blocks."""
         raise NotImplementedError
 
     @abstractmethod
@@ -101,8 +107,7 @@ class ExecutorBase(ABC):
         raise NotImplementedError
 
     @abstractmethod
-    def add_prompt_adapter(
-            self, prompt_adapter_request: PromptAdapterRequest) -> bool:
+    def add_prompt_adapter(self, prompt_adapter_request: PromptAdapterRequest) -> bool:
         raise NotImplementedError
 
     @abstractmethod
@@ -135,8 +140,8 @@ class ExecutorAsyncBase(ExecutorBase):
 
     @abstractmethod
     async def execute_model_async(
-            self,
-            execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
+        self, execute_model_req: ExecuteModelRequest
+    ) -> List[SamplerOutput]:
         """Executes one model step on the given sequences."""
         raise NotImplementedError
 

@@ -23,8 +23,8 @@ def cutlass_fp8_supported() -> bool:
 
 
 def per_tensor_dequantize(
-        tensor: torch.Tensor, inv_scale: Union[float,
-                                               torch.Tensor]) -> torch.Tensor:
+    tensor: torch.Tensor, inv_scale: Union[float, torch.Tensor]
+) -> torch.Tensor:
     fake_qweight = tensor.to(torch.float16)
     dq_weight = fake_qweight * inv_scale
     return dq_weight
@@ -36,12 +36,12 @@ def all_close_1d(x: torch.Tensor) -> bool:
 
 
 def convert_to_channelwise(
-        weight_scale: torch.Tensor,
-        logical_widths: List[int]) -> Tuple[torch.Tensor, torch.Tensor]:
+    weight_scale: torch.Tensor, logical_widths: List[int]
+) -> Tuple[torch.Tensor, torch.Tensor]:
     # Create channelwise buffer
-    weight_scale_channel = torch.empty((sum(logical_widths), 1),
-                                       dtype=torch.float32,
-                                       device=weight_scale.device)
+    weight_scale_channel = torch.empty(
+        (sum(logical_widths), 1), dtype=torch.float32, device=weight_scale.device
+    )
 
     # Expand each scale to match the size of each logical matrix.
     start = 0
@@ -54,8 +54,8 @@ def convert_to_channelwise(
 
 
 def requantize_with_max_scale(
-        weight: torch.Tensor, weight_scale: torch.Tensor,
-        logical_widths: List[int]) -> Tuple[torch.Tensor, torch.Tensor]:
+    weight: torch.Tensor, weight_scale: torch.Tensor, logical_widths: List[int]
+) -> Tuple[torch.Tensor, torch.Tensor]:
     # Max scale to be used for requanitzation.
     max_w_scale = weight_scale.max()
 
@@ -65,18 +65,17 @@ def requantize_with_max_scale(
     # from disk in this case. Skip requantization in this case (since)
     # we already are quantized with the single scale.
     # * Sample Model: nm-testing/Phi-3-mini-128k-instruct-FP8
-    unfused_module_in_checkpoint = (weight_scale[-1] > torch.finfo(
-        torch.float8_e4m3fn).min)
+    unfused_module_in_checkpoint = (
+        weight_scale[-1] > torch.finfo(torch.float8_e4m3fn).min
+    )
 
     # If unfused checkpoint, need requanize with the single scale.
     if unfused_module_in_checkpoint:
         start = 0
         for idx, logical_width in enumerate(logical_widths):
             end = start + logical_width
-            weight_dq = per_tensor_dequantize(weight[start:end, :],
-                                              weight_scale[idx])
-            weight[start:end, :], _ = ops.scaled_fp8_quant(
-                weight_dq, max_w_scale)
+            weight_dq = per_tensor_dequantize(weight[start:end, :], weight_scale[idx])
+            weight[start:end, :], _ = ops.scaled_fp8_quant(weight_dq, max_w_scale)
             start = end
 
     return max_w_scale, weight
@@ -102,15 +101,18 @@ def apply_fp8_linear(
             input,
             input_scale,
             scale_ub=input_scale_ub,
-            use_per_token_if_dynamic=use_per_token_if_dynamic)
+            use_per_token_if_dynamic=use_per_token_if_dynamic,
+        )
 
         # Fused GEMM_DQ
-        return ops.cutlass_scaled_mm(qinput,
-                                     weight,
-                                     out_dtype=input.dtype,
-                                     scale_a=x_scale,
-                                     scale_b=weight_scale,
-                                     bias=bias)
+        return ops.cutlass_scaled_mm(
+            qinput,
+            weight,
+            out_dtype=input.dtype,
+            scale_a=x_scale,
+            scale_b=weight_scale,
+            bias=bias,
+        )
 
     # torch.scaled_mm supports per tensor weights + activations only
     # so fallback to naive if per channel or per token
@@ -122,19 +124,22 @@ def apply_fp8_linear(
             input,
             input_scale,
             num_token_padding=17,
-            use_per_token_if_dynamic=use_per_token_if_dynamic)
+            use_per_token_if_dynamic=use_per_token_if_dynamic,
+        )
 
-        per_tensor_weights = (weight_scale.numel() == 1)
-        per_tensor_activations = (x_scale.numel() == 1)
+        per_tensor_weights = weight_scale.numel() == 1
+        per_tensor_activations = x_scale.numel() == 1
 
         if per_tensor_weights and per_tensor_activations:
             # Fused GEMM_DQ
-            output = torch._scaled_mm(qinput,
-                                      weight,
-                                      out_dtype=input.dtype,
-                                      scale_a=x_scale,
-                                      scale_b=weight_scale,
-                                      bias=bias)
+            output = torch._scaled_mm(
+                qinput,
+                weight,
+                out_dtype=input.dtype,
+                scale_a=x_scale,
+                scale_b=weight_scale,
+                bias=bias,
+            )
             # A fix for discrepancy in scaled_mm which returns tuple
             # for torch < 2.5 and a single value in torch >= 2.5
             if type(output) is tuple and len(output) == 2:
@@ -159,18 +164,22 @@ def apply_fp8_linear(
 
             # Making sure the dummy tensor is on the same device as the weight
             global TORCH_DEVICE_IDENTITY
-            if (TORCH_DEVICE_IDENTITY is not None
-                    and TORCH_DEVICE_IDENTITY.device != weight.device):
+            if (
+                TORCH_DEVICE_IDENTITY is not None
+                and TORCH_DEVICE_IDENTITY.device != weight.device
+            ):
                 TORCH_DEVICE_IDENTITY = TORCH_DEVICE_IDENTITY.to(weight.device)
 
             # GEMM
             # This computes C = (X * W).
             # Output in fp32 to allow subsequent ops to happen in-place
-            output = torch._scaled_mm(qinput,
-                                      weight,
-                                      scale_a=TORCH_DEVICE_IDENTITY,
-                                      scale_b=TORCH_DEVICE_IDENTITY,
-                                      out_dtype=torch.float32)
+            output = torch._scaled_mm(
+                qinput,
+                weight,
+                scale_a=TORCH_DEVICE_IDENTITY,
+                scale_b=TORCH_DEVICE_IDENTITY,
+                out_dtype=torch.float32,
+            )
             # A fix for discrepancy in scaled_mm which returns tuple
             # for torch < 2.5 and a single value in torch >= 2.5
             if type(output) is tuple and len(output) == 2:
@@ -200,32 +209,35 @@ def apply_int8_linear(
     # * dynamic, layer.input_scale is None and x_scale computed from x.
     # * static, layer.input_scale is scalar and x_scale is input_scale.
     symmetric = azp_adj is None
-    x_q, x_scale, x_zp = ops.scaled_int8_quant(input,
-                                               input_scale,
-                                               input_zero_point,
-                                               symmetric=symmetric)
+    x_q, x_scale, x_zp = ops.scaled_int8_quant(
+        input, input_scale, input_zero_point, symmetric=symmetric
+    )
 
     if x_zp is not None:
-        return ops.cutlass_scaled_mm_azp(x_q,
-                                         weight,
-                                         scale_a=x_scale,
-                                         scale_b=weight_scale,
-                                         out_dtype=input.dtype,
-                                         azp_adj=azp_adj,
-                                         azp=x_zp,
-                                         bias=bias)
-    return ops.cutlass_scaled_mm(x_q,
-                                 weight,
-                                 scale_a=x_scale,
-                                 scale_b=weight_scale,
-                                 out_dtype=input.dtype,
-                                 bias=bias)
+        return ops.cutlass_scaled_mm_azp(
+            x_q,
+            weight,
+            scale_a=x_scale,
+            scale_b=weight_scale,
+            out_dtype=input.dtype,
+            azp_adj=azp_adj,
+            azp=x_zp,
+            bias=bias,
+        )
+    return ops.cutlass_scaled_mm(
+        x_q,
+        weight,
+        scale_a=x_scale,
+        scale_b=weight_scale,
+        out_dtype=input.dtype,
+        bias=bias,
+    )
 
 
 def normalize_e4m3fn_to_e4m3fnuz(
     weight: torch.Tensor,
     weight_scale: torch.Tensor,
-    input_scale: Optional[torch.Tensor] = None
+    input_scale: Optional[torch.Tensor] = None,
 ) -> Tuple[torch.Tensor, torch.Tensor, Optional[torch.Tensor]]:
     assert weight.dtype == torch.float8_e4m3fn
     # The bits pattern 10000000(-128) represents zero in e4m3fn

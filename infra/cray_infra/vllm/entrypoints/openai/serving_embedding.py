@@ -10,10 +10,13 @@ from typing_extensions import assert_never
 from vllm.config import ModelConfig
 from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.logger import RequestLogger
-from vllm.entrypoints.openai.protocol import (EmbeddingRequest,
-                                              EmbeddingResponse,
-                                              EmbeddingResponseData,
-                                              ErrorResponse, UsageInfo)
+from vllm.entrypoints.openai.protocol import (
+    EmbeddingRequest,
+    EmbeddingResponse,
+    EmbeddingResponseData,
+    ErrorResponse,
+    UsageInfo,
+)
 from vllm.entrypoints.openai.serving_engine import BaseModelPath, OpenAIServing
 from vllm.logger import init_logger
 from vllm.outputs import EmbeddingOutput, EmbeddingRequestOutput
@@ -40,9 +43,12 @@ def _get_embedding(
 
 
 def request_output_to_embedding_response(
-        final_res_batch: List[EmbeddingRequestOutput], request_id: str,
-        created_time: int, model_name: str,
-        encoding_format: Literal["float", "base64"]) -> EmbeddingResponse:
+    final_res_batch: List[EmbeddingRequestOutput],
+    request_id: str,
+    created_time: int,
+    model_name: str,
+    encoding_format: Literal["float", "base64"],
+) -> EmbeddingResponse:
     data: List[EmbeddingResponseData] = []
     num_prompt_tokens = 0
     for idx, final_res in enumerate(final_res_batch):
@@ -77,12 +83,14 @@ class OpenAIServingEmbedding(OpenAIServing):
         *,
         request_logger: Optional[RequestLogger],
     ):
-        super().__init__(engine_client=engine_client,
-                         model_config=model_config,
-                         base_model_paths=base_model_paths,
-                         lora_modules=None,
-                         prompt_adapters=None,
-                         request_logger=request_logger)
+        super().__init__(
+            engine_client=engine_client,
+            model_config=model_config,
+            base_model_paths=base_model_paths,
+            lora_modules=None,
+            prompt_adapters=None,
+            request_logger=request_logger,
+        )
         self._enabled = self._check_embedding_mode(model_config.embedding_mode)
 
     async def create_embedding(
@@ -103,8 +111,7 @@ class OpenAIServingEmbedding(OpenAIServing):
 
         encoding_format = request.encoding_format
         if request.dimensions is not None:
-            return self.create_error_response(
-                "dimensions is currently not supported")
+            return self.create_error_response("dimensions is currently not supported")
 
         model_name = request.model
         request_id = f"embd-{random_uuid()}"
@@ -119,7 +126,8 @@ class OpenAIServingEmbedding(OpenAIServing):
                 return self.create_error_response(
                     "truncate_prompt_tokens value is "
                     "greater than max_model_len."
-                    " Please, select a smaller truncation size.")
+                    " Please, select a smaller truncation size."
+                )
 
         # Schedule the request and get the result generator.
         generators: List[AsyncGenerator[EmbeddingRequestOutput, None]] = []
@@ -134,23 +142,26 @@ class OpenAIServingEmbedding(OpenAIServing):
             pooling_params = request.to_pooling_params()
 
             prompts = list(
-                self._tokenize_prompt_input_or_inputs(request, tokenizer,
-                                                      request.input,
-                                                      truncate_prompt_tokens))
+                self._tokenize_prompt_input_or_inputs(
+                    request, tokenizer, request.input, truncate_prompt_tokens
+                )
+            )
 
             for i, prompt_inputs in enumerate(prompts):
                 request_id_item = f"{request_id}-{i}"
 
-                self._log_inputs(request_id_item,
-                                 prompt_inputs,
-                                 params=pooling_params,
-                                 lora_request=lora_request,
-                                 prompt_adapter_request=prompt_adapter_request)
+                self._log_inputs(
+                    request_id_item,
+                    prompt_inputs,
+                    params=pooling_params,
+                    lora_request=lora_request,
+                    prompt_adapter_request=prompt_adapter_request,
+                )
 
                 if prompt_adapter_request is not None:
                     raise NotImplementedError(
-                        "Prompt adapter is not supported "
-                        "for embedding models")
+                        "Prompt adapter is not supported " "for embedding models"
+                    )
 
                 generator = self.engine_client.encode(
                     {"prompt_token_ids": prompt_inputs["prompt_token_ids"]},
@@ -180,12 +191,17 @@ class OpenAIServingEmbedding(OpenAIServing):
             for final_res in final_res_batch:
                 assert final_res is not None
 
-            final_res_batch_checked = cast(List[EmbeddingRequestOutput],
-                                           final_res_batch)
+            final_res_batch_checked = cast(
+                List[EmbeddingRequestOutput], final_res_batch
+            )
 
             response = request_output_to_embedding_response(
-                final_res_batch_checked, request_id, created_time, model_name,
-                encoding_format)
+                final_res_batch_checked,
+                request_id,
+                created_time,
+                model_name,
+                encoding_format,
+            )
         except asyncio.CancelledError:
             return self.create_error_response("Client disconnected")
         except ValueError as e:
@@ -196,8 +212,7 @@ class OpenAIServingEmbedding(OpenAIServing):
 
     def _check_embedding_mode(self, embedding_mode: bool) -> bool:
         if not embedding_mode:
-            logger.warning(
-                "embedding_mode is False. Embedding API will not work.")
+            logger.warning("embedding_mode is False. Embedding API will not work.")
         else:
             logger.info("Activating the server engine with embedding enabled.")
         return embedding_mode

@@ -30,10 +30,12 @@ class PoolingMetadata:
         self.prompt_lens = prompt_lens
 
     def __repr__(self) -> str:
-        return ("PoolingMetadata("
-                f"seq_groups={self.seq_groups}, "
-                f"seq_data={self.seq_data}, "
-                f"prompt_lens={self.prompt_lens})")
+        return (
+            "PoolingMetadata("
+            f"seq_groups={self.seq_groups}, "
+            f"seq_data={self.seq_data}, "
+            f"prompt_lens={self.prompt_lens})"
+        )
 
 
 @dataclass
@@ -65,5 +67,6 @@ class PoolingTensors:
             pin_memory=pin_memory,
         )
 
-        return cls(prompt_lens=prompt_lens_t.to(device=device,
-                                                non_blocking=True), )
+        return cls(
+            prompt_lens=prompt_lens_t.to(device=device, non_blocking=True),
+        )

@@ -37,7 +37,12 @@ class TestGenerate(unittest.IsolatedAsyncioTestCase):
 
         llm = masint.AsyncSupermassiveIntelligence()
 
-        prompts = ["What is 1 + 1?", "What is 2 + 2?", "What is 3 + 3?", "What is 4 + 4?"]
+        prompts = [
+            "What is 1 + 1?",
+            "What is 2 + 2?",
+            "What is 3 + 3?",
+            "What is 4 + 4?",
+        ]
 
         result = await llm.generate(prompts=prompts)
 
@@ -46,5 +51,3 @@ class TestGenerate(unittest.IsolatedAsyncioTestCase):
     async def asyncTearDown(self):
         logger.debug("Shutting down server")
         await self.app.shutdown()
-
-

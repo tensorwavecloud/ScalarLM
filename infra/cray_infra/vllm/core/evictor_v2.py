@@ -5,8 +5,9 @@ from typing import OrderedDict, Tuple
 
 class EvictionPolicy(enum.Enum):
     """Enum for eviction policy used by make_evictor to instantiate the correct
-       Evictor subclass.
+    Evictor subclass.
     """
+
     LRU = enum.auto()
 
 
@@ -31,8 +32,13 @@ class Evictor(ABC):
         pass
 
     @abstractmethod
-    def add(self, block_id: int, content_hash: int, num_hashed_tokens: int,
-            last_accessed: float):
+    def add(
+        self,
+        block_id: int,
+        content_hash: int,
+        num_hashed_tokens: int,
+        last_accessed: float,
+    ):
         """Adds block to the evictor, making it a candidate for eviction"""
         pass
 
@@ -52,7 +58,7 @@ class Evictor(ABC):
         pass
 
 
-class BlockMetaData():
+class BlockMetaData:
     """Data structure for storing key data describe cached block, so that
     evitor could use to make its decision which one to choose for eviction
 
@@ -60,8 +66,7 @@ class BlockMetaData():
     blocks with the same content hash, but their physical id is unique.
     """
 
-    def __init__(self, content_hash: int, num_hashed_tokens: int,
-                 last_accessed: float):
+    def __init__(self, content_hash: int, num_hashed_tokens: int, last_accessed: float):
         self.content_hash = content_hash
         self.num_hashed_tokens = num_hashed_tokens
         self.last_accessed = last_accessed
@@ -104,19 +109,23 @@ class LRUEvictor(Evictor):
 
         return evicted_block_id, evicted_block.content_hash
 
-    def add(self, block_id: int, content_hash: int, num_hashed_tokens: int,
-            last_accessed: float):
-        self.free_table[block_id] = BlockMetaData(content_hash,
-                                                  num_hashed_tokens,
-                                                  last_accessed)
+    def add(
+        self,
+        block_id: int,
+        content_hash: int,
+        num_hashed_tokens: int,
+        last_accessed: float,
+    ):
+        self.free_table[block_id] = BlockMetaData(
+            content_hash, num_hashed_tokens, last_accessed
+        )
 
     def update(self, block_id: int, last_accessed: float):
         self.free_table[block_id].last_accessed = last_accessed
 
     def remove(self, block_id: int):
         if block_id not in self.free_table:
-            raise ValueError(
-                "Attempting to remove block that's not in the evictor")
+            raise ValueError("Attempting to remove block that's not in the evictor")
         self.free_table.pop(block_id)
 
     @property

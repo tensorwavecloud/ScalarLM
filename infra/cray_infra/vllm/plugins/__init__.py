@@ -12,6 +12,7 @@ def load_general_plugins():
     multiple times without causing issues.
     """
     import sys
+
     if sys.version_info < (3, 10):
         from importlib_metadata import entry_points
     else:
@@ -19,7 +20,7 @@ def load_general_plugins():
 
     allowed_plugins = envs.VLLM_PLUGINS
 
-    discovered_plugins = entry_points(group='vllm.general_plugins')
+    discovered_plugins = entry_points(group="vllm.general_plugins")
     for plugin in discovered_plugins:
         logger.info("Found general plugin: %s", plugin.name)
         if allowed_plugins is None or plugin.name in allowed_plugins:
@@ -28,8 +29,7 @@ def load_general_plugins():
                 func()
                 logger.info("Loaded general plugin: %s", plugin.name)
             except Exception:
-                logger.exception("Failed to load general plugin: %s",
-                                 plugin.name)
+                logger.exception("Failed to load general plugin: %s", plugin.name)
 
 
 _torch_compile_backend: Optional[Union[Callable, str]] = None

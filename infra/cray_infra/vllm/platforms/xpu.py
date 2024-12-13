@@ -8,8 +8,9 @@ class XPUPlatform(Platform):
 
     @staticmethod
     def get_device_capability(device_id: int = 0) -> DeviceCapability:
-        major, minor, *_ = torch.xpu.get_device_capability(
-            device_id)['version'].split('.')
+        major, minor, *_ = torch.xpu.get_device_capability(device_id)["version"].split(
+            "."
+        )
         return DeviceCapability(major=int(major), minor=int(minor))
 
     @staticmethod

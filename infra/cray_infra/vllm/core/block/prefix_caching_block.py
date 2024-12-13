@@ -1,12 +1,15 @@
 """Token blocks."""
+
 from os.path import commonprefix
 from typing import Dict, FrozenSet, Iterable, List, Optional, Set, Tuple
 
-from vllm.core.block.common import (CacheMetricData, CopyOnWriteTracker,
-                                    get_all_blocks_recursively)
+from vllm.core.block.common import (
+    CacheMetricData,
+    CopyOnWriteTracker,
+    get_all_blocks_recursively,
+)
 from vllm.core.block.interfaces import Block, BlockAllocator, BlockId, Device
-from vllm.core.block.naive_block import (BlockPool, NaiveBlock,
-                                         NaiveBlockAllocator)
+from vllm.core.block.naive_block import BlockPool, NaiveBlock, NaiveBlockAllocator
 from vllm.core.evictor_v2 import EvictionPolicy, Evictor, make_evictor
 
 PrefixHash = int
@@ -18,8 +21,8 @@ _DEFAULT_LAST_ACCESSED_TIME = -1
 
 
 class BlockTracker:
-    """Used to track the status of a block inside the prefix caching allocator
-    """
+    """Used to track the status of a block inside the prefix caching allocator"""
+
     __slots__ = ("active", "last_accessed", "computed")
 
     def reset(self):
@@ -86,8 +89,9 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         # The "* extra_factor" is a buffer to allow more block objects
         # than physical blocks
         extra_factor = 4
-        self._block_pool = BlockPool(self._block_size, self._create_block,
-                                     self, num_blocks * extra_factor)
+        self._block_pool = BlockPool(
+            self._block_size, self._create_block, self, num_blocks * extra_factor
+        )
 
         # An allocator for blocks that do not have prefix hashes.
         self._hashless_allocator = NaiveBlockAllocator(
@@ -108,7 +112,8 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         self._refcounter = self._hashless_allocator.refcounter
 
         self._cow_tracker = CopyOnWriteTracker(
-            refcounter=self._refcounter.as_readonly())
+            refcounter=self._refcounter.as_readonly()
+        )
 
         self.metric_data = CacheMetricData()
 
@@ -134,10 +139,12 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             computed=computed,
         )
 
-    def allocate_immutable_block(self,
-                                 prev_block: Optional[Block],
-                                 token_ids: List[int],
-                                 device: Optional[Device] = None) -> Block:
+    def allocate_immutable_block(
+        self,
+        prev_block: Optional[Block],
+        token_ids: List[int],
+        device: Optional[Device] = None,
+    ) -> Block:
         """Allocates an immutable block with the given token IDs, reusing cached
         blocks if possible.
 
@@ -152,10 +159,12 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         assert_prefix_caching_block_or_none(prev_block)
 
         # First, try to create a block that points to cached data
-        block = self._block_pool.init_block(prev_block=prev_block,
-                                            token_ids=token_ids,
-                                            block_size=self._block_size,
-                                            physical_block_id=None)
+        block = self._block_pool.init_block(
+            prev_block=prev_block,
+            token_ids=token_ids,
+            block_size=self._block_size,
+            physical_block_id=None,
+        )
         assert block.content_hash is not None
 
         cached_block_id = self._cached_blocks.get(block.content_hash, None)
@@ -173,21 +182,22 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         return block
 
     def allocate_immutable_blocks(
-            self,
-            prev_block: Optional[Block],
-            block_token_ids: List[List[int]],
-            device: Optional[Device] = None) -> List[Block]:
+        self,
+        prev_block: Optional[Block],
+        block_token_ids: List[List[int]],
+        device: Optional[Device] = None,
+    ) -> List[Block]:
         blocks = []
         for token_ids in block_token_ids:
-            prev_block = self.allocate_immutable_block(prev_block=prev_block,
-                                                       token_ids=token_ids,
-                                                       device=device)
+            prev_block = self.allocate_immutable_block(
+                prev_block=prev_block, token_ids=token_ids, device=device
+            )
             blocks.append(prev_block)
         return blocks
 
-    def allocate_mutable_block(self,
-                               prev_block: Optional[Block],
-                               device: Optional[Device] = None) -> Block:
+    def allocate_mutable_block(
+        self, prev_block: Optional[Block], device: Optional[Device] = None
+    ) -> Block:
         """Allocates a mutable block. If there are no free blocks, this will
         evict unused cached blocks.
 
@@ -202,10 +212,12 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         assert_prefix_caching_block_or_none(prev_block)
 
         block_id = self._allocate_block_id()
-        block = self._block_pool.init_block(prev_block=prev_block,
-                                            token_ids=[],
-                                            block_size=self._block_size,
-                                            physical_block_id=block_id)
+        block = self._block_pool.init_block(
+            prev_block=prev_block,
+            token_ids=[],
+            block_size=self._block_size,
+            physical_block_id=block_id,
+        )
         assert not block.computed
         assert block.content_hash is None
         return block
@@ -245,8 +257,12 @@ class PrefixCachingBlockAllocator(BlockAllocator):
 
         # Add the cached block to the evictor
         # (This keeps the cached block around so it can be reused)
-        self.evictor.add(block_id, block.content_hash, block.num_tokens_total,
-                         self._block_tracker[block_id].last_accessed)
+        self.evictor.add(
+            block_id,
+            block.content_hash,
+            block.num_tokens_total,
+            self._block_tracker[block_id].last_accessed,
+        )
 
         # Stop tracking the block
         self._untrack_block_id(block_id)
@@ -285,8 +301,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
     def _maybe_allocate_hashless_block_id(self) -> Optional[BlockId]:
         try:
             # Allocate mutable block and extract its block_id
-            block = self._hashless_allocator.allocate_mutable_block(
-                prev_block=None)
+            block = self._hashless_allocator.allocate_mutable_block(prev_block=None)
             block_id = block.block_id
             self._block_pool.free_block(block)
 
@@ -319,10 +334,10 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         return block_id
 
     def _free_block_id(self, block: Block) -> None:
-        """Decrements the refcount of the block. The block may be in two 
-        possible states: (1) immutable/cached or (2) mutable/hashless. 
+        """Decrements the refcount of the block. The block may be in two
+        possible states: (1) immutable/cached or (2) mutable/hashless.
         In the first case, the refcount is decremented directly and the block
-        may be possibly added to the evictor. In other case, hashless 
+        may be possibly added to the evictor. In other case, hashless
         allocator free(..) with keep_block_object=True is called to only free
         the block id (since the block object may be reused by the caller)
         """
@@ -341,8 +356,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         assert block.block_id is None
 
     def free(self, block: Block, keep_block_object: bool = False) -> None:
-        """Release the block (look at free_block_id(..) docs)
-        """
+        """Release the block (look at free_block_id(..) docs)"""
         # Release the physical block index
         self._free_block_id(block)
 
@@ -370,14 +384,14 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             assert block_id is not None
 
             refcount = self._refcounter.incr(block_id)
-            assert refcount != 1, "can't fork free'd block_id = {}".format(
-                block_id)
+            assert refcount != 1, "can't fork free'd block_id = {}".format(block_id)
 
             forked_block = self._block_pool.init_block(
                 prev_block=prev_block,
                 token_ids=block.token_ids,
                 block_size=self._block_size,
-                physical_block_id=block_id)
+                physical_block_id=block_id,
+            )
 
             forked_blocks.append(forked_block)
             prev_block = forked_blocks[-1]
@@ -388,8 +402,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         assert device is None
         # The number of free blocks is the number of hashless free blocks
         # plus the number of blocks evictor could free from its list.
-        return self._hashless_allocator.get_num_free_blocks(
-        ) + self.evictor.num_blocks
+        return self._hashless_allocator.get_num_free_blocks() + self.evictor.num_blocks
 
     def get_num_total_blocks(self) -> int:
         return self._hashless_allocator.get_num_total_blocks()
@@ -399,7 +412,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         given the absolute block id.
 
         Args:
-            absolute_id (int): The absolute block id for the block 
+            absolute_id (int): The absolute block id for the block
                 in whole allocator.
 
         Returns:
@@ -469,7 +482,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             block (Block): The block to check for copy-on-write.
 
         Returns:
-            BlockId: The block index of the new block if a copy-on-write 
+            BlockId: The block index of the new block if a copy-on-write
                 operation was performed, or the original block index if
                 no copy-on-write was necessary.
         """
@@ -495,8 +508,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         """
         return self._cow_tracker.clear_cows()
 
-    def mark_blocks_as_accessed(self, block_ids: List[int],
-                                now: float) -> None:
+    def mark_blocks_as_accessed(self, block_ids: List[int], now: float) -> None:
         """Mark blocks as accessed, used in prefix caching.
 
         If the block is added into evictor, we need to update corresponding
@@ -509,8 +521,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             elif block_id in self.evictor:
                 self.evictor.update(block_id, now)
             else:
-                raise ValueError(
-                    "Mark block as accessed which is not belonged to GPU")
+                raise ValueError("Mark block as accessed which is not belonged to GPU")
 
     def mark_blocks_as_computed(self, block_ids: List[int]) -> None:
         # Mark all touched blocks as computed.
@@ -518,8 +529,7 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             self._block_tracker[block_id].computed = True
         self._touched_blocks.clear()
 
-    def _track_block_id(self, block_id: Optional[BlockId],
-                        computed: bool) -> None:
+    def _track_block_id(self, block_id: Optional[BlockId], computed: bool) -> None:
         assert block_id is not None
         self._block_tracker[block_id].enable()
         self._block_tracker[block_id].computed = computed
@@ -534,10 +544,12 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         else:
             return block_id in self.evictor
 
-    def get_computed_block_ids(self,
-                               prev_computed_block_ids: List[int],
-                               block_ids: List[int],
-                               skip_last_block_id: bool = True) -> List[int]:
+    def get_computed_block_ids(
+        self,
+        prev_computed_block_ids: List[int],
+        block_ids: List[int],
+        skip_last_block_id: bool = True,
+    ) -> List[int]:
         prev_prefix_size = len(prev_computed_block_ids)
         cur_size = len(block_ids)
         if skip_last_block_id:
@@ -555,7 +567,8 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         return ret
 
     def get_common_computed_block_ids(
-            self, computed_seq_block_ids: List[List[int]]) -> List[int]:
+        self, computed_seq_block_ids: List[List[int]]
+    ) -> List[int]:
         """Return the block ids that are common for a given sequence group.
 
         Only those blocks that are immutable and already be marked
@@ -570,10 +583,9 @@ class PrefixCachingBlockAllocator(BlockAllocator):
         if len(computed_seq_block_ids) == 1:
             return computed_seq_block_ids[0]
 
-        return commonprefix([
-            ids for ids in computed_seq_block_ids  # type: ignore
-            if ids
-        ])
+        return commonprefix(
+            [ids for ids in computed_seq_block_ids if ids]  # type: ignore
+        )
 
     def get_num_full_blocks_touched(self, blocks: List[Block]) -> int:
         """Returns the number of full blocks that will be touched by
@@ -591,15 +603,18 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             # If the block has a match in the cache and the cached
             # block is not referenced, then we still count it as a
             # touched block
-            if block.is_full and (not self.is_block_cached(block) or \
-                (block.content_hash is not None and \
-                self._cached_blocks[block.content_hash] in \
-                        self.evictor)):
+            if block.is_full and (
+                not self.is_block_cached(block)
+                or (
+                    block.content_hash is not None
+                    and self._cached_blocks[block.content_hash] in self.evictor
+                )
+            ):
                 num_touched_blocks += 1
         return num_touched_blocks
 
     def swap_out(self, blocks: List[Block]) -> None:
-        """Execute the swap out actions. Basically just free the 
+        """Execute the swap out actions. Basically just free the
         given blocks.
 
         Args:
@@ -609,9 +624,9 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             self._free_block_id(block)
 
     def swap_in(self, blocks: List[Block]) -> None:
-        """Execute the swap in actions. Change the block id from 
-        old allocator to current allocator for each block to finish 
-        the block table update. 
+        """Execute the swap in actions. Change the block id from
+        old allocator to current allocator for each block to finish
+        the block table update.
 
         Args:
             blocks: List of blocks to be swapped in.
@@ -623,10 +638,10 @@ class PrefixCachingBlockAllocator(BlockAllocator):
             # existing "block" object
             if block.is_full:
                 tmp_block = self.allocate_immutable_block(
-                    prev_block=block.prev_block, token_ids=block.token_ids)
+                    prev_block=block.prev_block, token_ids=block.token_ids
+                )
             else:
-                tmp_block = self.allocate_mutable_block(
-                    prev_block=block.prev_block)
+                tmp_block = self.allocate_mutable_block(prev_block=block.prev_block)
                 tmp_block.append_token_ids(block.token_ids)
 
             block_id = tmp_block.block_id
@@ -666,8 +681,8 @@ class PrefixCachingBlock(Block):
     ):
         assert isinstance(allocator, PrefixCachingBlockAllocator), (
             "Currently this class is only tested with "
-            "PrefixCachingBlockAllocator. Got instead allocator = {}".format(
-                allocator))
+            "PrefixCachingBlockAllocator. Got instead allocator = {}".format(allocator)
+        )
         assert_prefix_caching_block_or_none(prev_block)
 
         self._prev_block = prev_block
@@ -685,13 +700,16 @@ class PrefixCachingBlock(Block):
                 token_ids=token_ids,
                 block_size=block_size,
                 block_id=block_id,
-                allocator=self._allocator)
+                allocator=self._allocator,
+            )
         else:
-            self._block = NaiveBlock(prev_block=prev_block,
-                                     token_ids=token_ids,
-                                     block_size=block_size,
-                                     block_id=block_id,
-                                     allocator=self._allocator)
+            self._block = NaiveBlock(
+                prev_block=prev_block,
+                token_ids=token_ids,
+                block_size=block_size,
+                block_id=block_id,
+                allocator=self._allocator,
+            )
 
         self._update_num_tokens_total()
 
@@ -803,8 +821,7 @@ class PrefixCachingBlock(Block):
 
         is_first_block = self._prev_block is None
         prev_block_hash = (
-            None if is_first_block else
-            self._prev_block.content_hash  # type: ignore
+            None if is_first_block else self._prev_block.content_hash  # type: ignore
         )
 
         # Previous block exists but does not yet have a hash.
@@ -813,14 +830,16 @@ class PrefixCachingBlock(Block):
             return None
 
         self._cached_content_hash = PrefixCachingBlock.hash_block_tokens(
-            is_first_block,
-            prev_block_hash,
-            cur_block_token_ids=self.token_ids)
+            is_first_block, prev_block_hash, cur_block_token_ids=self.token_ids
+        )
         return self._cached_content_hash
 
     @staticmethod
-    def hash_block_tokens(is_first_block: bool, prev_block_hash: Optional[int],
-                          cur_block_token_ids: List[int]) -> int:
+    def hash_block_tokens(
+        is_first_block: bool,
+        prev_block_hash: Optional[int],
+        cur_block_token_ids: List[int],
+    ) -> int:
         """Computes a hash value corresponding to the contents of a block and
         the contents of the preceding block(s). The hash value is used for
         prefix caching.
@@ -843,51 +862,47 @@ class PrefixCachingBlock(Block):
 
 
 class ComputedBlocksTracker:
-    """Handles caching of per-sequence computed block ids. 
-        When a sequence appears for the first time, it traverses all of the 
-        blocks and detects the prefix of blocks that is computed. On the
-        subsequent times, it only traverses the new blocks that were added 
-        and updates the already recorded prefix of blocks with the newly 
-        computed blocks.
+    """Handles caching of per-sequence computed block ids.
+    When a sequence appears for the first time, it traverses all of the
+    blocks and detects the prefix of blocks that is computed. On the
+    subsequent times, it only traverses the new blocks that were added
+    and updates the already recorded prefix of blocks with the newly
+    computed blocks.
 
-        To avoid redundant traversals, the algorithm also detects when there
-        is a "gap" in the computed prefix. For example, if we have blocks =
-        [1,2,3,4,5], and we have detected [1,2,3] as the computed prefix, then
-        we won't try to add more computed blocks to [1,2,3] in this sequence
-        iteration, and will add more computed blocks only after the sequence is
-        freed and reused again.
+    To avoid redundant traversals, the algorithm also detects when there
+    is a "gap" in the computed prefix. For example, if we have blocks =
+    [1,2,3,4,5], and we have detected [1,2,3] as the computed prefix, then
+    we won't try to add more computed blocks to [1,2,3] in this sequence
+    iteration, and will add more computed blocks only after the sequence is
+    freed and reused again.
 
-        Note that currently, for a given sequence, we also skip the last 
-        block id for caching purposes, to avoid caching of a full sequence
+    Note that currently, for a given sequence, we also skip the last
+    block id for caching purposes, to avoid caching of a full sequence
     """
 
     def __init__(self, allocator):
         self._allocator = allocator
-        self._cached_computed_seq_blocks: Dict[int, Tuple[List[int],
-                                                          bool]] = {}
+        self._cached_computed_seq_blocks: Dict[int, Tuple[List[int], bool]] = {}
 
     def add_seq(self, seq_id: int) -> None:
-        """Start tracking seq_id
-        """
+        """Start tracking seq_id"""
         assert seq_id not in self._cached_computed_seq_blocks
         self._cached_computed_seq_blocks[seq_id] = ([], False)
 
     def remove_seq(self, seq_id: int) -> None:
-        """Stop tracking seq_id
-        """
+        """Stop tracking seq_id"""
         assert seq_id in self._cached_computed_seq_blocks
         del self._cached_computed_seq_blocks[seq_id]
 
     def get_cached_computed_blocks_and_update(
-            self, seq_id: int, block_ids: List[int]) -> List[int]:
-        """ Look at the class documentation for details
-        """
+        self, seq_id: int, block_ids: List[int]
+    ) -> List[int]:
+        """Look at the class documentation for details"""
         # Ensure seq_id is already tracked
         assert seq_id in self._cached_computed_seq_blocks
 
         # Get cached data (may be empty on the first time)
-        prev_computed_block_ids, has_gap = self._cached_computed_seq_blocks[
-            seq_id]
+        prev_computed_block_ids, has_gap = self._cached_computed_seq_blocks[seq_id]
 
         if has_gap:
             # When gap is detected, we do not add more computed blocks at this
@@ -911,16 +926,14 @@ class ComputedBlocksTracker:
         computed_block_ids = self._allocator.get_computed_block_ids(  # noqa: E501
             prev_computed_block_ids,
             block_ids,
-            skip_last_block_id=
-            True,  # We skip last block id to avoid caching of full seq
+            skip_last_block_id=True,  # We skip last block id to avoid caching of full seq
         )
 
         # Detect if there is a "gap"
         has_gap = len(computed_block_ids) < num_cur_blocks
 
         # Record
-        self._cached_computed_seq_blocks[seq_id] = (computed_block_ids,
-                                                    has_gap)
+        self._cached_computed_seq_blocks[seq_id] = (computed_block_ids, has_gap)
 
         return computed_block_ids
 
@@ -935,14 +948,12 @@ class LastAccessBlocksTracker:
         self._seq_last_access: Dict[int, Optional[float]] = {}
 
     def add_seq(self, seq_id: int) -> None:
-        """Start tracking seq_id
-        """
+        """Start tracking seq_id"""
         assert seq_id not in self._seq_last_access
         self._seq_last_access[seq_id] = None
 
     def remove_seq(self, seq_id: int) -> None:
-        """Stop tracking seq_id
-        """
+        """Stop tracking seq_id"""
         assert seq_id in self._seq_last_access
         del self._seq_last_access[seq_id]
 
@@ -950,8 +961,7 @@ class LastAccessBlocksTracker:
         assert seq_id in self._seq_last_access
         self._seq_last_access[seq_id] = time
 
-    def update_seq_blocks_last_access(self, seq_id: int,
-                                      block_ids: List[int]) -> None:
+    def update_seq_blocks_last_access(self, seq_id: int, block_ids: List[int]) -> None:
         assert seq_id in self._seq_last_access
 
         ts = self._seq_last_access[seq_id]
@@ -966,5 +976,4 @@ class LastAccessBlocksTracker:
 def assert_prefix_caching_block_or_none(block: Optional[Block]):
     if block is None:
         return
-    assert isinstance(block,
-                      PrefixCachingBlock), "Got block = {}".format(block)
+    assert isinstance(block, PrefixCachingBlock), "Got block = {}".format(block)

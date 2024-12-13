@@ -3,6 +3,7 @@ from cray_infra.util.default_config import Config
 import os
 import yaml
 
+
 def get_config():
     loaded_config = {}
 

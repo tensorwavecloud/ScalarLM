@@ -36,7 +36,9 @@ class DistributedGPUExecutor(GPUExecutor):
             - tuple[num_gpu_blocks, num_cpu_blocks]
         """
         # Get the maximum number of blocks that can be allocated on GPU and CPU.
-        num_blocks = self._run_workers("determine_num_available_blocks", )
+        num_blocks = self._run_workers(
+            "determine_num_available_blocks",
+        )
 
         # Since we use a shared centralized controller, we take the minimum
         # number of blocks across all workers to make sure all the memory
@@ -46,27 +48,34 @@ class DistributedGPUExecutor(GPUExecutor):
 
         return num_gpu_blocks, num_cpu_blocks
 
-    def initialize_cache(self, num_gpu_blocks: int,
-                         num_cpu_blocks: int) -> None:
-        """Initialize the KV cache in all workers.
-        """
+    def initialize_cache(self, num_gpu_blocks: int, num_cpu_blocks: int) -> None:
+        """Initialize the KV cache in all workers."""
 
         # NOTE: We log here to avoid multiple logs when number of workers is
         # greater than one. We could log in the engine, but not all executors
         # have GPUs.
-        logger.info("# GPU blocks: %d, # CPU blocks: %d", num_gpu_blocks,
-                    num_cpu_blocks)
-        max_concurrency = (num_gpu_blocks * self.cache_config.block_size /
-                           self.model_config.max_model_len)
-        logger.info("Maximum concurrency for %s tokens per request: %.2fx",
-                    self.model_config.max_model_len, max_concurrency)
+        logger.info(
+            "# GPU blocks: %d, # CPU blocks: %d", num_gpu_blocks, num_cpu_blocks
+        )
+        max_concurrency = (
+            num_gpu_blocks
+            * self.cache_config.block_size
+            / self.model_config.max_model_len
+        )
+        logger.info(
+            "Maximum concurrency for %s tokens per request: %.2fx",
+            self.model_config.max_model_len,
+            max_concurrency,
+        )
 
         self.cache_config.num_gpu_blocks = num_gpu_blocks
         self.cache_config.num_cpu_blocks = num_cpu_blocks
 
-        self._run_workers("initialize_cache",
-                          num_gpu_blocks=num_gpu_blocks,
-                          num_cpu_blocks=num_cpu_blocks)
+        self._run_workers(
+            "initialize_cache",
+            num_gpu_blocks=num_gpu_blocks,
+            num_cpu_blocks=num_cpu_blocks,
+        )
 
     def execute_model(
         self,
@@ -76,7 +85,8 @@ class DistributedGPUExecutor(GPUExecutor):
             self.parallel_worker_tasks = self._run_workers(
                 "start_worker_execution_loop",
                 async_run_tensor_parallel_workers_only=True,
-                **self.extra_execute_model_run_workers_kwargs)
+                **self.extra_execute_model_run_workers_kwargs,
+            )
 
         # Only the driver worker returns the sampling results.
         driver_outputs = self._driver_execute_model(execute_model_req)
@@ -124,10 +134,9 @@ class DistributedGPUExecutor(GPUExecutor):
         pattern: Optional[str] = None,
         max_size: Optional[int] = None,
     ) -> None:
-        self._run_workers("save_sharded_state",
-                          path=path,
-                          pattern=pattern,
-                          max_size=max_size)
+        self._run_workers(
+            "save_sharded_state", path=path, pattern=pattern, max_size=max_size
+        )
 
     @abstractmethod
     def _driver_execute_model(
@@ -170,12 +179,13 @@ class DistributedGPUExecutor(GPUExecutor):
 class DistributedGPUExecutorAsync(DistributedGPUExecutor, ExecutorAsyncBase):
 
     async def execute_model_async(
-            self,
-            execute_model_req: ExecuteModelRequest) -> List[SamplerOutput]:
+        self, execute_model_req: ExecuteModelRequest
+    ) -> List[SamplerOutput]:
         if self.parallel_worker_tasks is None:
             # Start model execution loop running in the parallel workers
             self.parallel_worker_tasks = asyncio.create_task(
-                self._start_worker_execution_loop())
+                self._start_worker_execution_loop()
+            )
 
         # Only the driver worker returns the sampling results.
         return await self._driver_execute_model_async(execute_model_req)

@@ -1,4 +1,5 @@
 """CacheEngine class for managing the KV cache."""
+
 from typing import List
 
 import torch
@@ -6,8 +7,7 @@ import torch
 from vllm.attention import get_attn_backend
 from vllm.config import CacheConfig, DeviceConfig, ModelConfig, ParallelConfig
 from vllm.logger import init_logger
-from vllm.utils import (STR_DTYPE_TO_TORCH_DTYPE, get_dtype_size,
-                        is_pin_memory_available)
+from vllm.utils import STR_DTYPE_TO_TORCH_DTYPE, get_dtype_size, is_pin_memory_available
 
 logger = init_logger(__name__)
 
@@ -35,7 +35,8 @@ class CacheEngine:
         self.head_size = model_config.get_head_size()
         # Models like Jamba, have mixed typed layers, E.g Mamba
         self.num_attention_layers = model_config.get_num_attention_layers(
-            parallel_config)
+            parallel_config
+        )
         self.num_kv_heads = model_config.get_num_kv_heads(parallel_config)
 
         self.block_size = cache_config.block_size
@@ -64,7 +65,8 @@ class CacheEngine:
 
         # Initialize the cache.
         self.gpu_cache = self._allocate_kv_cache(
-            self.num_gpu_blocks, self.device_config.device_type)
+            self.num_gpu_blocks, self.device_config.device_type
+        )
         self.cpu_cache = self._allocate_kv_cache(self.num_cpu_blocks, "cpu")
 
     def _allocate_kv_cache(
@@ -74,7 +76,8 @@ class CacheEngine:
     ) -> List[torch.Tensor]:
         """Allocates KV cache on the specified device."""
         kv_cache_shape = self.attn_backend.get_kv_cache_shape(
-            num_blocks, self.block_size, self.num_kv_heads, self.head_size)
+            num_blocks, self.block_size, self.num_kv_heads, self.head_size
+        )
         pin_memory = is_pin_memory_available() if device == "cpu" else False
         kv_cache: List[torch.Tensor] = []
         for _ in range(self.num_attention_layers):
@@ -82,21 +85,26 @@ class CacheEngine:
             # block to be zeroed-out.
             # We zero-out everything for simplicity.
             kv_cache.append(
-                torch.zeros(kv_cache_shape,
-                            dtype=self.dtype,
-                            pin_memory=pin_memory,
-                            device=device))
+                torch.zeros(
+                    kv_cache_shape,
+                    dtype=self.dtype,
+                    pin_memory=pin_memory,
+                    device=device,
+                )
+            )
         return kv_cache
 
     def swap_in(self, src_to_dst: torch.Tensor) -> None:
         for i in range(self.num_attention_layers):
-            self.attn_backend.swap_blocks(self.cpu_cache[i], self.gpu_cache[i],
-                                          src_to_dst)
+            self.attn_backend.swap_blocks(
+                self.cpu_cache[i], self.gpu_cache[i], src_to_dst
+            )
 
     def swap_out(self, src_to_dst: torch.Tensor) -> None:
         for i in range(self.num_attention_layers):
-            self.attn_backend.swap_blocks(self.gpu_cache[i], self.cpu_cache[i],
-                                          src_to_dst)
+            self.attn_backend.swap_blocks(
+                self.gpu_cache[i], self.cpu_cache[i], src_to_dst
+            )
 
     def copy(self, src_to_dsts: torch.Tensor) -> None:
         self.attn_backend.copy_blocks(self.gpu_cache, src_to_dsts)
@@ -109,8 +117,7 @@ class CacheEngine:
     ) -> int:
         head_size = model_config.get_head_size()
         num_heads = model_config.get_num_kv_heads(parallel_config)
-        num_attention_layers = model_config.get_num_attention_layers(
-            parallel_config)
+        num_attention_layers = model_config.get_num_attention_layers(parallel_config)
 
         key_cache_block = cache_config.block_size * num_heads * head_size
         value_cache_block = key_cache_block

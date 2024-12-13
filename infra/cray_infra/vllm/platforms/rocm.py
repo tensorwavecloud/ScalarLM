@@ -10,9 +10,11 @@ from .interface import DeviceCapability, Platform, PlatformEnum
 logger = init_logger(__name__)
 
 if os.environ.get("VLLM_WORKER_MULTIPROC_METHOD", None) in ["fork", None]:
-    logger.warning("`fork` method is not supported by ROCm. "
-                   "VLLM_WORKER_MULTIPROC_METHOD is overridden to"
-                   " `spawn` instead.")
+    logger.warning(
+        "`fork` method is not supported by ROCm. "
+        "VLLM_WORKER_MULTIPROC_METHOD is overridden to"
+        " `spawn` instead."
+    )
     os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
 
 

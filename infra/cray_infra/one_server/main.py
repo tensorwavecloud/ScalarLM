@@ -12,6 +12,7 @@ logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.DEBUG)
 
+
 def main():
     try:
         return run_server_with_autoreload()
@@ -28,9 +29,7 @@ def run_server_with_autoreload():
         host="0.0.0.0",
         port=8000,
         log_level="info",
-        reload_dirs=[
-            "/app/cray/infra/cray_infra"
-        ],
+        reload_dirs=["/app/cray/infra/cray_infra"],
         reload_excludes=["**/jobs/**/*.yaml"],
         reload=True,
         reload_includes=["**/*.py", "**/*.yaml"],
@@ -62,4 +61,3 @@ async def run_all_servers_async():
 
 if __name__ == "__main__":
     main()
-

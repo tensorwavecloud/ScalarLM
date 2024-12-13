@@ -21,23 +21,30 @@ from vllm.config import CacheConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
 from vllm.model_executor.layers.fused_moe import FusedMoE
 from vllm.model_executor.layers.layernorm import RMSNorm
-from vllm.model_executor.layers.linear import (QKVParallelLinear,
-                                               ReplicatedLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    QKVParallelLinear,
+    ReplicatedLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    ParallelLMHead, VocabParallelEmbedding)
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 from vllm.utils import print_warning_once
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class OlmoeMoE(nn.Module):
@@ -49,32 +56,35 @@ class OlmoeMoE(nn.Module):
     across ranks.
     """
 
-    def __init__(self,
-                 num_experts: int,
-                 top_k: int,
-                 hidden_size: int,
-                 intermediate_size: int,
-                 params_dtype: Optional[torch.dtype] = None,
-                 quant_config: Optional[QuantizationConfig] = None,
-                 tp_size: Optional[int] = None,
-                 prefix: str = ""):
+    def __init__(
+        self,
+        num_experts: int,
+        top_k: int,
+        hidden_size: int,
+        intermediate_size: int,
+        params_dtype: Optional[torch.dtype] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+        tp_size: Optional[int] = None,
+        prefix: str = "",
+    ):
         super().__init__()
         self.hidden_size = hidden_size
 
         # Gate always runs at half / full precision for now.
-        self.gate = ReplicatedLinear(hidden_size,
-                                     num_experts,
-                                     bias=False,
-                                     quant_config=None)
+        self.gate = ReplicatedLinear(
+            hidden_size, num_experts, bias=False, quant_config=None
+        )
 
-        self.experts = FusedMoE(num_experts=num_experts,
-                                top_k=top_k,
-                                hidden_size=hidden_size,
-                                intermediate_size=intermediate_size,
-                                reduce_results=True,
-                                renormalize=False,
-                                quant_config=quant_config,
-                                tp_size=tp_size)
+        self.experts = FusedMoE(
+            num_experts=num_experts,
+            top_k=top_k,
+            hidden_size=hidden_size,
+            intermediate_size=intermediate_size,
+            reduce_results=True,
+            renormalize=False,
+            quant_config=quant_config,
+            tp_size=tp_size,
+        )
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         # NOTE: hidden_states can have either 1D or 2D shape.
@@ -83,8 +93,9 @@ class OlmoeMoE(nn.Module):
         hidden_states = hidden_states.view(-1, hidden_dim)
         # router_logits: (num_tokens, n_experts)
         router_logits, _ = self.gate(hidden_states)
-        final_hidden_states = self.experts(hidden_states=hidden_states,
-                                           router_logits=router_logits)
+        final_hidden_states = self.experts(
+            hidden_states=hidden_states, router_logits=router_logits
+        )
         return final_hidden_states.view(orig_shape)
 
 
@@ -149,12 +160,14 @@ class OlmoeAttention(nn.Module):
             rope_scaling=rope_scaling,
             is_neox_style=True,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def forward(
         self,
@@ -185,8 +198,7 @@ class OlmoeDecoderLayer(nn.Module):
         self.hidden_size = config.hidden_size
         rope_theta = getattr(config, "rope_theta", 10000)
         rope_scaling = getattr(config, "rope_scaling", None)
-        max_position_embeddings = getattr(config, "max_position_embeddings",
-                                          4096)
+        max_position_embeddings = getattr(config, "max_position_embeddings", 4096)
 
         self.self_attn = OlmoeAttention(
             hidden_size=self.hidden_size,
@@ -222,8 +234,7 @@ class OlmoeDecoderLayer(nn.Module):
             residual = hidden_states
             hidden_states = self.input_layernorm(hidden_states)
         else:
-            hidden_states, residual = self.input_layernorm(
-                hidden_states, residual)
+            hidden_states, residual = self.input_layernorm(hidden_states, residual)
 
         hidden_states = self.self_attn(
             positions=positions,
@@ -233,8 +244,7 @@ class OlmoeDecoderLayer(nn.Module):
         )
 
         # Fully Connected
-        hidden_states, residual = self.post_attention_layernorm(
-            hidden_states, residual)
+        hidden_states, residual = self.post_attention_layernorm(hidden_states, residual)
         hidden_states = self.mlp(hidden_states)
         return hidden_states, residual
 
@@ -258,14 +268,16 @@ class OlmoeModel(nn.Module):
         )
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: OlmoeDecoderLayer(config, int(
-                prefix.split(".")[-1]), cache_config, quant_config),
-            prefix=f"{prefix}.layers")
+            lambda prefix: OlmoeDecoderLayer(
+                config, int(prefix.split(".")[-1]), cache_config, quant_config
+            ),
+            prefix=f"{prefix}.layers",
+        )
         self.norm = RMSNorm(config.hidden_size, eps=1e-5)
 
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(
-                ["hidden_states", "residual"], config.hidden_size))
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states", "residual"], config.hidden_size
+        )
 
     def forward(
         self,
@@ -294,10 +306,9 @@ class OlmoeModel(nn.Module):
             )
 
         if not get_pp_group().is_last_rank:
-            return IntermediateTensors({
-                "hidden_states": hidden_states,
-                "residual": residual
-            })
+            return IntermediateTensors(
+                {"hidden_states": hidden_states, "residual": residual}
+            )
 
         hidden_states, _ = self.norm(hidden_states, residual)
         return hidden_states
@@ -317,14 +328,15 @@ class OlmoeForCausalLM(nn.Module, SupportsPP):
         self.config = config
         self.quant_config = quant_config
         self.model = OlmoeModel(config, cache_config, quant_config)
-        self.lm_head = ParallelLMHead(config.vocab_size,
-                                      config.hidden_size,
-                                      quant_config=quant_config)
+        self.lm_head = ParallelLMHead(
+            config.vocab_size, config.hidden_size, quant_config=quant_config
+        )
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
 
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -334,14 +346,15 @@ class OlmoeForCausalLM(nn.Module, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata, intermediate_tensors)
+        hidden_states = self.model(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
-    def compute_logits(self, hidden_states: torch.Tensor,
-                       sampling_metadata: SamplingMetadata) -> torch.Tensor:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+    def compute_logits(
+        self, hidden_states: torch.Tensor, sampling_metadata: SamplingMetadata
+    ) -> torch.Tensor:
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -368,13 +381,14 @@ class OlmoeForCausalLM(nn.Module, SupportsPP):
             ckpt_gate_proj_name="gate_proj",
             ckpt_down_proj_name="down_proj",
             ckpt_up_proj_name="up_proj",
-            num_experts=self.config.num_experts)
+            num_experts=self.config.num_experts,
+        )
 
         params_dict = dict(self.named_parameters())
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 # Skip non-stacked layers and experts (experts handled below).
                 if weight_name not in name:
                     continue
@@ -411,11 +425,13 @@ class OlmoeForCausalLM(nn.Module, SupportsPP):
                         continue
                     param = params_dict[name]
                     weight_loader = param.weight_loader
-                    weight_loader(param,
-                                  loaded_weight,
-                                  name,
-                                  shard_id=shard_id,
-                                  expert_id=expert_id)
+                    weight_loader(
+                        param,
+                        loaded_weight,
+                        name,
+                        shard_id=shard_id,
+                        expert_id=expert_id,
+                    )
                     break
                 else:
                     # Skip loading extra bias for GPTQ models.
@@ -427,19 +443,22 @@ class OlmoeForCausalLM(nn.Module, SupportsPP):
                     # Remapping the name of FP8 kv-scale.
                     if name.endswith("kv_scale"):
                         remapped_kv_scale_name = name.replace(
-                            ".kv_scale", ".attn.kv_scale")
+                            ".kv_scale", ".attn.kv_scale"
+                        )
                         if remapped_kv_scale_name not in params_dict:
                             print_warning_once(
                                 "Found kv scale in the checkpoint "
                                 f"(e.g. {name}), but not found the expected "
                                 f"name in the model "
                                 f"(e.g. {remapped_kv_scale_name}). "
-                                "kv-scale is not loaded.")
+                                "kv-scale is not loaded."
+                            )
                             continue
                         else:
                             name = remapped_kv_scale_name
 
                     param = params_dict[name]
-                    weight_loader = getattr(param, "weight_loader",
-                                            default_weight_loader)
+                    weight_loader = getattr(
+                        param, "weight_loader", default_weight_loader
+                    )
                     weight_loader(param, loaded_weight)

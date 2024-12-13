@@ -1,5 +1,4 @@
-from typing import (AsyncGenerator, List, Mapping, Optional, Protocol,
-                    runtime_checkable)
+from typing import AsyncGenerator, List, Mapping, Optional, Protocol, runtime_checkable
 
 from vllm.config import DecodingConfig, ModelConfig
 from vllm.core.scheduler import SchedulerOutputs
@@ -18,20 +17,16 @@ class EngineClient(Protocol):
     """Protocol class for Clients to Engine"""
 
     @property
-    def is_running(self) -> bool:
-        ...
+    def is_running(self) -> bool: ...
 
     @property
-    def is_stopped(self) -> bool:
-        ...
+    def is_stopped(self) -> bool: ...
 
     @property
-    def errored(self) -> bool:
-        ...
+    def errored(self) -> bool: ...
 
     @property
-    def dead_error(self) -> BaseException:
-        ...
+    def dead_error(self) -> BaseException: ...
 
     def generate(
         self,
@@ -80,15 +75,13 @@ class EngineClient(Protocol):
         """Get the appropriate tokenizer for the request"""
         ...
 
-    async def is_tracing_enabled(self) -> bool:
-        ...
+    async def is_tracing_enabled(self) -> bool: ...
 
     async def do_log_stats(
         self,
         scheduler_outputs: Optional[SchedulerOutputs] = None,
         model_output: Optional[List[SamplerOutput]] = None,
-    ) -> None:
-        ...
+    ) -> None: ...
 
     async def check_health(self) -> None:
         """Raise if unhealthy"""

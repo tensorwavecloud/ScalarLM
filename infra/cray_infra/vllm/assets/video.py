@@ -7,8 +7,7 @@ import numpy.typing as npt
 from huggingface_hub import hf_hub_download
 from PIL import Image
 
-from vllm.multimodal.utils import (sample_frames_from_video,
-                                   try_import_video_packages)
+from vllm.multimodal.utils import sample_frames_from_video, try_import_video_packages
 
 from .base import get_cache_dir
 
@@ -52,19 +51,17 @@ def video_to_ndarrays(path: str, num_frames: int = -1) -> npt.NDArray:
     frames = np.stack(frames)
     frames = sample_frames_from_video(frames, num_frames)
     if len(frames) < num_frames:
-        raise ValueError(f"Could not read enough frames from video file {path}"
-                         f" (expected {num_frames} frames, got {len(frames)})")
+        raise ValueError(
+            f"Could not read enough frames from video file {path}"
+            f" (expected {num_frames} frames, got {len(frames)})"
+        )
     return frames
 
 
-def video_to_pil_images_list(path: str,
-                             num_frames: int = -1) -> List[Image.Image]:
+def video_to_pil_images_list(path: str, num_frames: int = -1) -> List[Image.Image]:
     cv2 = try_import_video_packages()
     frames = video_to_ndarrays(path, num_frames)
-    return [
-        Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB))
-        for frame in frames
-    ]
+    return [Image.fromarray(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)) for frame in frames]
 
 
 @dataclass(frozen=True)

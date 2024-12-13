@@ -7,8 +7,7 @@ from vllm.logger import init_logger
 from vllm.lora.request import LoRARequest
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.sequence import ExecuteModelRequest
-from vllm.utils import (get_distributed_init_method, get_ip, get_open_port,
-                        make_async)
+from vllm.utils import get_distributed_init_method, get_ip, get_open_port, make_async
 
 logger = init_logger(__name__)
 
@@ -18,14 +17,18 @@ class TPUExecutor(ExecutorBase):
     uses_ray: bool = False
 
     def _init_executor(self) -> None:
-        assert not self.scheduler_config.chunked_prefill_enabled, (
-            "Chunked prefill is not yet supported for TPU backend")
-        assert not self.speculative_config, (
-            "Speculative decoding is not yet supported for TPU backend")
+        assert (
+            not self.scheduler_config.chunked_prefill_enabled
+        ), "Chunked prefill is not yet supported for TPU backend"
+        assert (
+            not self.speculative_config
+        ), "Speculative decoding is not yet supported for TPU backend"
         if self.model_config.dtype in (torch.float16, torch.float32):
             logger.warning(
                 "The TPU backend currently does not support %s. "
-                "Using bfloat16 instead.", self.model_config.dtype)
+                "Using bfloat16 instead.",
+                self.model_config.dtype,
+            )
             self.model_config.dtype = torch.bfloat16
 
         # Instantiate the worker and load the model to the device.
@@ -42,7 +45,8 @@ class TPUExecutor(ExecutorBase):
         """Return worker init args for a given rank."""
         if distributed_init_method is None:
             distributed_init_method = get_distributed_init_method(
-                get_ip(), get_open_port())
+                get_ip(), get_open_port()
+            )
         return dict(
             model_config=self.model_config,
             parallel_config=self.parallel_config,
@@ -64,14 +68,17 @@ class TPUExecutor(ExecutorBase):
     ):
         if self.scheduler_config.is_multi_step:
             from vllm.worker.multi_step_tpu_worker import MultiStepTPUWorker
-            worker = MultiStepTPUWorker(**self._get_worker_kwargs(
-                local_rank, rank, distributed_init_method))
+
+            worker = MultiStepTPUWorker(
+                **self._get_worker_kwargs(local_rank, rank, distributed_init_method)
+            )
             return worker
         else:
             from vllm.worker.tpu_worker import TPUWorker
 
-            worker = TPUWorker(**self._get_worker_kwargs(
-                local_rank, rank, distributed_init_method))
+            worker = TPUWorker(
+                **self._get_worker_kwargs(local_rank, rank, distributed_init_method)
+            )
             return worker
 
     def initialize_cache(
@@ -83,8 +90,9 @@ class TPUExecutor(ExecutorBase):
         # NOTE: This is logged in the executor because there can be >1 worker
         # with other executors. We could log in the engine level, but work
         # remains to abstract away the device for non-GPU configurations.
-        logger.info("# TPU blocks: %d, # CPU blocks: %d", num_gpu_blocks,
-                    num_cpu_blocks)
+        logger.info(
+            "# TPU blocks: %d, # CPU blocks: %d", num_gpu_blocks, num_cpu_blocks
+        )
         self.driver_worker.initialize_cache(num_gpu_blocks, num_cpu_blocks)
 
     def determine_num_available_blocks(self) -> Tuple[int, int]:
@@ -100,36 +108,36 @@ class TPUExecutor(ExecutorBase):
         return output
 
     def add_lora(self, lora_request: LoRARequest) -> bool:
-        raise NotImplementedError(
-            "LoRA is currently not supported by the TPU backend.")
+        raise NotImplementedError("LoRA is currently not supported by the TPU backend.")
 
     def remove_lora(self, lora_id: int) -> bool:
-        raise NotImplementedError(
-            "LoRA is currently not supported by the TPU backend.")
+        raise NotImplementedError("LoRA is currently not supported by the TPU backend.")
 
     def pin_lora(self, lora_id: int) -> bool:
-        raise NotImplementedError(
-            "LoRA is currently not supported by the TPU backend.")
+        raise NotImplementedError("LoRA is currently not supported by the TPU backend.")
 
     def list_loras(self) -> Set[int]:
-        raise NotImplementedError(
-            "LoRA is currently not supported by the TPU backend.")
+        raise NotImplementedError("LoRA is currently not supported by the TPU backend.")
 
     def add_prompt_adapter(self, prompt_adapter_request) -> bool:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the TPU backend.")
+            "Soft prompt is currently not supported by the TPU backend."
+        )
 
     def remove_prompt_adapter(self, prompt_adapter_id: int) -> bool:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the TPU backend.")
+            "Soft prompt is currently not supported by the TPU backend."
+        )
 
     def pin_prompt_adapter(self, prompt_adapter_id: int) -> bool:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the TPU backend.")
+            "Soft prompt is currently not supported by the TPU backend."
+        )
 
     def list_prompt_adapters(self) -> Set[int]:
         raise NotImplementedError(
-            "Soft prompt is currently not supported by the TPU backend.")
+            "Soft prompt is currently not supported by the TPU backend."
+        )
 
     def check_health(self) -> None:
         # TPUExecutor will always be healthy as long as it's running.
@@ -142,6 +150,5 @@ class TPUExecutorAsync(TPUExecutor, ExecutorAsyncBase):
         self,
         sexecute_model_req: ExecuteModelRequest,
     ) -> SamplerOutput:
-        output = await make_async(self.driver_worker.execute_model
-                                  )(sexecute_model_req)
+        output = await make_async(self.driver_worker.execute_model)(sexecute_model_req)
         return output

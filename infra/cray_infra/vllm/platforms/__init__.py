@@ -12,6 +12,7 @@ try:
     # this is a very uncommon scenario. Therefore, we assume that libtpu is
     # installed if and only if the machine has TPUs.
     import libtpu  # noqa: F401
+
     is_tpu = True
 except Exception:
     pass
@@ -20,6 +21,7 @@ is_cuda = False
 
 try:
     import pynvml
+
     pynvml.nvmlInit()
     try:
         if pynvml.nvmlDeviceGetCount() > 0:
@@ -33,6 +35,7 @@ is_rocm = False
 
 try:
     import amdsmi
+
     amdsmi.amdsmi_init()
     try:
         if len(amdsmi.amdsmi_get_processor_handles()) > 0:
@@ -46,7 +49,8 @@ is_xpu = False
 
 try:
     import torch
-    if hasattr(torch, 'xpu') and torch.xpu.is_available():
+
+    if hasattr(torch, "xpu") and torch.xpu.is_available():
         is_xpu = True
 except Exception:
     pass
@@ -54,6 +58,7 @@ except Exception:
 is_cpu = False
 try:
     from importlib.metadata import version
+
     is_cpu = "cpu" in version("vllm")
 except Exception:
     pass
@@ -62,20 +67,25 @@ if is_tpu:
     # people might install pytorch built with cuda but run on tpu
     # so we need to check tpu first
     from .tpu import TpuPlatform
+
     current_platform = TpuPlatform()
 elif is_cuda:
     from .cuda import CudaPlatform
+
     current_platform = CudaPlatform()
 elif is_rocm:
     from .rocm import RocmPlatform
+
     current_platform = RocmPlatform()
 elif is_xpu:
     from .xpu import XPUPlatform
+
     current_platform = XPUPlatform()
 elif is_cpu:
     from .cpu import CpuPlatform
+
     current_platform = CpuPlatform()
 else:
     current_platform = UnspecifiedPlatform()
 
-__all__ = ['Platform', 'PlatformEnum', 'current_platform']
+__all__ = ["Platform", "PlatformEnum", "current_platform"]

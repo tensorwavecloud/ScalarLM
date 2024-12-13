@@ -15,19 +15,23 @@ from vllm.config import ModelConfig
 from vllm.distributed import divide, get_tensor_model_parallel_world_size
 from vllm.inputs import LLMInputs
 from vllm.model_executor.layers.activation import get_act_fn
-from vllm.model_executor.layers.linear import (ColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    ColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.quantization import QuantizationConfig
-from vllm.model_executor.layers.vocab_parallel_embedding import (
-    VocabParallelEmbedding)
+from vllm.model_executor.layers.vocab_parallel_embedding import VocabParallelEmbedding
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
-from vllm.multimodal.utils import (cached_get_tokenizer,
-                                   repeat_and_pad_placeholder_tokens)
+from vllm.multimodal.utils import (
+    cached_get_tokenizer,
+    repeat_and_pad_placeholder_tokens,
+)
 from vllm.sequence import SequenceData
 
 try:
     from xformers import ops as xops
+
     USE_XFORMERS_OPS = True
 except ImportError:
     USE_XFORMERS_OPS = False
@@ -40,14 +44,16 @@ def get_siglip_patch_grid_length(*, image_size: int, patch_size: int) -> int:
 
 
 def get_siglip_num_patches(*, image_size: int, patch_size: int) -> int:
-    grid_length = get_siglip_patch_grid_length(image_size=image_size,
-                                               patch_size=patch_size)
+    grid_length = get_siglip_patch_grid_length(
+        image_size=image_size, patch_size=patch_size
+    )
     return grid_length * grid_length
 
 
 def get_siglip_image_feature_size(hf_config: SiglipVisionConfig) -> int:
-    return get_siglip_num_patches(image_size=hf_config.image_size,
-                                  patch_size=hf_config.patch_size)
+    return get_siglip_num_patches(
+        image_size=hf_config.image_size, patch_size=hf_config.patch_size
+    )
 
 
 def get_max_siglip_image_tokens(hf_config: SiglipVisionConfig) -> int:
@@ -101,7 +107,8 @@ def dummy_video_for_siglip(
         hf_config,
         num_images=1,
         image_width_override=image_width_override,
-        image_height_override=image_height_override)
+        image_height_override=image_height_override,
+    )
     np_frame = np.array(pil_frame["image"])
     mm_data_per_video = np.repeat([np_frame], num_frames, axis=0)
     mm_data = {"video": mm_data_per_video}
@@ -167,19 +174,20 @@ class SiglipVisionEmbeddings(nn.Module):
             padding="valid",
         )
 
-        self.num_patches = (self.image_size // self.patch_size)**2
+        self.num_patches = (self.image_size // self.patch_size) ** 2
         self.num_positions = self.num_patches
         self.position_embedding = VocabParallelEmbedding(
-            self.num_positions, self.embed_dim)
+            self.num_positions, self.embed_dim
+        )
         self.register_buffer(
             "position_ids",
-            torch.arange(self.num_positions, dtype=torch.int64).expand(
-                (1, -1)),
+            torch.arange(self.num_positions, dtype=torch.int64).expand((1, -1)),
             persistent=False,
         )
 
-    def interpolate_pos_encoding(self, embeddings: torch.Tensor, height: int,
-                                 width: int) -> torch.Tensor:
+    def interpolate_pos_encoding(
+        self, embeddings: torch.Tensor, height: int, width: int
+    ) -> torch.Tensor:
         """
         This method is an adapted method for SigLIP (due to SigLIP not having
         class embedding unlike other ViTs) that allows the model to interpolate
@@ -204,8 +212,8 @@ class SiglipVisionEmbeddings(nn.Module):
         height, width = height + 0.1, width + 0.1
 
         patch_pos_embed = position_embeddings.reshape(
-            1, int(math.sqrt(num_positions)), int(math.sqrt(num_positions)),
-            dim)
+            1, int(math.sqrt(num_positions)), int(math.sqrt(num_positions)), dim
+        )
         patch_pos_embed = patch_pos_embed.permute(0, 3, 1, 2)
         patch_pos_embed = nn.functional.interpolate(
             patch_pos_embed,
@@ -216,29 +224,34 @@ class SiglipVisionEmbeddings(nn.Module):
             mode="bicubic",
             align_corners=False,
         )
-        if (int(height) != patch_pos_embed.shape[-2]
-                or int(width) != patch_pos_embed.shape[-1]):
-            raise ValueError("Width or height does not match with "
-                             "the interpolated position embeddings")
+        if (
+            int(height) != patch_pos_embed.shape[-2]
+            or int(width) != patch_pos_embed.shape[-1]
+        ):
+            raise ValueError(
+                "Width or height does not match with "
+                "the interpolated position embeddings"
+            )
 
         patch_pos_embed = patch_pos_embed.permute(0, 2, 3, 1).view(1, -1, dim)
         return patch_pos_embed
 
-    def forward(self,
-                pixel_values: torch.Tensor,
-                interpolate_pos_encoding: bool = False) -> torch.Tensor:
+    def forward(
+        self, pixel_values: torch.Tensor, interpolate_pos_encoding: bool = False
+    ) -> torch.Tensor:
         _, _, height, width = pixel_values.shape
         target_dtype = self.patch_embedding.weight.dtype
-        patch_embeds = self.patch_embedding(pixel_values.to(
-            dtype=target_dtype))  # shape = [*, width, grid, grid]
+        patch_embeds = self.patch_embedding(
+            pixel_values.to(dtype=target_dtype)
+        )  # shape = [*, width, grid, grid]
         embeddings = patch_embeds.flatten(2).transpose(1, 2)
 
         if interpolate_pos_encoding:
             embeddings = embeddings + self.interpolate_pos_encoding(
-                embeddings, height, width)
+                embeddings, height, width
+            )
         else:
-            embeddings = embeddings + self.position_embedding(
-                self.position_ids)
+            embeddings = embeddings + self.position_embedding(self.position_ids)
         return embeddings
 
 
@@ -255,9 +268,11 @@ class SiglipParallelAttention(nn.Module):
         self.num_heads = config.num_attention_heads
         self.head_dim = self.embed_dim // self.num_heads
         if self.head_dim * self.num_heads != self.embed_dim:
-            raise ValueError(f"embed_dim must be divisible by num_heads (got "
-                             "`embed_dim`: {self.embed_dim} and `num_heads`:"
-                             f" {self.num_heads}).")
+            raise ValueError(
+                f"embed_dim must be divisible by num_heads (got "
+                "`embed_dim`: {self.embed_dim} and `num_heads`:"
+                f" {self.num_heads})."
+            )
 
         self.scale = self.head_dim**-0.5
         self.dropout = config.attention_dropout
@@ -287,21 +302,19 @@ class SiglipParallelAttention(nn.Module):
         qkv_states, _ = self.qkv_proj(hidden_states)
         query_states, key_states, value_states = qkv_states.chunk(3, dim=-1)
 
-        query_states = query_states.view(batch_size, q_len,
-                                         self.num_heads_per_partition,
-                                         self.head_dim)
-        key_states = key_states.view(batch_size, q_len,
-                                     self.num_heads_per_partition,
-                                     self.head_dim)
-        value_states = value_states.view(batch_size, q_len,
-                                         self.num_heads_per_partition,
-                                         self.head_dim)
+        query_states = query_states.view(
+            batch_size, q_len, self.num_heads_per_partition, self.head_dim
+        )
+        key_states = key_states.view(
+            batch_size, q_len, self.num_heads_per_partition, self.head_dim
+        )
+        value_states = value_states.view(
+            batch_size, q_len, self.num_heads_per_partition, self.head_dim
+        )
 
-        out = xops.memory_efficient_attention_forward(query_states,
-                                                      key_states,
-                                                      value_states,
-                                                      p=self.dropout,
-                                                      scale=self.scale)
+        out = xops.memory_efficient_attention_forward(
+            query_states, key_states, value_states, p=self.dropout, scale=self.scale
+        )
         out = out.view(batch_size, q_len, -1)
         attn_output, _ = self.out_proj(out)
 
@@ -320,8 +333,9 @@ class SiglipMLP(nn.Module):
         self.activation_fn = get_act_fn(config.hidden_act)
 
         # For quantization, we require the hidden size to be a multiple of 64
-        quantizable = (config.hidden_size % 64 == 0
-                       and config.intermediate_size % 64 == 0)
+        quantizable = (
+            config.hidden_size % 64 == 0 and config.intermediate_size % 64 == 0
+        )
         self.fc1 = ColumnParallelLinear(
             config.hidden_size,
             config.intermediate_size,
@@ -353,19 +367,16 @@ class SiglipEncoderLayer(nn.Module):
         num_heads = config.num_attention_heads
         tp_size = get_tensor_model_parallel_world_size()
         if USE_XFORMERS_OPS and num_heads % tp_size == 0:
-            self.self_attn = SiglipParallelAttention(config,
-                                                     quant_config=quant_config)
+            self.self_attn = SiglipParallelAttention(config, quant_config=quant_config)
         else:
             self.self_attn = SiglipSdpaAttention(config)
 
-        self.layer_norm1 = nn.LayerNorm(self.embed_dim,
-                                        eps=config.layer_norm_eps)
+        self.layer_norm1 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
         self.mlp = SiglipMLP(
             config,
             quant_config=quant_config,
         )
-        self.layer_norm2 = nn.LayerNorm(self.embed_dim,
-                                        eps=config.layer_norm_eps)
+        self.layer_norm2 = nn.LayerNorm(self.embed_dim, eps=config.layer_norm_eps)
 
     def forward(
         self,
@@ -401,10 +412,12 @@ class SiglipEncoder(nn.Module):
         else:
             num_hidden_layers = num_hidden_layers_override
 
-        self.layers = nn.ModuleList([
-            SiglipEncoderLayer(config, quant_config=quant_config)
-            for _ in range(num_hidden_layers)
-        ])
+        self.layers = nn.ModuleList(
+            [
+                SiglipEncoderLayer(config, quant_config=quant_config)
+                for _ in range(num_hidden_layers)
+            ]
+        )
 
     def forward(
         self,
@@ -430,9 +443,9 @@ class SiglipMultiheadAttentionPoolingHead(nn.Module):
         self.probe = nn.Parameter(torch.randn(1, 1, config.hidden_size))
         # TODO(ChristopherCho): Implement vLLM version of MultiheadAttention
         self.attention = torch.nn.MultiheadAttention(
-            config.hidden_size, config.num_attention_heads, batch_first=True)
-        self.layernorm = nn.LayerNorm(config.hidden_size,
-                                      eps=config.layer_norm_eps)
+            config.hidden_size, config.num_attention_heads, batch_first=True
+        )
+        self.layernorm = nn.LayerNorm(config.hidden_size, eps=config.layer_norm_eps)
         self.mlp = SiglipMLP(config=config, quant_config=quant_config)
 
     def forward(self, hidden_state: torch.Tensor) -> torch.Tensor:
@@ -473,18 +486,19 @@ class SiglipVisionTransformer(nn.Module):
                 f"layers, but you requested {len(self.encoder.layers)} layers."
             )
         elif len(self.encoder.layers) == config.num_hidden_layers:
-            self.post_layernorm = nn.LayerNorm(embed_dim,
-                                               eps=config.layer_norm_eps)
+            self.post_layernorm = nn.LayerNorm(embed_dim, eps=config.layer_norm_eps)
         else:
             # post_layernorm is unused when we extract intermediate features
             # In this case, we can skip it to conserve memory
             self.post_layernorm = None
 
-        self.use_head = (True if not hasattr(config, "vision_use_head") else
-                         config.vision_use_head)
+        self.use_head = (
+            True if not hasattr(config, "vision_use_head") else config.vision_use_head
+        )
         if self.use_head:
             self.head = SiglipMultiheadAttentionPoolingHead(
-                config=config, quant_config=quant_config)
+                config=config, quant_config=quant_config
+            )
 
     def forward(
         self,
@@ -545,19 +559,25 @@ class SiglipVisionModel(nn.Module):
         )
 
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
-        stacked_params_mapping = [
-            # (param_name, shard_name, shard_id)
-            ("qkv_proj", "q_proj", "q"),
-            ("qkv_proj", "k_proj", "k"),
-            ("qkv_proj", "v_proj", "v"),
-        ] if self.shard_weight else []
+        stacked_params_mapping = (
+            [
+                # (param_name, shard_name, shard_id)
+                ("qkv_proj", "q_proj", "q"),
+                ("qkv_proj", "k_proj", "k"),
+                ("qkv_proj", "v_proj", "v"),
+            ]
+            if self.shard_weight
+            else []
+        )
         params_dict = dict(self.named_parameters())
         layer_count = len(self.vision_model.encoder.layers)
 
         for name, loaded_weight in weights:
             # post_layernorm is optional in SiglipVisionModel
-            if (name.startswith("vision_model.post_layernorm")
-                    and self.vision_model.post_layernorm is None):
+            if (
+                name.startswith("vision_model.post_layernorm")
+                and self.vision_model.post_layernorm is None
+            ):
                 continue
 
             # omit layers when num_hidden_layers_override is set
@@ -566,7 +586,7 @@ class SiglipVisionModel(nn.Module):
                 if layer_idx >= layer_count:
                     continue
 
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
 
@@ -576,6 +596,5 @@ class SiglipVisionModel(nn.Module):
                 break
             else:
                 param = params_dict[name]
-                weight_loader = getattr(param, "weight_loader",
-                                        default_weight_loader)
+                weight_loader = getattr(param, "weight_loader", default_weight_loader)
                 weight_loader(param, loaded_weight)

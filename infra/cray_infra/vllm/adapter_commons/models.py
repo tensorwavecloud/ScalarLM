@@ -21,13 +21,12 @@ class AdapterModel(ABC):
         raise NotImplementedError("Subclasses must implement this method.")
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class AdapterLRUCache(LRUCache[T]):
 
-    def __init__(self, capacity: int, deactivate_fn: Callable[[Hashable],
-                                                              None]):
+    def __init__(self, capacity: int, deactivate_fn: Callable[[Hashable], None]):
         super().__init__(capacity)
         self.deactivate_fn = deactivate_fn
 
@@ -51,7 +50,7 @@ class AdapterModelManager(ABC):
         self._registered_adapters: Dict[int, Any] = {}
         # Dict instead of a Set for compatibility with LRUCache.
         self._active_adapters: Dict[int, None] = {}
-        self.adapter_type = 'Adapter'
+        self.adapter_type = "Adapter"
         self._last_mapping = None
 
     def __len__(self) -> int:

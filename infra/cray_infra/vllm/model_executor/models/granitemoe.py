@@ -32,16 +32,20 @@ from vllm.config import CacheConfig, LoRAConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
 from vllm.model_executor.layers.fused_moe import FusedMoE
 from vllm.model_executor.layers.layernorm import RMSNorm
-from vllm.model_executor.layers.linear import (QKVParallelLinear,
-                                               ReplicatedLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    QKVParallelLinear,
+    ReplicatedLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
-from vllm.model_executor.layers.quantization.base_config import (
-    QuantizationConfig)
+from vllm.model_executor.layers.quantization.base_config import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    DEFAULT_VOCAB_PADDING_SIZE, ParallelLMHead, VocabParallelEmbedding)
+    DEFAULT_VOCAB_PADDING_SIZE,
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
@@ -58,36 +62,42 @@ class GraniteMoeMoE(nn.Module):
     across ranks.
     """
 
-    def __init__(self,
-                 num_experts: int,
-                 top_k: int,
-                 hidden_size: int,
-                 intermediate_size: int,
-                 params_dtype: Optional[torch.dtype] = None,
-                 quant_config: Optional[QuantizationConfig] = None,
-                 tp_size: Optional[int] = None,
-                 prefix: str = ""):
+    def __init__(
+        self,
+        num_experts: int,
+        top_k: int,
+        hidden_size: int,
+        intermediate_size: int,
+        params_dtype: Optional[torch.dtype] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+        tp_size: Optional[int] = None,
+        prefix: str = "",
+    ):
         super().__init__()
         self.hidden_size = hidden_size
 
         # Gate always runs at half / full precision for now.
-        self.gate = ReplicatedLinear(hidden_size,
-                                     num_experts,
-                                     bias=False,
-                                     params_dtype=params_dtype,
-                                     quant_config=None,
-                                     prefix=f"{prefix}.gate")
+        self.gate = ReplicatedLinear(
+            hidden_size,
+            num_experts,
+            bias=False,
+            params_dtype=params_dtype,
+            quant_config=None,
+            prefix=f"{prefix}.gate",
+        )
 
-        self.experts = FusedMoE(num_experts=num_experts,
-                                top_k=top_k,
-                                hidden_size=hidden_size,
-                                intermediate_size=intermediate_size,
-                                params_dtype=params_dtype,
-                                reduce_results=True,
-                                renormalize=True,
-                                quant_config=quant_config,
-                                tp_size=tp_size,
-                                prefix=f"{prefix}.experts")
+        self.experts = FusedMoE(
+            num_experts=num_experts,
+            top_k=top_k,
+            hidden_size=hidden_size,
+            intermediate_size=intermediate_size,
+            params_dtype=params_dtype,
+            reduce_results=True,
+            renormalize=True,
+            quant_config=quant_config,
+            tp_size=tp_size,
+            prefix=f"{prefix}.experts",
+        )
 
     def forward(self, hidden_states: torch.Tensor) -> torch.Tensor:
         # NOTE: hidden_states can have either 1D or 2D shape.
@@ -132,8 +142,11 @@ class GraniteMoeAttention(nn.Module):
         self.head_dim = hidden_size // self.total_num_heads
         self.q_size = self.num_heads * self.head_dim
         self.kv_size = self.num_kv_heads * self.head_dim
-        self.scaling = (attention_multiplier if attention_multiplier
-                        is not None else self.head_dim**-1)
+        self.scaling = (
+            attention_multiplier
+            if attention_multiplier is not None
+            else self.head_dim**-1
+        )
         self.rope_theta = rope_theta
 
         self.qkv_proj = QKVParallelLinear(
@@ -159,12 +172,14 @@ class GraniteMoeAttention(nn.Module):
             base=int(self.rope_theta),
             is_neox_style=True,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def forward(
         self,
@@ -203,19 +218,21 @@ class GraniteMoeDecoderLayer(nn.Module):
             cache_config=cache_config,
             quant_config=quant_config,
             prefix=f"{prefix}.self_attn",
-            attention_multiplier=config.attention_multiplier)
+            attention_multiplier=config.attention_multiplier,
+        )
         self.block_sparse_moe = GraniteMoeMoE(
             num_experts=config.num_local_experts,
             top_k=config.num_experts_per_tok,
             hidden_size=config.hidden_size,
             intermediate_size=config.intermediate_size,
             quant_config=quant_config,
-            prefix=f"{prefix}.block_sparse_moe")
+            prefix=f"{prefix}.block_sparse_moe",
+        )
 
-        self.input_layernorm = RMSNorm(config.hidden_size,
-                                       eps=config.rms_norm_eps)
-        self.post_attention_layernorm = RMSNorm(config.hidden_size,
-                                                eps=config.rms_norm_eps)
+        self.input_layernorm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(
+            config.hidden_size, eps=config.rms_norm_eps
+        )
 
         self.residual_multiplier = config.residual_multiplier
 
@@ -256,8 +273,11 @@ class GraniteMoeModel(nn.Module):
     ) -> None:
         super().__init__()
         self.padding_idx = config.pad_token_id
-        lora_vocab = (lora_config.lora_extra_vocab_size *
-                      (lora_config.max_loras or 1)) if lora_config else 0
+        lora_vocab = (
+            (lora_config.lora_extra_vocab_size * (lora_config.max_loras or 1))
+            if lora_config
+            else 0
+        )
         self.vocab_size = config.vocab_size + lora_vocab
         self.org_vocab_size = config.vocab_size
 
@@ -273,7 +293,8 @@ class GraniteMoeModel(nn.Module):
             lambda prefix: GraniteMoeDecoderLayer(
                 config, cache_config, quant_config=quant_config, prefix=prefix
             ),
-            prefix=f"{prefix}.layers")
+            prefix=f"{prefix}.layers",
+        )
 
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
 
@@ -295,14 +316,13 @@ class GraniteMoeModel(nn.Module):
             residual = intermediate_tensors["residual"]
         for i in range(self.start_layer, self.end_layer):
             layer = self.layers[i]
-            hidden_states = layer(positions, hidden_states,
-                                  kv_caches[i - self.start_layer],
-                                  attn_metadata)
+            hidden_states = layer(
+                positions, hidden_states, kv_caches[i - self.start_layer], attn_metadata
+            )
         if not get_pp_group().is_last_rank:
-            return IntermediateTensors({
-                "hidden_states": hidden_states,
-                "residual": residual
-            })
+            return IntermediateTensors(
+                {"hidden_states": hidden_states, "residual": residual}
+            )
         hidden_states = self.norm(hidden_states)
         return hidden_states
 
@@ -343,11 +363,9 @@ class GraniteMoeForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         self.config = config
         self.lora_config = lora_config
 
-        self.model = GraniteMoeModel(config,
-                                     cache_config,
-                                     quant_config,
-                                     lora_config=lora_config,
-                                     prefix="model")
+        self.model = GraniteMoeModel(
+            config, cache_config, quant_config, lora_config=lora_config, prefix="model"
+        )
         self.unpadded_vocab_size = config.vocab_size
         if lora_config:
             self.unpadded_vocab_size += lora_config.lora_extra_vocab_size
@@ -355,19 +373,23 @@ class GraniteMoeForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             self.unpadded_vocab_size,
             config.hidden_size,
             org_num_embeddings=config.vocab_size,
-            padding_size=DEFAULT_VOCAB_PADDING_SIZE
-            # We need bigger padding if using lora for kernel
-            # compatibility
-            if not lora_config else lora_config.lora_vocab_padding_size,
+            padding_size=(
+                DEFAULT_VOCAB_PADDING_SIZE
+                # We need bigger padding if using lora for kernel
+                # compatibility
+                if not lora_config
+                else lora_config.lora_vocab_padding_size
+            ),
             quant_config=quant_config,
         )
         if config.tie_word_embeddings:
             self.lm_head.weight = self.model.embed_tokens.weight
 
-        self.logits_processor = LogitsProcessor(self.unpadded_vocab_size,
-                                                config.vocab_size,
-                                                scale=1 /
-                                                self.config.logits_scaling)
+        self.logits_processor = LogitsProcessor(
+            self.unpadded_vocab_size,
+            config.vocab_size,
+            scale=1 / self.config.logits_scaling,
+        )
 
         self.sampler = Sampler()
 
@@ -379,30 +401,30 @@ class GraniteMoeForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> torch.Tensor:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata, intermediate_tensors)
+        hidden_states = self.model(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
-            self, hidden_states: torch.Tensor,
-            sampling_metadata: SamplingMetadata) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        self, hidden_states: torch.Tensor, sampling_metadata: SamplingMetadata
+    ) -> Optional[torch.Tensor]:
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def make_empty_intermediate_tensors(
-            self, batch_size: int, dtype: torch.dtype,
-            device: torch.device) -> IntermediateTensors:
-        return IntermediateTensors({
-            "hidden_states":
-            torch.zeros((batch_size, self.config.hidden_size),
-                        dtype=dtype,
-                        device=device),
-            "residual":
-            torch.zeros((batch_size, self.config.hidden_size),
-                        dtype=dtype,
-                        device=device),
-        })
+        self, batch_size: int, dtype: torch.dtype, device: torch.device
+    ) -> IntermediateTensors:
+        return IntermediateTensors(
+            {
+                "hidden_states": torch.zeros(
+                    (batch_size, self.config.hidden_size), dtype=dtype, device=device
+                ),
+                "residual": torch.zeros(
+                    (batch_size, self.config.hidden_size), dtype=dtype, device=device
+                ),
+            }
+        )
 
     def sample(
         self,
@@ -415,33 +437,38 @@ class GraniteMoeForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
         new_weights = {}
         for n, p in weights:
-            if n.endswith('.block_sparse_moe.input_linear.weight'):
+            if n.endswith(".block_sparse_moe.input_linear.weight"):
                 for e in range(p.size(0)):
                     w1_name = n.replace(
-                        '.block_sparse_moe.input_linear.weight',
-                        ".block_sparse_moe.experts.%d.w1.weight" % e)
+                        ".block_sparse_moe.input_linear.weight",
+                        ".block_sparse_moe.experts.%d.w1.weight" % e,
+                    )
                     w3_name = n.replace(
-                        '.block_sparse_moe.input_linear.weight',
-                        ".block_sparse_moe.experts.%d.w3.weight" % e)
+                        ".block_sparse_moe.input_linear.weight",
+                        ".block_sparse_moe.experts.%d.w3.weight" % e,
+                    )
                     w1_param, w3_param = p[e].chunk(2, dim=0)
                     assert w1_name not in new_weights
                     assert w3_name not in new_weights
                     new_weights[w1_name] = w1_param
                     new_weights[w3_name] = w3_param
-            elif n.endswith('.block_sparse_moe.output_linear.weight'):
+            elif n.endswith(".block_sparse_moe.output_linear.weight"):
                 for e in range(p.size(0)):
                     w2_name = n.replace(
-                        '.block_sparse_moe.output_linear.weight',
-                        ".block_sparse_moe.experts.%d.w2.weight" % e)
+                        ".block_sparse_moe.output_linear.weight",
+                        ".block_sparse_moe.experts.%d.w2.weight" % e,
+                    )
                     w2_param = p[e]
                     assert w2_name not in new_weights
                     new_weights[w2_name] = w2_param
-            elif n.endswith('.block_sparse_moe.router.layer.weight'):
-                gate_name = n.replace('.block_sparse_moe.router.layer.weight',
-                                      ".block_sparse_moe.gate.weight")
+            elif n.endswith(".block_sparse_moe.router.layer.weight"):
+                gate_name = n.replace(
+                    ".block_sparse_moe.router.layer.weight",
+                    ".block_sparse_moe.gate.weight",
+                )
                 assert gate_name not in new_weights
                 new_weights[gate_name] = p
-            elif n == 'lm_head.weight' and self.config.tie_word_embeddings:
+            elif n == "lm_head.weight" and self.config.tie_word_embeddings:
                 pass
             else:
                 new_weights[n] = p

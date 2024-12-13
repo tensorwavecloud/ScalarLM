@@ -7,28 +7,38 @@ from transformers.configuration_utils import PretrainedConfig
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig, LoRAConfig
-from vllm.distributed import (get_pp_group, get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size)
-from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.distributed import (
+    get_pp_group,
+    get_tensor_model_parallel_rank,
+    get_tensor_model_parallel_world_size,
+)
+from vllm.model_executor.layers.linear import (
+    MergedColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    DEFAULT_VOCAB_PADDING_SIZE, ParallelLMHead, VocabParallelEmbedding)
+    DEFAULT_VOCAB_PADDING_SIZE,
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
-def load_column_parallel_weight(param: torch.nn.Parameter,
-                                loaded_weight: torch.Tensor):
+def load_column_parallel_weight(param: torch.nn.Parameter, loaded_weight: torch.Tensor):
     tp = get_tensor_model_parallel_world_size()
     rk = get_tensor_model_parallel_rank()
     assert param.size(0) * tp == loaded_weight.size(0)
@@ -41,15 +51,13 @@ def load_column_parallel_weight(param: torch.nn.Parameter,
 
 class HeadMajorQKVParallelLinear(QKVParallelLinear):
 
-    def weight_loader(self, param: torch.nn.Parameter,
-                      loaded_weight: torch.Tensor):
+    def weight_loader(self, param: torch.nn.Parameter, loaded_weight: torch.Tensor):
         return load_column_parallel_weight(param, loaded_weight)
 
 
 class HeadMajorColumnParallelLinear(MergedColumnParallelLinear):
 
-    def weight_loader(self, param: torch.nn.Parameter,
-                      loaded_weight: torch.Tensor):
+    def weight_loader(self, param: torch.nn.Parameter, loaded_weight: torch.Tensor):
         return load_column_parallel_weight(param, loaded_weight)
 
 
@@ -62,8 +70,9 @@ def quick_gelu(x):
 def gegelu(input, limit: Optional[float] = None):
     a_gelu, a_linear = input[..., ::2], input[..., 1::2]
     if limit is not None:
-        a_gelu = torch.where(torch.isinf(a_gelu), a_gelu,
-                             a_gelu.clamp(min=None, max=limit))
+        a_gelu = torch.where(
+            torch.isinf(a_gelu), a_gelu, a_gelu.clamp(min=None, max=limit)
+        )
         a_linear = torch.where(
             torch.isinf(a_linear),
             a_linear,
@@ -82,8 +91,9 @@ class Phi3SmallMLP(nn.Module):
     ) -> None:
         super().__init__()
         self.config = config
-        assert (self.config.hidden_act == "gegelu"
-                ), "Only `gegelu` is supported for the 4.7 series of models .."
+        assert (
+            self.config.hidden_act == "gegelu"
+        ), "Only `gegelu` is supported for the 4.7 series of models .."
         self.hidden_size = config.hidden_size
         self.gegelu_limit = config.gegelu_limit
         self.intermediate_size = config.intermediate_size
@@ -125,8 +135,9 @@ class Phi3SmallSelfAttention(nn.Module):
         self.local_blocks = config.blocksparse_num_local_blocks
         self.vert_stride = config.blocksparse_vert_stride
 
-        assert (config.blocksparse_block_size ==
-                config.blocksparse_triton_kernel_block_size)
+        assert (
+            config.blocksparse_block_size == config.blocksparse_triton_kernel_block_size
+        )
 
         self.hidden_size = config.hidden_size
         # Number of Query Heads
@@ -139,8 +150,7 @@ class Phi3SmallSelfAttention(nn.Module):
         self.num_q_per_kv = self.num_heads // self.num_key_value_heads
         if self.tp_size > 1:
             assert self.num_key_value_heads % self.tp_size == 0
-        self.num_kv_heads_per_partion = max(
-            1, self.num_key_value_heads // self.tp_size)
+        self.num_kv_heads_per_partion = max(1, self.num_key_value_heads // self.tp_size)
         self.num_heads_per_partition = self.num_heads // self.tp_size
 
         self.max_position_embeddings = config.max_position_embeddings
@@ -164,10 +174,9 @@ class Phi3SmallSelfAttention(nn.Module):
             quant_config=quant_config,
         )
 
-        self.dense = RowParallelLinear(self.hidden_size,
-                                       self.hidden_size,
-                                       bias=True,
-                                       quant_config=quant_config)
+        self.dense = RowParallelLinear(
+            self.hidden_size, self.hidden_size, bias=True, quant_config=quant_config
+        )
 
         if getattr(self.config, "rope_scaling", None) is not None:
             rope_scaling = self.config.rope_scaling
@@ -196,21 +205,21 @@ class Phi3SmallSelfAttention(nn.Module):
         self.blocksparse_num_local_blocks = config.blocksparse_num_local_blocks
         self.blocksparse_vert_stride = config.blocksparse_vert_stride
 
-        use_dense_attn = (getattr(self.config,
-                                  "dense_attention_every_n_layers", None)
-                          and (self.layer_idx + 1) %
-                          self.config.dense_attention_every_n_layers == 0)
+        use_dense_attn = (
+            getattr(self.config, "dense_attention_every_n_layers", None)
+            and (self.layer_idx + 1) % self.config.dense_attention_every_n_layers == 0
+        )
 
         bs_params = None
         if not use_dense_attn:
             bs_params = {
-                'max_seqlen': self.max_position_embeddings,
-                'num_heads': self.num_heads_per_partition,
+                "max_seqlen": self.max_position_embeddings,
+                "num_heads": self.num_heads_per_partition,
                 "num_kv_heads": self.num_kv_heads_per_partion,
                 "block_size": self.sparse_block_size,
                 "local_blocks": self.local_blocks,
                 "vert_stride": self.vert_stride,
-                "homo_head": self.homo_heads
+                "homo_head": self.homo_heads,
             }
 
         self.attn = Attention(
@@ -229,12 +238,10 @@ class Phi3SmallSelfAttention(nn.Module):
         hidden_states: torch.Tensor,
         kv_cache: torch.Tensor,
         attn_metadata: AttentionMetadata,
-    ) -> Tuple[torch.Tensor, Optional[torch.Tensor],
-               Optional[Tuple[torch.Tensor]]]:
+    ) -> Tuple[torch.Tensor, Optional[torch.Tensor], Optional[Tuple[torch.Tensor]]]:
         qkv, _ = self.query_key_value(hidden_states)
 
-        qkv = qkv.view(qkv.shape[:-1] +
-                       (-1, (self.num_q_per_kv + 2), self.head_dim))
+        qkv = qkv.view(qkv.shape[:-1] + (-1, (self.num_q_per_kv + 2), self.head_dim))
         q, k, v = qkv.split([self.num_q_per_kv, 1, 1], dim=-2)
 
         # NOTE: this is required by RotaryEmbed, which indeed does not have to
@@ -261,16 +268,17 @@ class Phi3SmallDecoderLayer(nn.Module):
     ):
         super().__init__()
         self.hidden_size = config.hidden_size
-        self.self_attn = Phi3SmallSelfAttention(config,
-                                                layer_idx,
-                                                cache_config=cache_config,
-                                                quant_config=quant_config)
+        self.self_attn = Phi3SmallSelfAttention(
+            config, layer_idx, cache_config=cache_config, quant_config=quant_config
+        )
         self.mlp = Phi3SmallMLP(config, quant_config)
 
-        self.input_layernorm = nn.LayerNorm(config.hidden_size,
-                                            eps=config.layer_norm_epsilon)
+        self.input_layernorm = nn.LayerNorm(
+            config.hidden_size, eps=config.layer_norm_epsilon
+        )
         self.post_attention_layernorm = nn.LayerNorm(
-            config.hidden_size, eps=config.layer_norm_epsilon)
+            config.hidden_size, eps=config.layer_norm_epsilon
+        )
 
     def forward(
         self,
@@ -308,21 +316,24 @@ class Phi3SmallModel(nn.Module):
     ):
         super().__init__()
         self.config = config
-        self.embed_tokens = VocabParallelEmbedding(config.vocab_size,
-                                                   config.hidden_size)
+        self.embed_tokens = VocabParallelEmbedding(
+            config.vocab_size, config.hidden_size
+        )
         self.mup_embedding_multiplier = config.mup_embedding_multiplier
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: Phi3SmallDecoderLayer(config,
-                                                 int(prefix.split('.')[-1]),
-                                                 cache_config, quant_config),
-            prefix=f"{prefix}.layers")
+            lambda prefix: Phi3SmallDecoderLayer(
+                config, int(prefix.split(".")[-1]), cache_config, quant_config
+            ),
+            prefix=f"{prefix}.layers",
+        )
 
-        self.final_layernorm = nn.LayerNorm(config.hidden_size,
-                                            eps=config.layer_norm_epsilon)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(["hidden_states"],
-                                                    config.hidden_size))
+        self.final_layernorm = nn.LayerNorm(
+            config.hidden_size, eps=config.layer_norm_epsilon
+        )
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], config.hidden_size
+        )
 
     def get_input_embeddings(self):
         return self.embed_tokens
@@ -340,8 +351,10 @@ class Phi3SmallModel(nn.Module):
     ) -> Union[torch.Tensor, IntermediateTensors]:
         if get_pp_group().is_first_rank:
             hidden_states = self.embed_tokens(input_ids)
-            if (self.mup_embedding_multiplier is not None
-                    and self.mup_embedding_multiplier > 0.0):
+            if (
+                self.mup_embedding_multiplier is not None
+                and self.mup_embedding_multiplier > 0.0
+            ):
                 hidden_states = hidden_states * self.mup_embedding_multiplier
         else:
             assert intermediate_tensors
@@ -388,15 +401,17 @@ class Phi3SmallForCausalLM(nn.Module, SupportsPP):
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
         # tokens in tiktoken but not used
-        if hasattr(config, 'dummy_token_indices'):
+        if hasattr(config, "dummy_token_indices"):
             device = self.lm_head.weight.device
-            self.register_buffer('dummy_token_indices',
-                                 torch.LongTensor(
-                                     config.dummy_token_indices).to(device),
-                                 persistent=False)
+            self.register_buffer(
+                "dummy_token_indices",
+                torch.LongTensor(config.dummy_token_indices).to(device),
+                persistent=False,
+            )
         else:
             self.dummy_token_indices = None
 
@@ -423,8 +438,7 @@ class Phi3SmallForCausalLM(nn.Module, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         if self.dummy_token_indices is not None and logits is not None:
             logits.index_fill_(-1, self.dummy_token_indices, -torch.inf)
         return logits
@@ -453,8 +467,9 @@ class Phi3SmallForCausalLM(nn.Module, SupportsPP):
         sampling_metadata: SamplingMetadata,
     ) -> Optional[SamplerOutput]:
 
-        next_tokens = self.sampler(logits / self.mup_width_multiplier,
-                                   sampling_metadata)
+        next_tokens = self.sampler(
+            logits / self.mup_width_multiplier, sampling_metadata
+        )
         return next_tokens
 
     def load_weights(self, weights: Iterable[Tuple[str, torch.Tensor]]):
@@ -468,6 +483,5 @@ class Phi3SmallForCausalLM(nn.Module, SupportsPP):
             if is_pp_missing_parameter(name, self):
                 continue
             param = params_dict[name]
-            weight_loader = getattr(param, "weight_loader",
-                                    default_weight_loader)
+            weight_loader = getattr(param, "weight_loader", default_weight_loader)
             weight_loader(param, loaded_weight)

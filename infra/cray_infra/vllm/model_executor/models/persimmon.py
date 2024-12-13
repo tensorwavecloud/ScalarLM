@@ -30,36 +30,43 @@ from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig
 from vllm.distributed import get_pp_group, get_tensor_model_parallel_world_size
 from vllm.model_executor.layers.activation import get_act_fn
-from vllm.model_executor.layers.linear import (ColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    ColumnParallelLinear,
+    QKVParallelLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    ParallelLMHead, VocabParallelEmbedding)
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class PersimmonMLP(nn.Module):
 
-    def __init__(self,
-                 config: PersimmonConfig,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self, config: PersimmonConfig, quant_config: Optional[QuantizationConfig] = None
+    ):
         super().__init__()
-        self.dense_h_to_4h = ColumnParallelLinear(config.hidden_size,
-                                                  config.intermediate_size,
-                                                  quant_config=quant_config)
-        self.dense_4h_to_h = RowParallelLinear(config.intermediate_size,
-                                               config.hidden_size,
-                                               quant_config=quant_config)
+        self.dense_h_to_4h = ColumnParallelLinear(
+            config.hidden_size, config.intermediate_size, quant_config=quant_config
+        )
+        self.dense_4h_to_h = RowParallelLinear(
+            config.intermediate_size, config.hidden_size, quant_config=quant_config
+        )
         self.act = get_act_fn(config.hidden_act, quant_config)
 
     def forward(self, hidden_states) -> torch.Tensor:
@@ -71,10 +78,12 @@ class PersimmonMLP(nn.Module):
 
 class PersimmonAttention(nn.Module):
 
-    def __init__(self,
-                 config: PersimmonConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self,
+        config: PersimmonConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ):
         super().__init__()
         self.config = config
         tensor_parallel_world_size = get_tensor_model_parallel_world_size()
@@ -117,11 +126,13 @@ class PersimmonAttention(nn.Module):
             base=self.rope_theta,
         )
         self.scaling = self.head_dim**-0.5
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              scale=self.scaling,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            scale=self.scaling,
+            cache_config=cache_config,
+            quant_config=quant_config,
+        )
 
     def _split_heads(self, x: torch.Tensor) -> torch.Tensor:
         # [seq_length, hidden_size] -> [seq_length, num_heads, head_dim]
@@ -163,20 +174,24 @@ class PersimmonAttention(nn.Module):
 
 class PersimmonDecoderLayer(nn.Module):
 
-    def __init__(self,
-                 config: PersimmonConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self,
+        config: PersimmonConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ):
         super().__init__()
         self.hidden_size = config.hidden_size
-        self.self_attn = PersimmonAttention(config=config,
-                                            cache_config=cache_config,
-                                            quant_config=quant_config)
+        self.self_attn = PersimmonAttention(
+            config=config, cache_config=cache_config, quant_config=quant_config
+        )
         self.mlp = PersimmonMLP(config, quant_config=quant_config)
-        self.input_layernorm = nn.LayerNorm(config.hidden_size,
-                                            eps=config.layer_norm_eps)
-        self.post_attention_layernorm = nn.LayerNorm(config.hidden_size,
-                                                     eps=config.layer_norm_eps)
+        self.input_layernorm = nn.LayerNorm(
+            config.hidden_size, eps=config.layer_norm_eps
+        )
+        self.post_attention_layernorm = nn.LayerNorm(
+            config.hidden_size, eps=config.layer_norm_eps
+        )
 
     def forward(
         self,
@@ -211,26 +226,30 @@ class PersimmonDecoderLayer(nn.Module):
 
 class PersimmonModel(nn.Module):
 
-    def __init__(self,
-                 config: PersimmonConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None,
-                 prefix: str = ""):
+    def __init__(
+        self,
+        config: PersimmonConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+        prefix: str = "",
+    ):
         super().__init__()
         self.vocab_size = config.vocab_size
 
-        self.embed_tokens = VocabParallelEmbedding(config.vocab_size,
-                                                   config.hidden_size)
+        self.embed_tokens = VocabParallelEmbedding(
+            config.vocab_size, config.hidden_size
+        )
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: PersimmonDecoderLayer(config, cache_config,
-                                                 quant_config),
-            prefix=f"{prefix}.layers")
-        self.final_layernorm = nn.LayerNorm(config.hidden_size,
-                                            eps=config.layer_norm_eps)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(["hidden_states"],
-                                                    config.hidden_size))
+            lambda prefix: PersimmonDecoderLayer(config, cache_config, quant_config),
+            prefix=f"{prefix}.layers",
+        )
+        self.final_layernorm = nn.LayerNorm(
+            config.hidden_size, eps=config.layer_norm_eps
+        )
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states"], config.hidden_size
+        )
 
     def forward(
         self,
@@ -264,23 +283,24 @@ class PersimmonModel(nn.Module):
 
 class PersimmonForCausalLM(nn.Module, SupportsPP):
 
-    def __init__(self,
-                 config: PersimmonConfig,
-                 cache_config: Optional[CacheConfig] = None,
-                 quant_config: Optional[QuantizationConfig] = None):
+    def __init__(
+        self,
+        config: PersimmonConfig,
+        cache_config: Optional[CacheConfig] = None,
+        quant_config: Optional[QuantizationConfig] = None,
+    ):
         super().__init__()
         self.config = config
         self.vocab_size = config.vocab_size
-        self.model = PersimmonModel(config,
-                                    cache_config=cache_config,
-                                    quant_config=quant_config)
-        self.lm_head = ParallelLMHead(config.vocab_size,
-                                      config.hidden_size,
-                                      bias=False)
+        self.model = PersimmonModel(
+            config, cache_config=cache_config, quant_config=quant_config
+        )
+        self.lm_head = ParallelLMHead(config.vocab_size, config.hidden_size, bias=False)
         self.logits_processor = LogitsProcessor(config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def forward(
         self,
@@ -306,8 +326,7 @@ class PersimmonForCausalLM(nn.Module, SupportsPP):
         hidden_states: torch.Tensor,
         sampling_metadata: SamplingMetadata,
     ) -> Optional[torch.Tensor]:
-        logits = self.logits_processor(self.lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(self.lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -323,8 +342,7 @@ class PersimmonForCausalLM(nn.Module, SupportsPP):
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
-            if ("rotary_emb.cos_cached" in name
-                    or "rotary_emb.sin_cached" in name):
+            if "rotary_emb.cos_cached" in name or "rotary_emb.sin_cached" in name:
                 # Models trained using ColossalAI may include these tensors in
                 # the checkpoint. Skip them.
                 continue
@@ -343,12 +361,12 @@ class PersimmonForCausalLM(nn.Module, SupportsPP):
                 if output_dim is not None:
                     loaded_weight_shape = loaded_weight.shape
                     loaded_weight = loaded_weight.view(
-                        loaded_weight_shape[:output_dim] + (num_heads, 3, -1) +
-                        loaded_weight_shape[output_dim + 1:])
-                    loaded_weight = loaded_weight.transpose(
-                        output_dim, output_dim + 1)
+                        loaded_weight_shape[:output_dim]
+                        + (num_heads, 3, -1)
+                        + loaded_weight_shape[output_dim + 1 :]
+                    )
+                    loaded_weight = loaded_weight.transpose(output_dim, output_dim + 1)
                     loaded_weight = loaded_weight.reshape(loaded_weight_shape)
 
-            weight_loader = getattr(param, "weight_loader",
-                                    default_weight_loader)
+            weight_loader = getattr(param, "weight_loader", default_weight_loader)
             weight_loader(param, loaded_weight)

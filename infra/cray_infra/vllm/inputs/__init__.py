@@ -1,7 +1,15 @@
-from .data import (EncoderDecoderLLMInputs, ExplicitEncoderDecoderPrompt,
-                   LLMInputs, PromptType, SingletonPrompt, TextPrompt,
-                   TokensPrompt, build_explicit_enc_dec_prompt,
-                   to_enc_dec_tuple_list, zip_enc_dec_prompts)
+from .data import (
+    EncoderDecoderLLMInputs,
+    ExplicitEncoderDecoderPrompt,
+    LLMInputs,
+    PromptType,
+    SingletonPrompt,
+    TextPrompt,
+    TokensPrompt,
+    build_explicit_enc_dec_prompt,
+    to_enc_dec_tuple_list,
+    zip_enc_dec_prompts,
+)
 from .registry import InputContext, InputRegistry
 
 INPUT_REGISTRY = InputRegistry()
@@ -34,8 +42,10 @@ def __getattr__(name: str):
     if name == "PromptInput":
         import warnings
 
-        msg = ("PromptInput has been renamed to PromptType. "
-               "The original name will be removed in an upcoming version.")
+        msg = (
+            "PromptInput has been renamed to PromptType. "
+            "The original name will be removed in an upcoming version."
+        )
 
         warnings.warn(DeprecationWarning(msg), stacklevel=2)
 

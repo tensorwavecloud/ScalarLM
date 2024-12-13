@@ -14,18 +14,22 @@ class RayXPUExecutor(RayGPUExecutor, XPUExecutor):
 
     def _get_env_vars_to_be_updated(self):
         # Get the set of GPU IDs used on each node.
-        worker_node_and_gpu_ids = self._run_workers("get_node_and_gpu_ids",
-                                                    use_dummy_driver=True)
+        worker_node_and_gpu_ids = self._run_workers(
+            "get_node_and_gpu_ids", use_dummy_driver=True
+        )
 
         VLLM_INSTANCE_ID = get_vllm_instance_id()
 
         # Set environment variables for the driver and workers.
-        all_args_to_update_environment_variables = [({
-            "VLLM_INSTANCE_ID":
-            VLLM_INSTANCE_ID,
-            "VLLM_TRACE_FUNCTION":
-            str(envs.VLLM_TRACE_FUNCTION),
-        }, ) for (_, _) in worker_node_and_gpu_ids]
+        all_args_to_update_environment_variables = [
+            (
+                {
+                    "VLLM_INSTANCE_ID": VLLM_INSTANCE_ID,
+                    "VLLM_TRACE_FUNCTION": str(envs.VLLM_TRACE_FUNCTION),
+                },
+            )
+            for (_, _) in worker_node_and_gpu_ids
+        ]
         return all_args_to_update_environment_variables
 
 

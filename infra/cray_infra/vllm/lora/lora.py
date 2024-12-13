@@ -54,34 +54,39 @@ class LoRALayerWeights:
 
     @property
     def extra_vocab_size(self) -> int:
-        return self.embeddings_tensor.shape[
-            0] if self.embeddings_tensor is not None else 0
+        return (
+            self.embeddings_tensor.shape[0] if self.embeddings_tensor is not None else 0
+        )
 
     @classmethod
     def create_dummy_lora_weights(
-            cls,
-            module_name: str,
-            input_dim: int,
-            output_dim: int,
-            rank: int,
-            dtype: torch.dtype,
-            device: torch.types.Device,
-            embeddings_tensor_dim: Optional[int] = None) -> "LoRALayerWeights":
+        cls,
+        module_name: str,
+        input_dim: int,
+        output_dim: int,
+        rank: int,
+        dtype: torch.dtype,
+        device: torch.types.Device,
+        embeddings_tensor_dim: Optional[int] = None,
+    ) -> "LoRALayerWeights":
         pin_memory = str(device) == "cpu" and is_pin_memory_available()
-        lora_a = torch.zeros([input_dim, rank],
-                             dtype=dtype,
-                             device=device,
-                             pin_memory=pin_memory)
-        lora_b = torch.zeros([rank, output_dim],
-                             dtype=dtype,
-                             device=device,
-                             pin_memory=pin_memory)
-        embeddings_tensor = torch.rand(
-            10,
-            embeddings_tensor_dim,
-            dtype=dtype,
-            device=device,
-            pin_memory=pin_memory) if embeddings_tensor_dim else None
+        lora_a = torch.zeros(
+            [input_dim, rank], dtype=dtype, device=device, pin_memory=pin_memory
+        )
+        lora_b = torch.zeros(
+            [rank, output_dim], dtype=dtype, device=device, pin_memory=pin_memory
+        )
+        embeddings_tensor = (
+            torch.rand(
+                10,
+                embeddings_tensor_dim,
+                dtype=dtype,
+                device=device,
+                pin_memory=pin_memory,
+            )
+            if embeddings_tensor_dim
+            else None
+        )
         return cls(
             module_name,
             rank=rank,
@@ -141,10 +146,8 @@ class PackedLoRALayerWeights(LoRALayerWeights):
             [lora.lora_alpha if lora is not None else None for lora in loras],
             [lora.lora_a if lora is not None else None for lora in loras],
             [lora.lora_b if lora is not None else None for lora in loras],
-            scaling=[
-                1 if lora is not None else None  # type: ignore
-                for lora in loras
-            ])
+            scaling=[1 if lora is not None else None for lora in loras],  # type: ignore
+        )
         return obj
 
     def optimize(self) -> "PackedLoRALayerWeights":

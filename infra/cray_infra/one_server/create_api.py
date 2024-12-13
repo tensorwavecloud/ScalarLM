@@ -1,5 +1,5 @@
-
 import uvicorn
+
 
 async def create_api(port, running_status):
     server_config = uvicorn.Config(
@@ -12,4 +12,3 @@ async def create_api(port, running_status):
     running_status.servers.append(server)
 
     await server.serve()
-

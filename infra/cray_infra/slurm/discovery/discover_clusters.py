@@ -44,7 +44,11 @@ def save_node_info(node_info):
 
 
 def get_cluster_info(node_info):
-    return {"controller_info": node_info, "all_nodes": [node_info], "partitions": [{"name": "short", "nodes": [node_info]}]}
+    return {
+        "controller_info": node_info,
+        "all_nodes": [node_info],
+        "partitions": [{"name": "short", "nodes": [node_info]}],
+    }
 
 
 def save_cluster_info(cluster_info):
@@ -111,6 +115,7 @@ def write_node_config(node):
     with open(slurm_config_path, "a") as f:
         f.write(node_config + "\n")
 
+
 def write_partition_config(partition):
     """
     PartitionName=short Nodes=node1,node2,node3 Default=YES MaxTime=INFINITE State=UP
@@ -128,7 +133,9 @@ def write_gres_config(cluster_info):
     for node in cluster_info["all_nodes"]:
         gres_config = ""
         for index in range(node["gpu_count"]):
-            gres_config += f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
+            gres_config += (
+                f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
+            )
 
         with open(gres_config_path, "a") as f:
             f.write(gres_config)

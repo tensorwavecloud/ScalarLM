@@ -1,8 +1,21 @@
 import sys
 from abc import ABC, abstractmethod
 from collections import UserDict, defaultdict
-from typing import (Any, Callable, Dict, List, Mapping, Optional, Tuple, Type,
-                    TypedDict, TypeVar, Union, cast, final)
+from typing import (
+    Any,
+    Callable,
+    Dict,
+    List,
+    Mapping,
+    Optional,
+    Tuple,
+    Type,
+    TypedDict,
+    TypeVar,
+    Union,
+    cast,
+    final,
+)
 
 import numpy as np
 import torch
@@ -14,8 +27,13 @@ from typing_extensions import TypeAlias
 from vllm.config import ModelConfig
 from vllm.inputs import InputContext
 from vllm.logger import init_logger
-from vllm.utils import (JSONTree, get_allowed_kwarg_only_overrides, is_list_of,
-                        json_map_leaves, resolve_mm_processor_kwargs)
+from vllm.utils import (
+    JSONTree,
+    get_allowed_kwarg_only_overrides,
+    is_list_of,
+    json_map_leaves,
+    resolve_mm_processor_kwargs,
+)
 
 logger = init_logger(__name__)
 
@@ -34,6 +52,7 @@ if sys.version_info < (3, 9):
     # UserDict cannot be subscripted
     class _MultiModalInputsBase(UserDict):
         pass
+
 else:
 
     class _MultiModalInputsBase(UserDict[str, NestedTensors]):
@@ -139,8 +158,7 @@ class MultiModalDataBuiltins(TypedDict, total=False):
     """The input audio item(s) and corresponding sampling rate(s)."""
 
 
-MultiModalDataDict = Union[MultiModalDataBuiltins,
-                           Mapping[str, MultiModalData[object]]]
+MultiModalDataDict = Union[MultiModalDataBuiltins, Mapping[str, MultiModalData[object]]]
 """
 A dictionary containing an item for each modality type to input.
 
@@ -151,8 +169,9 @@ Note:
     Read more on that :ref:`here <adding_multimodal_plugin>`.
 """
 
-MultiModalInputMapper = Callable[[InputContext, MultiModalData[object]],
-                                 MultiModalInputs]
+MultiModalInputMapper = Callable[
+    [InputContext, MultiModalData[object]], MultiModalInputs
+]
 """
 Return a dictionary to be passed as keyword arguments to
 :meth:`~torch.nn.Module.forward`. This is similar in concept to tokenizers
@@ -234,18 +253,22 @@ class MultiModalPlugin(ABC):
                 logger.warning(
                     "Model class %s already has an input mapper "
                     "registered to %s. It is overwritten by the new one.",
-                    model_cls, self)
+                    model_cls,
+                    self,
+                )
 
-            self._input_mappers[model_cls] = mapper \
-                or self._default_input_mapper
+            self._input_mappers[model_cls] = mapper or self._default_input_mapper
 
             return model_cls
 
         return wrapper
 
-    def map_input(self, model_config: ModelConfig,
-                  data: MultiModalData[object],
-                  mm_processor_kwargs: Dict[str, Any]) -> MultiModalInputs:
+    def map_input(
+        self,
+        model_config: ModelConfig,
+        data: MultiModalData[object],
+        mm_processor_kwargs: Dict[str, Any],
+    ) -> MultiModalInputs:
         """
         Transform the data into a dictionary of model inputs using the
         input mapper registered for that model.
@@ -267,8 +290,10 @@ class MultiModalPlugin(ABC):
         mapper = self._input_mappers.get(model_cls)
 
         if mapper is None:
-            raise KeyError(f"No input mapper in {self} is registered for "
-                           f"model class {model_cls.__name__}.")
+            raise KeyError(
+                f"No input mapper in {self} is registered for "
+                f"model class {model_cls.__name__}."
+            )
 
         # In the case of the default mapper, we have to get resource
         # processor through its HuggingFace autoclass; since this goes
@@ -297,8 +322,10 @@ class MultiModalPlugin(ABC):
 
     def _validate_max_multimodal_tokens(self, max_mm_tokens: int):
         if max_mm_tokens < 1:
-            raise ValueError("You should set the number of tokens to a "
-                             f"positive integer. Found: {max_mm_tokens}")
+            raise ValueError(
+                "You should set the number of tokens to a "
+                f"positive integer. Found: {max_mm_tokens}"
+            )
 
     def register_max_multimodal_tokens(
         self,
@@ -320,13 +347,16 @@ class MultiModalPlugin(ABC):
                 logger.warning(
                     "Model class %s already calculates maximum number of "
                     "tokens in %s. It is overwritten by the new one.",
-                    model_cls, self)
+                    model_cls,
+                    self,
+                )
 
             if isinstance(max_mm_tokens, int):
                 self._validate_max_multimodal_tokens(max_mm_tokens)
 
-            self._max_mm_tokens[model_cls] = max_mm_tokens \
-                or self._default_max_multimodal_tokens
+            self._max_mm_tokens[model_cls] = (
+                max_mm_tokens or self._default_max_multimodal_tokens
+            )
 
             return model_cls
 
@@ -354,14 +384,18 @@ class MultiModalPlugin(ABC):
 
         max_mm_tokens = self._max_mm_tokens.get(model_cls)
         if max_mm_tokens is None:
-            raise KeyError(f"No maximum number of multi-modal tokens is given "
-                           f"for model class {model_cls.__name__} in {self}.")
+            raise KeyError(
+                f"No maximum number of multi-modal tokens is given "
+                f"for model class {model_cls.__name__} in {self}."
+            )
 
         if callable(max_mm_tokens):
             mm_processor_kwargs = get_allowed_kwarg_only_overrides(
-                max_mm_tokens, overrides=model_config.mm_processor_kwargs)
-            max_mm_tokens = max_mm_tokens(InputContext(model_config),
-                                          **mm_processor_kwargs)
+                max_mm_tokens, overrides=model_config.mm_processor_kwargs
+            )
+            max_mm_tokens = max_mm_tokens(
+                InputContext(model_config), **mm_processor_kwargs
+            )
 
         self._validate_max_multimodal_tokens(max_mm_tokens)
 

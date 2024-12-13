@@ -7,13 +7,19 @@ import partial_json_parser
 from partial_json_parser.core.options import Allow
 from transformers import PreTrainedTokenizerBase
 
-from vllm.entrypoints.openai.protocol import (ChatCompletionRequest,
-                                              DeltaFunctionCall, DeltaMessage,
-                                              DeltaToolCall,
-                                              ExtractedToolCallInformation,
-                                              FunctionCall, ToolCall)
+from vllm.entrypoints.openai.protocol import (
+    ChatCompletionRequest,
+    DeltaFunctionCall,
+    DeltaMessage,
+    DeltaToolCall,
+    ExtractedToolCallInformation,
+    FunctionCall,
+    ToolCall,
+)
 from vllm.entrypoints.openai.tool_parsers.abstract_tool_parser import (
-    ToolParser, ToolParserManager)
+    ToolParser,
+    ToolParserManager,
+)
 from vllm.entrypoints.openai.tool_parsers.utils import find_common_prefix
 from vllm.logger import init_logger
 from vllm.utils import random_uuid
@@ -59,25 +65,28 @@ class Llama3JsonToolParser(ToolParser):
         self.prev_tool_call_arr: List[Dict] = []
         self.current_tool_id: int = -1
         self.current_tool_name_sent: bool = False
-        self.streamed_args_for_tool: List[str] = [
-        ]  # map what has been streamed for each tool so far to a list
+        self.streamed_args_for_tool: List[str] = (
+            []
+        )  # map what has been streamed for each tool so far to a list
         self.bot_token = "<|python_tag|>"
-        self.bot_token_id = tokenizer.encode(self.bot_token,
-                                             add_special_tokens=False)[0]
+        self.bot_token_id = tokenizer.encode(self.bot_token, add_special_tokens=False)[
+            0
+        ]
         self.tool_call_regex = re.compile(r"\[{.*?}\]", re.DOTALL)
 
     def extract_tool_calls(
-            self, model_output: str,
-            request: ChatCompletionRequest) -> ExtractedToolCallInformation:
+        self, model_output: str, request: ChatCompletionRequest
+    ) -> ExtractedToolCallInformation:
         """
         Extract the tool calls from a complete model response.
         """
         # case -- if a tool call token is not present, return a text response
-        if not (model_output.startswith(self.bot_token)
-                or model_output.startswith('{')):
-            return ExtractedToolCallInformation(tools_called=False,
-                                                tool_calls=[],
-                                                content=model_output)
+        if not (
+            model_output.startswith(self.bot_token) or model_output.startswith("{")
+        ):
+            return ExtractedToolCallInformation(
+                tools_called=False, tool_calls=[], content=model_output
+            )
 
         try:
             # load the JSON, and then use it to build the Function and
@@ -87,11 +96,12 @@ class Llama3JsonToolParser(ToolParser):
 
             # depending on the prompt format the Llama model may or may not
             # prefix the output with the <|python_tag|> token
-            start_idx = len(self.bot_token) if model_output.startswith(
-                self.bot_token) else 0
+            start_idx = (
+                len(self.bot_token) if model_output.startswith(self.bot_token) else 0
+            )
             while start_idx < len(model_output):
                 (obj, end_idx) = dec.raw_decode(model_output[start_idx:])
-                start_idx += end_idx + len('; ')
+                start_idx += end_idx + len("; ")
                 function_call_arr.append(obj)
 
             tool_calls: List[ToolCall] = [
@@ -100,25 +110,29 @@ class Llama3JsonToolParser(ToolParser):
                     function=FunctionCall(
                         name=raw_function_call["name"],
                         # function call args are JSON but as a string
-                        arguments=json.dumps(raw_function_call["arguments"] \
-                                if "arguments" in raw_function_call \
-                                else raw_function_call["parameters"])))
+                        arguments=json.dumps(
+                            raw_function_call["arguments"]
+                            if "arguments" in raw_function_call
+                            else raw_function_call["parameters"]
+                        ),
+                    ),
+                )
                 for raw_function_call in function_call_arr
             ]
 
             # get any content before  the tool call
-            ret = ExtractedToolCallInformation(tools_called=True,
-                                               tool_calls=tool_calls,
-                                               content=None)
+            ret = ExtractedToolCallInformation(
+                tools_called=True, tool_calls=tool_calls, content=None
+            )
             return ret
 
         except Exception as e:
             logger.error("Error in extracting tool call from response: %s", e)
             print("ERROR", e)
             # return information to just treat the tool call as regular JSON
-            return ExtractedToolCallInformation(tools_called=False,
-                                                tool_calls=[],
-                                                content=model_output)
+            return ExtractedToolCallInformation(
+                tools_called=False, tool_calls=[], content=model_output
+            )
 
     def extract_tool_calls_streaming(
         self,
@@ -131,46 +145,49 @@ class Llama3JsonToolParser(ToolParser):
         request: ChatCompletionRequest,
     ) -> Union[DeltaMessage, None]:
 
-        if not (current_text.startswith(self.bot_token)
-                or current_text.startswith('{')):
+        if not (
+            current_text.startswith(self.bot_token) or current_text.startswith("{")
+        ):
             return DeltaMessage(content=delta_text)
 
         # bit mask flags for partial JSON parsing. If the name hasn't been
         # sent yet, don't allow sending
         # an incomplete string since OpenAI only ever (as far as I have
         # seen) allows sending the entire tool/ function name at once.
-        flags = Allow.ALL if self.current_tool_name_sent \
-            else Allow.ALL & ~Allow.STR
+        flags = Allow.ALL if self.current_tool_name_sent else Allow.ALL & ~Allow.STR
         try:
             tool_call_arr = []
             is_complete = []
             try:
                 # depending on the prompt format the Llama model may or may not
                 # prefix the output with the <|python_tag|> token
-                start_idx = len(self.bot_token) if current_text.startswith(
-                    self.bot_token) else 0
+                start_idx = (
+                    len(self.bot_token)
+                    if current_text.startswith(self.bot_token)
+                    else 0
+                )
                 while start_idx < len(current_text):
-                    (obj,
-                     end_idx) = partial_json_loads(current_text[start_idx:],
-                                                   flags)
+                    (obj, end_idx) = partial_json_loads(current_text[start_idx:], flags)
                     is_complete.append(
-                        is_complete_json(current_text[start_idx:start_idx +
-                                                      end_idx]))
-                    start_idx += end_idx + len('; ')
+                        is_complete_json(current_text[start_idx : start_idx + end_idx])
+                    )
+                    start_idx += end_idx + len("; ")
                     # depending on the prompt Llama can use
                     # either arguments or parameters
                     if "parameters" in obj:
-                        assert "arguments" not in obj, \
-                            "model generated both parameters and arguments"
+                        assert (
+                            "arguments" not in obj
+                        ), "model generated both parameters and arguments"
                         obj["arguments"] = obj["parameters"]
                     tool_call_arr.append(obj)
             except partial_json_parser.core.exceptions.MalformedJSON:
-                logger.debug('not enough tokens to parse into JSON yet')
+                logger.debug("not enough tokens to parse into JSON yet")
                 return None
 
             # select as the current tool call the one we're on the state at
-            current_tool_call: Dict = tool_call_arr[self.current_tool_id] \
-                if len(tool_call_arr) > 0 else {}
+            current_tool_call: Dict = (
+                tool_call_arr[self.current_tool_id] if len(tool_call_arr) > 0 else {}
+            )
 
             # case -- if no tokens have been streamed for the tool, e.g.
             #   only the array brackets, stream nothing
@@ -179,8 +196,9 @@ class Llama3JsonToolParser(ToolParser):
 
             # case: we are starting a new tool in the array
             #   -> array has > 0 length AND length has moved past cursor
-            elif (len(tool_call_arr) > 0
-                  and len(tool_call_arr) > self.current_tool_id + 1):
+            elif (
+                len(tool_call_arr) > 0 and len(tool_call_arr) > self.current_tool_id + 1
+            ):
 
                 # if we're moving on to a new call, first make sure we
                 # haven't missed anything in the previous one that was
@@ -190,19 +208,23 @@ class Llama3JsonToolParser(ToolParser):
                     cur_arguments = current_tool_call.get("arguments")
                     if cur_arguments:
                         cur_args_json = json.dumps(cur_arguments)
-                        sent = len(
-                            self.streamed_args_for_tool[self.current_tool_id])
+                        sent = len(self.streamed_args_for_tool[self.current_tool_id])
                         argument_diff = cur_args_json[sent:]
 
                         logger.debug("got arguments diff: %s", argument_diff)
-                        delta = DeltaMessage(tool_calls=[
-                            DeltaToolCall(index=self.current_tool_id,
-                                          function=DeltaFunctionCall(
-                                              arguments=argument_diff).
-                                          model_dump(exclude_none=True))
-                        ])
+                        delta = DeltaMessage(
+                            tool_calls=[
+                                DeltaToolCall(
+                                    index=self.current_tool_id,
+                                    function=DeltaFunctionCall(
+                                        arguments=argument_diff
+                                    ).model_dump(exclude_none=True),
+                                )
+                            ]
+                        )
                         self.streamed_args_for_tool[
-                            self.current_tool_id] += argument_diff
+                            self.current_tool_id
+                        ] += argument_diff
                     else:
                         delta = None
                 else:
@@ -220,14 +242,18 @@ class Llama3JsonToolParser(ToolParser):
                 function_name = current_tool_call.get("name")
                 if function_name:
 
-                    delta = DeltaMessage(tool_calls=[
-                        DeltaToolCall(index=self.current_tool_id,
-                                      type="function",
-                                      id=f"chatcmpl-tool-{random_uuid()}",
-                                      function=DeltaFunctionCall(
-                                          name=function_name).model_dump(
-                                              exclude_none=True))
-                    ])
+                    delta = DeltaMessage(
+                        tool_calls=[
+                            DeltaToolCall(
+                                index=self.current_tool_id,
+                                type="function",
+                                id=f"chatcmpl-tool-{random_uuid()}",
+                                function=DeltaFunctionCall(
+                                    name=function_name
+                                ).model_dump(exclude_none=True),
+                            )
+                        ]
+                    )
                     self.current_tool_name_sent = True
                 else:
                     delta = None
@@ -239,11 +265,11 @@ class Llama3JsonToolParser(ToolParser):
                 delta = None
 
                 if cur_arguments:
-                    sent = len(
-                        self.streamed_args_for_tool[self.current_tool_id])
+                    sent = len(self.streamed_args_for_tool[self.current_tool_id])
                     cur_args_json = json.dumps(cur_arguments)
-                    prev_arguments = self.prev_tool_call_arr[
-                        self.current_tool_id].get("arguments")
+                    prev_arguments = self.prev_tool_call_arr[self.current_tool_id].get(
+                        "arguments"
+                    )
 
                     argument_diff = None
                     if is_complete[self.current_tool_id]:
@@ -252,19 +278,23 @@ class Llama3JsonToolParser(ToolParser):
                         prev_args_json = json.dumps(prev_arguments)
                         if cur_args_json != prev_args_json:
 
-                            prefix = find_common_prefix(
-                                prev_args_json, cur_args_json)
+                            prefix = find_common_prefix(prev_args_json, cur_args_json)
                             argument_diff = prefix[sent:]
 
                     if argument_diff is not None:
-                        delta = DeltaMessage(tool_calls=[
-                            DeltaToolCall(index=self.current_tool_id,
-                                          function=DeltaFunctionCall(
-                                              arguments=argument_diff).
-                                          model_dump(exclude_none=True))
-                        ])
+                        delta = DeltaMessage(
+                            tool_calls=[
+                                DeltaToolCall(
+                                    index=self.current_tool_id,
+                                    function=DeltaFunctionCall(
+                                        arguments=argument_diff
+                                    ).model_dump(exclude_none=True),
+                                )
+                            ]
+                        )
                         self.streamed_args_for_tool[
-                            self.current_tool_id] += argument_diff
+                            self.current_tool_id
+                        ] += argument_diff
 
             self.prev_tool_call_arr = tool_call_arr
             return delta
@@ -272,6 +302,6 @@ class Llama3JsonToolParser(ToolParser):
         except Exception as e:
             logger.error("Error trying to handle streaming tool call: %s", e)
             logger.debug(
-                "Skipping chunk as a result of tool streaming extraction "
-                "error")
+                "Skipping chunk as a result of tool streaming extraction " "error"
+            )
             return None

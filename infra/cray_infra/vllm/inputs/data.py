@@ -1,5 +1,14 @@
-from typing import (TYPE_CHECKING, Any, Dict, Generic, Iterable, List,
-                    Optional, Tuple, Union)
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Dict,
+    Generic,
+    Iterable,
+    List,
+    Optional,
+    Tuple,
+    Union,
+)
 
 from typing_extensions import NotRequired, TypedDict, TypeVar
 
@@ -70,14 +79,12 @@ where the decoder-prompt is not specified explicitly, or
 more than one prompt, i.e. :class:`ExplicitEncoderDecoderPrompt`
 """
 
-_T1_co = TypeVar("_T1_co",
-                 bound=SingletonPrompt,
-                 default=SingletonPrompt,
-                 covariant=True)
-_T2_co = TypeVar("_T2_co",
-                 bound=SingletonPrompt,
-                 default=SingletonPrompt,
-                 covariant=True)
+_T1_co = TypeVar(
+    "_T1_co", bound=SingletonPrompt, default=SingletonPrompt, covariant=True
+)
+_T2_co = TypeVar(
+    "_T2_co", bound=SingletonPrompt, default=SingletonPrompt, covariant=True
+)
 
 
 # TODO: Make fields ReadOnly once mypy supports it
@@ -127,6 +134,7 @@ class LLMInputs(TypedDict):
 
     This specifies the data required for decoder-only models.
     """
+
     prompt_token_ids: List[int]
     """The token IDs of the prompt."""
 
@@ -157,6 +165,7 @@ class EncoderDecoderLLMInputs(LLMInputs):
 
     This specifies the required data for encoder-decoder models.
     """
+
     encoder_prompt_token_ids: List[int]
     """The token IDs of the encoder prompt."""
 
@@ -187,14 +196,16 @@ def build_explicit_enc_dec_prompt(
     return ExplicitEncoderDecoderPrompt(
         encoder_prompt=encoder_prompt,
         decoder_prompt=decoder_prompt,
-        mm_processor_kwargs=mm_processor_kwargs)
+        mm_processor_kwargs=mm_processor_kwargs,
+    )
 
 
 def zip_enc_dec_prompts(
     enc_prompts: Iterable[_T1],
     dec_prompts: Iterable[Optional[_T2]],
-    mm_processor_kwargs: Optional[Union[Iterable[Dict[str, Any]],
-                                        Dict[str, Any]]] = None,
+    mm_processor_kwargs: Optional[
+        Union[Iterable[Dict[str, Any]], Dict[str, Any]]
+    ] = None,
 ) -> List[ExplicitEncoderDecoderPrompt[_T1, _T2]]:
     """
     Zip encoder and decoder prompts together into a list of
@@ -207,33 +218,36 @@ def zip_enc_dec_prompts(
         mm_processor_kwargs = {}
     if isinstance(mm_processor_kwargs, Dict):
         return [
-            build_explicit_enc_dec_prompt(encoder_prompt, decoder_prompt,
-                                          mm_processor_kwargs)
-            for (encoder_prompt,
-                 decoder_prompt) in zip(enc_prompts, dec_prompts)
+            build_explicit_enc_dec_prompt(
+                encoder_prompt, decoder_prompt, mm_processor_kwargs
+            )
+            for (encoder_prompt, decoder_prompt) in zip(enc_prompts, dec_prompts)
         ]
     return [
-        build_explicit_enc_dec_prompt(encoder_prompt, decoder_prompt,
-                                      mm_proc_kwargs)
-        for (encoder_prompt, decoder_prompt, mm_proc_kwargs
-             ) in zip(enc_prompts, dec_prompts, mm_processor_kwargs)
+        build_explicit_enc_dec_prompt(encoder_prompt, decoder_prompt, mm_proc_kwargs)
+        for (encoder_prompt, decoder_prompt, mm_proc_kwargs) in zip(
+            enc_prompts, dec_prompts, mm_processor_kwargs
+        )
     ]
 
 
 def to_enc_dec_tuple_list(
     enc_dec_prompts: Iterable[ExplicitEncoderDecoderPrompt[_T1, _T2]],
 ) -> List[Tuple[_T1, Optional[_T2]]]:
-    return [(enc_dec_prompt["encoder_prompt"],
-             enc_dec_prompt["decoder_prompt"])
-            for enc_dec_prompt in enc_dec_prompts]
+    return [
+        (enc_dec_prompt["encoder_prompt"], enc_dec_prompt["decoder_prompt"])
+        for enc_dec_prompt in enc_dec_prompts
+    ]
 
 
 def __getattr__(name: str):
     if name == "PromptInput":
         import warnings
 
-        msg = ("PromptInput has been renamed to PromptType. "
-               "The original name will be removed in an upcoming version.")
+        msg = (
+            "PromptInput has been renamed to PromptType. "
+            "The original name will be removed in an upcoming version."
+        )
 
         warnings.warn(DeprecationWarning(msg), stacklevel=2)
 

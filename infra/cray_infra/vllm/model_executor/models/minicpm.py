@@ -30,30 +30,41 @@ from transformers import PretrainedConfig
 
 from vllm.attention import Attention, AttentionMetadata
 from vllm.config import CacheConfig, LoRAConfig
-from vllm.distributed import (get_pp_group, get_tensor_model_parallel_rank,
-                              get_tensor_model_parallel_world_size,
-                              tensor_model_parallel_all_reduce)
+from vllm.distributed import (
+    get_pp_group,
+    get_tensor_model_parallel_rank,
+    get_tensor_model_parallel_world_size,
+    tensor_model_parallel_all_reduce,
+)
 from vllm.model_executor.layers.activation import SiluAndMul
 from vllm.model_executor.layers.fused_moe import fused_moe
 from vllm.model_executor.layers.layernorm import RMSNorm
-from vllm.model_executor.layers.linear import (MergedColumnParallelLinear,
-                                               QKVParallelLinear,
-                                               ReplicatedLinear,
-                                               RowParallelLinear)
+from vllm.model_executor.layers.linear import (
+    MergedColumnParallelLinear,
+    QKVParallelLinear,
+    ReplicatedLinear,
+    RowParallelLinear,
+)
 from vllm.model_executor.layers.logits_processor import LogitsProcessor
 from vllm.model_executor.layers.quantization import QuantizationConfig
 from vllm.model_executor.layers.rotary_embedding import get_rope
 from vllm.model_executor.layers.sampler import Sampler, SamplerOutput
 from vllm.model_executor.layers.vocab_parallel_embedding import (
-    DEFAULT_VOCAB_PADDING_SIZE, ParallelLMHead, VocabParallelEmbedding)
+    DEFAULT_VOCAB_PADDING_SIZE,
+    ParallelLMHead,
+    VocabParallelEmbedding,
+)
 from vllm.model_executor.model_loader.weight_utils import default_weight_loader
 from vllm.model_executor.sampling_metadata import SamplingMetadata
 from vllm.model_executor.utils import set_weight_attrs
 from vllm.sequence import IntermediateTensors
 
 from .interfaces import SupportsLoRA, SupportsPP
-from .utils import (is_pp_missing_parameter,
-                    make_empty_intermediate_tensors_factory, make_layers)
+from .utils import (
+    is_pp_missing_parameter,
+    make_empty_intermediate_tensors_factory,
+    make_layers,
+)
 
 
 class MiniCPMMoE(nn.Module):
@@ -85,34 +96,53 @@ class MiniCPMMoE(nn.Module):
             params_dtype = torch.get_default_dtype()
         self.params_dtype = params_dtype
 
-        self.gate = ReplicatedLinear(self.hidden_size,
-                                     self.num_total_experts,
-                                     bias=False,
-                                     params_dtype=self.params_dtype,
-                                     quant_config=None)
+        self.gate = ReplicatedLinear(
+            self.hidden_size,
+            self.num_total_experts,
+            bias=False,
+            params_dtype=self.params_dtype,
+            quant_config=None,
+        )
 
         self.ws = nn.Parameter(
-            torch.empty(self.num_total_experts,
-                        2 * self.intermediate_size,
-                        self.hidden_size,
-                        device="cuda",
-                        dtype=self.params_dtype))
+            torch.empty(
+                self.num_total_experts,
+                2 * self.intermediate_size,
+                self.hidden_size,
+                device="cuda",
+                dtype=self.params_dtype,
+            )
+        )
         self.w2s = nn.Parameter(
-            torch.empty(self.num_total_experts,
-                        self.hidden_size,
-                        self.intermediate_size,
-                        device="cuda",
-                        dtype=self.params_dtype))
+            torch.empty(
+                self.num_total_experts,
+                self.hidden_size,
+                self.intermediate_size,
+                device="cuda",
+                dtype=self.params_dtype,
+            )
+        )
 
-        set_weight_attrs(self.ws, {
-            "weight_loader": self.weight_loader,
-        })
-        set_weight_attrs(self.w2s, {
-            "weight_loader": self.weight_loader,
-        })
+        set_weight_attrs(
+            self.ws,
+            {
+                "weight_loader": self.weight_loader,
+            },
+        )
+        set_weight_attrs(
+            self.w2s,
+            {
+                "weight_loader": self.weight_loader,
+            },
+        )
 
-    def weight_loader(self, param: nn.Parameter, loaded_weight: torch.Tensor,
-                      weight_name: str, expert_id: int):
+    def weight_loader(
+        self,
+        param: nn.Parameter,
+        loaded_weight: torch.Tensor,
+        weight_name: str,
+        expert_id: int,
+    ):
         tp_rank = get_tensor_model_parallel_rank()
         param_data = param.data
         shard_size = self.intermediate_size
@@ -120,8 +150,9 @@ class MiniCPMMoE(nn.Module):
         if weight_name.endswith("w1.weight"):
             param_data[expert_id, 0:shard_size, :] = loaded_weight[shard, :]
         if weight_name.endswith("w3.weight"):
-            param_data[expert_id,
-                       shard_size:2 * shard_size, :] = loaded_weight[shard, :]
+            param_data[expert_id, shard_size : 2 * shard_size, :] = loaded_weight[
+                shard, :
+            ]
         if weight_name.endswith("w2.weight"):
             param_data[expert_id, :, :] = loaded_weight[:, shard]
 
@@ -130,17 +161,18 @@ class MiniCPMMoE(nn.Module):
         hidden_states = hidden_states.view(-1, self.hidden_size)
         # router_logits: (num_tokens, n_experts)
         router_logits, _ = self.gate(hidden_states)
-        final_hidden_states = fused_moe(hidden_states,
-                                        self.ws,
-                                        self.w2s,
-                                        router_logits,
-                                        self.top_k,
-                                        renormalize=True,
-                                        inplace=True)
+        final_hidden_states = fused_moe(
+            hidden_states,
+            self.ws,
+            self.w2s,
+            router_logits,
+            self.top_k,
+            renormalize=True,
+            inplace=True,
+        )
 
         if self.tp_size > 1:
-            final_hidden_states = tensor_model_parallel_all_reduce(
-                final_hidden_states)
+            final_hidden_states = tensor_model_parallel_all_reduce(final_hidden_states)
 
         return final_hidden_states.view(num_tokens, hidden_size)
 
@@ -156,16 +188,16 @@ class MiniCPMMLP(nn.Module):
     ) -> None:
         super().__init__()
         self.gate_up_proj = MergedColumnParallelLinear(
-            hidden_size, [intermediate_size] * 2,
-            bias=False,
-            quant_config=quant_config)
-        self.down_proj = RowParallelLinear(intermediate_size,
-                                           hidden_size,
-                                           bias=False,
-                                           quant_config=quant_config)
+            hidden_size, [intermediate_size] * 2, bias=False, quant_config=quant_config
+        )
+        self.down_proj = RowParallelLinear(
+            intermediate_size, hidden_size, bias=False, quant_config=quant_config
+        )
         if hidden_act != "silu":
-            raise ValueError(f"Unsupported activation: {hidden_act}. "
-                             "Only silu is supported for now.")
+            raise ValueError(
+                f"Unsupported activation: {hidden_act}. "
+                "Only silu is supported for now."
+            )
         self.act_fn = SiluAndMul()
 
     def forward(self, x):
@@ -234,14 +266,15 @@ class MiniCPMAttention(nn.Module):
             rope_scaling=rope_scaling,
         )
         # set rope as fp32 instead of bf16
-        self.rotary_emb.cos_sin_cache = self.rotary_emb._compute_cos_sin_cache(
+        self.rotary_emb.cos_sin_cache = self.rotary_emb._compute_cos_sin_cache()
+        self.attn = Attention(
+            self.num_heads,
+            self.head_dim,
+            self.scaling,
+            num_kv_heads=self.num_kv_heads,
+            cache_config=cache_config,
+            quant_config=quant_config,
         )
-        self.attn = Attention(self.num_heads,
-                              self.head_dim,
-                              self.scaling,
-                              num_kv_heads=self.num_kv_heads,
-                              cache_config=cache_config,
-                              quant_config=quant_config)
 
     def forward(
         self,
@@ -276,14 +309,14 @@ class MiniCPMDecoderLayer(nn.Module):
         self.hidden_size = config.hidden_size
         self.rope_theta = getattr(config, "rope_theta", 10000)
         self.rope_scaling = getattr(config, "rope_scaling", None)
-        self.max_position_embeddings = getattr(config,
-                                               "max_position_embeddings", 8192)
+        self.max_position_embeddings = getattr(config, "max_position_embeddings", 8192)
         self._init_attn_block()
         self._init_ffn_block()
 
     def _init_attn_block(self):
-        self.input_layernorm = RMSNorm(self.config.hidden_size,
-                                       eps=self.config.rms_norm_eps)
+        self.input_layernorm = RMSNorm(
+            self.config.hidden_size, eps=self.config.rms_norm_eps
+        )
         self.self_attn = MiniCPMAttention(
             hidden_size=self.hidden_size,
             num_heads=self.config.num_attention_heads,
@@ -296,8 +329,9 @@ class MiniCPMDecoderLayer(nn.Module):
         )
 
     def _init_ffn_block(self):
-        self.post_attention_layernorm = RMSNorm(self.config.hidden_size,
-                                                eps=self.config.rms_norm_eps)
+        self.post_attention_layernorm = RMSNorm(
+            self.config.hidden_size, eps=self.config.rms_norm_eps
+        )
         self.num_experts = getattr(self.config, "num_experts", 0)
         if self.num_experts == 0:
             self.mlp = MiniCPMMLP(
@@ -311,7 +345,8 @@ class MiniCPMDecoderLayer(nn.Module):
                 num_experts=self.config.num_experts,
                 top_k=self.config.num_experts_per_tok,
                 hidden_size=self.config.hidden_size,
-                intermediate_size=self.config.intermediate_size)
+                intermediate_size=self.config.intermediate_size,
+            )
 
     def forward(
         self,
@@ -330,15 +365,17 @@ class MiniCPMDecoderLayer(nn.Module):
             kv_cache=kv_cache,
             attn_metadata=attn_metadata,
         )
-        hidden_states = residual + hidden_states * \
-            (self.config.scale_depth / math.sqrt(self.config.num_hidden_layers))
+        hidden_states = residual + hidden_states * (
+            self.config.scale_depth / math.sqrt(self.config.num_hidden_layers)
+        )
 
         # Fully Connected
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
         hidden_states = self.mlp(hidden_states)
-        hidden_states = residual + hidden_states * \
-            (self.config.scale_depth / math.sqrt(self.config.num_hidden_layers))
+        hidden_states = residual + hidden_states * (
+            self.config.scale_depth / math.sqrt(self.config.num_hidden_layers)
+        )
 
         return hidden_states, None
 
@@ -358,8 +395,11 @@ class MiniCPMModel(nn.Module):
         self.cache_config = cache_config
         self.quant_config = quant_config
         self.padding_idx = config.pad_token_id
-        lora_vocab = (lora_config.lora_extra_vocab_size *
-                      (lora_config.max_loras or 1)) if lora_config else 0
+        lora_vocab = (
+            (lora_config.lora_extra_vocab_size * (lora_config.max_loras or 1))
+            if lora_config
+            else 0
+        )
         self.vocab_size = config.vocab_size + lora_vocab
         self.org_vocab_size = config.vocab_size
         self.embed_tokens = VocabParallelEmbedding(
@@ -369,9 +409,9 @@ class MiniCPMModel(nn.Module):
         )
         self._init_layers(prefix, config, cache_config, quant_config)
         self.norm = RMSNorm(config.hidden_size, eps=config.rms_norm_eps)
-        self.make_empty_intermediate_tensors = (
-            make_empty_intermediate_tensors_factory(
-                ["hidden_states", "residual"], self.config.hidden_size))
+        self.make_empty_intermediate_tensors = make_empty_intermediate_tensors_factory(
+            ["hidden_states", "residual"], self.config.hidden_size
+        )
 
     def _init_layers(
         self,
@@ -382,9 +422,9 @@ class MiniCPMModel(nn.Module):
     ):
         self.start_layer, self.end_layer, self.layers = make_layers(
             config.num_hidden_layers,
-            lambda prefix: MiniCPMDecoderLayer(config, cache_config,
-                                               quant_config),
-            prefix=f"{prefix}.layers")
+            lambda prefix: MiniCPMDecoderLayer(config, cache_config, quant_config),
+            prefix=f"{prefix}.layers",
+        )
 
     def get_input_embeddings(self, input_ids: torch.Tensor) -> torch.Tensor:
         embedding = self.embed_tokens(input_ids)
@@ -419,10 +459,9 @@ class MiniCPMModel(nn.Module):
                 residual,
             )
         if not get_pp_group().is_last_rank:
-            return IntermediateTensors({
-                "hidden_states": hidden_states,
-                "residual": residual
-            })
+            return IntermediateTensors(
+                {"hidden_states": hidden_states, "residual": residual}
+            )
         hidden_states = self.norm(hidden_states)
         return hidden_states
 
@@ -479,25 +518,30 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
                 unpadded_vocab_size,
                 config.hidden_size,
                 org_num_embeddings=config.vocab_size,
-                padding_size=DEFAULT_VOCAB_PADDING_SIZE
-                # We need bigger padding if using lora for kernel
-                # compatibility
-                if not lora_config else lora_config.lora_vocab_padding_size,
+                padding_size=(
+                    DEFAULT_VOCAB_PADDING_SIZE
+                    # We need bigger padding if using lora for kernel
+                    # compatibility
+                    if not lora_config
+                    else lora_config.lora_vocab_padding_size
+                ),
                 quant_config=quant_config,
             )
         self.scale_width = self.config.hidden_size / self.config.dim_model_base
 
-        self.logits_processor = LogitsProcessor(unpadded_vocab_size,
-                                                config.vocab_size)
+        self.logits_processor = LogitsProcessor(unpadded_vocab_size, config.vocab_size)
         self.sampler = Sampler()
         self.make_empty_intermediate_tensors = (
-            self.model.make_empty_intermediate_tensors)
+            self.model.make_empty_intermediate_tensors
+        )
 
     def _init_model(self):
-        self.model = MiniCPMModel(config=self.config,
-                                  cache_config=self.cache_config,
-                                  quant_config=self.quant_config,
-                                  lora_config=self.lora_config)
+        self.model = MiniCPMModel(
+            config=self.config,
+            cache_config=self.cache_config,
+            quant_config=self.quant_config,
+            lora_config=self.lora_config,
+        )
 
     def forward(
         self,
@@ -507,8 +551,9 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         attn_metadata: AttentionMetadata,
         intermediate_tensors: Optional[IntermediateTensors] = None,
     ) -> Union[torch.Tensor, IntermediateTensors]:
-        hidden_states = self.model(input_ids, positions, kv_caches,
-                                   attn_metadata, intermediate_tensors)
+        hidden_states = self.model(
+            input_ids, positions, kv_caches, attn_metadata, intermediate_tensors
+        )
         return hidden_states
 
     def compute_logits(
@@ -521,8 +566,7 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             lm_head = self.model.embed_tokens
         else:
             lm_head = self.lm_head
-        logits = self.logits_processor(lm_head, hidden_states,
-                                       sampling_metadata)
+        logits = self.logits_processor(lm_head, hidden_states, sampling_metadata)
         return logits
 
     def sample(
@@ -544,8 +588,11 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         ]
         expert_params_mapping = [
             # (param_name, weight_name, expert_id)
-            ("ws" if weight_name in ["w1", "w3"] else "w2s",
-             f"experts.{expert_id}.{weight_name}.weight", expert_id)
+            (
+                "ws" if weight_name in ["w1", "w3"] else "w2s",
+                f"experts.{expert_id}.{weight_name}.weight",
+                expert_id,
+            )
             for expert_id in range(self.num_experts)
             for weight_name in ["w1", "w2", "w3"]
         ]
@@ -553,8 +600,7 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
         for name, loaded_weight in weights:
             if "rotary_emb.inv_freq" in name:
                 continue
-            if ("rotary_emb.cos_cached" in name
-                    or "rotary_emb.sin_cached" in name):
+            if "rotary_emb.cos_cached" in name or "rotary_emb.sin_cached" in name:
                 # Models trained using ColossalAI may include these tensors in
                 # the checkpoint. Skip them.
                 continue
@@ -563,7 +609,7 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
             # processed with quantization, LoRA, fine-tuning, etc.
             if self.config.tie_word_embeddings and "lm_head.weight" in name:
                 continue
-            for (param_name, weight_name, shard_id) in stacked_params_mapping:
+            for param_name, weight_name, shard_id in stacked_params_mapping:
                 if weight_name not in name:
                     continue
                 name = name.replace(weight_name, param_name)
@@ -585,10 +631,9 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
                         continue
                     param = params_dict[name]
                     weight_loader = param.weight_loader
-                    weight_loader(param,
-                                  loaded_weight,
-                                  weight_name,
-                                  expert_id=expert_id)
+                    weight_loader(
+                        param, loaded_weight, weight_name, expert_id=expert_id
+                    )
                     break
                 else:
                     # Skip loading extra bias for GPTQ models.
@@ -597,6 +642,7 @@ class MiniCPMForCausalLM(nn.Module, SupportsLoRA, SupportsPP):
                     if is_pp_missing_parameter(name, self):
                         continue
                     param = params_dict[name]
-                    weight_loader = getattr(param, "weight_loader",
-                                            default_weight_loader)
+                    weight_loader = getattr(
+                        param, "weight_loader", default_weight_loader
+                    )
                     weight_loader(param, loaded_weight)

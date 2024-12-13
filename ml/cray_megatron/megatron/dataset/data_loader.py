@@ -44,6 +44,7 @@ class DataLoader:
 
             return next(self.iterator)
 
+
 def get_batch_size():
     job_config = get_job_config()
     return job_config["batch_size"]

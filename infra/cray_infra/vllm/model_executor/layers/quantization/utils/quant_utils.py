@@ -1,11 +1,11 @@
 """This file is used for /tests and /benchmarks"""
+
 from typing import List, Optional
 
 import numpy
 import torch
 
-from vllm.model_executor.layers.quantization.qqq import (
-    MARLIN_QQQ_SUPPORTED_NUM_BITS)
+from vllm.model_executor.layers.quantization.qqq import MARLIN_QQQ_SUPPORTED_NUM_BITS
 from vllm.scalar_type import ScalarType, scalar_types
 
 SUPPORTED_GPTQ_QUANT_TYPES = [scalar_types.uint4b8, scalar_types.uint8b128]
@@ -16,13 +16,11 @@ SUPPORTED_GROUP_SIZES = [-1, 32, 64, 128]
 # fused_name: List[shard_name]
 FUSED_LAYER_NAME_MAPPING = {
     "qkv_proj": ["q_proj", "k_proj", "v_proj"],
-    "gate_up_proj": ["gate_proj", "up_proj"]
+    "gate_up_proj": ["gate_proj", "up_proj"],
 }
 
 
-def pack_weights_into_int32(w_q: torch.Tensor,
-                            wtype: ScalarType,
-                            packed_dim: int = 0):
+def pack_weights_into_int32(w_q: torch.Tensor, wtype: ScalarType, packed_dim: int = 0):
     # move dim to pack to the end
     perm = (*[i for i in range(len(w_q.shape)) if i != packed_dim], packed_dim)
     inv_perm = tuple(perm.index(i) for i in range(len(perm)))
@@ -42,9 +40,9 @@ def pack_weights_into_int32(w_q: torch.Tensor,
     return res.permute(inv_perm)
 
 
-def unpack_weights_into_int32(w_q: torch.Tensor,
-                              wtype: ScalarType,
-                              packed_dim: int = 0):
+def unpack_weights_into_int32(
+    w_q: torch.Tensor, wtype: ScalarType, packed_dim: int = 0
+):
     # move dim to pack to the end
     perm = (*[i for i in range(len(w_q.shape)) if i != packed_dim], packed_dim)
     inv_perm = tuple(perm.index(i) for i in range(len(perm)))
@@ -83,7 +81,8 @@ def is_layer_skipped(prefix: str, ignored_layers: List[str]) -> bool:
                 raise ValueError(
                     f"Detected some but not all shards of {prefix} "
                     "are quantized. All shards of fused layers "
-                    "to have the same precision.")
+                    "to have the same precision."
+                )
     else:
         is_skipped = prefix in ignored_layers
 
@@ -96,16 +95,18 @@ def get_pack_factor(num_bits):
     return 32 // num_bits
 
 
-def permute_rows(q_w: torch.Tensor,
-                 w_ref: torch.Tensor,
-                 group_size: int,
-                 test_perm: Optional[torch.Tensor] = None):
+def permute_rows(
+    q_w: torch.Tensor,
+    w_ref: torch.Tensor,
+    group_size: int,
+    test_perm: Optional[torch.Tensor] = None,
+):
     assert q_w.shape == w_ref.shape
 
     orig_device = q_w.device
     k_size, _ = q_w.shape
 
-    g_idx = torch.zeros((k_size, ), dtype=torch.int32)
+    g_idx = torch.zeros((k_size,), dtype=torch.int32)
     for i in range(k_size):
         g_idx[i] = i // group_size
 
@@ -124,13 +125,16 @@ def permute_rows(q_w: torch.Tensor,
     )
 
 
-def quantize_weights(w: torch.Tensor,
-                     quant_type: ScalarType,
-                     group_size: int,
-                     zero_points: bool = False,
-                     ref_zero_points_after_scales: bool = False):
-    assert quant_type.is_integer(), \
-        "Floating point quantization may work but has not been tested"
+def quantize_weights(
+    w: torch.Tensor,
+    quant_type: ScalarType,
+    group_size: int,
+    zero_points: bool = False,
+    ref_zero_points_after_scales: bool = False,
+):
+    assert (
+        quant_type.is_integer()
+    ), "Floating point quantization may work but has not been tested"
 
     orig_device = w.device
     orig_type = w.dtype
@@ -158,14 +162,16 @@ def quantize_weights(w: torch.Tensor,
     if zero_points:
         assert not quant_type.is_signed() and quant_type.max() > 0
         w_s = (max_val - min_val).clamp(min=1e-5) / quant_type.max()
-        maybe_w_zp = torch.round(torch.abs(min_val / w_s)) \
-            .clamp(min_q_val, max_q_val).int()
+        maybe_w_zp = (
+            torch.round(torch.abs(min_val / w_s)).clamp(min_q_val, max_q_val).int()
+        )
     else:
         # If the bias is such that there are no possible negative/positive
         #  values, set the max value to inf to avoid divide by 0
         w_s = torch.max(
             abs(max_val / (max_q_val if max_q_val != 0 else torch.inf)),
-            abs(min_val / (min_q_val if min_q_val != 0 else torch.inf)))
+            abs(min_val / (min_q_val if min_q_val != 0 else torch.inf)),
+        )
         maybe_w_zp = None
 
     # Quantize
@@ -210,16 +216,19 @@ def quantize_weights(w: torch.Tensor,
     )
 
 
-def gptq_quantize_weights(w: torch.Tensor,
-                          quant_type: ScalarType,
-                          group_size: int,
-                          act_order: bool,
-                          test_perm: Optional[torch.Tensor] = None):
+def gptq_quantize_weights(
+    w: torch.Tensor,
+    quant_type: ScalarType,
+    group_size: int,
+    act_order: bool,
+    test_perm: Optional[torch.Tensor] = None,
+):
     size_k, _ = w.shape
 
     assert w.is_floating_point(), "w must be float"
-    assert quant_type in SUPPORTED_GPTQ_QUANT_TYPES, \
-        f"Unsupported gptq type = {quant_type}"
+    assert (
+        quant_type in SUPPORTED_GPTQ_QUANT_TYPES
+    ), f"Unsupported gptq type = {quant_type}"
     assert group_size in SUPPORTED_GROUP_SIZES + [
         size_k
     ], f"Unsupported groupsize = {group_size}"
@@ -233,10 +242,10 @@ def gptq_quantize_weights(w: torch.Tensor,
         assert (
             group_size < size_k
         ), "For act_order, groupsize = {} must be less than size_k = {}".format(
-            group_size, size_k)
+            group_size, size_k
+        )
 
-        w_ref, w_q, g_idx, rand_perm = permute_rows(w_q, w_ref, group_size,
-                                                    test_perm)
+        w_ref, w_q, g_idx, rand_perm = permute_rows(w_q, w_ref, group_size, test_perm)
 
     return w_ref, w_q, w_s, g_idx, rand_perm
 
@@ -248,8 +257,9 @@ def qqq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int):
     size_k, size_n = w.shape
 
     assert w.is_floating_point(), "w must be float"
-    assert num_bits in MARLIN_QQQ_SUPPORTED_NUM_BITS, \
-           f"Unsupported num_bits = {num_bits}"
+    assert (
+        num_bits in MARLIN_QQQ_SUPPORTED_NUM_BITS
+    ), f"Unsupported num_bits = {num_bits}"
     assert group_size in SUPPORTED_GROUP_SIZES + [
         size_k
     ], f"Unsupported groupsize = {group_size}"
@@ -296,10 +306,11 @@ def qqq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int):
         s_channel = s_channel.reshape(1, -1).to(dtype=torch.float)
 
         # Fuse scales
-        s_group = (s_group.reshape(-1, size_n).contiguous() /
-                   s_channel).to(dtype=torch.half)
+        s_group = (s_group.reshape(-1, size_n).contiguous() / s_channel).to(
+            dtype=torch.half
+        )
     else:
-        max_q_val = 2**(num_bits - 1) - 1
+        max_q_val = 2 ** (num_bits - 1) - 1
 
         # Compute scale for each channel
         s_channel = torch.max(torch.abs(w), 0, keepdim=True)[0]
@@ -313,7 +324,7 @@ def qqq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int):
 
         s_group = torch.tensor([], dtype=torch.half)
         # div 2 ** (8 - self.bits)) to offset right shift in unpacking
-        s_channel /= (2**(8 - num_bits))
+        s_channel /= 2 ** (8 - num_bits)
         s_channel = s_channel.reshape(-1, size_n).contiguous().to(torch.float)
 
     return (
@@ -327,8 +338,7 @@ def qqq_quantize_weights(w: torch.Tensor, num_bits: int, group_size: int):
 def sort_weights(q_w: torch.Tensor, g_idx: torch.Tensor):
     orig_device = q_w.device
 
-    sort_indices = torch.argsort(g_idx).to(
-        dtype=torch.int32)  # Sort based on g_idx
+    sort_indices = torch.argsort(g_idx).to(dtype=torch.int32)  # Sort based on g_idx
 
     g_idx = g_idx[sort_indices].contiguous()
     q_w = q_w[sort_indices, :].contiguous()
@@ -399,9 +409,11 @@ def unpack_cols(
     pack_factor = get_pack_factor(num_bits)
     assert size_n % pack_factor == 0
     assert packed_q_w.shape == (
-        size_k, size_n // pack_factor
+        size_k,
+        size_n // pack_factor,
     ), "packed_q_w.shape = {} size_k = {}, size_n = {} pack_Factor = {}".format(
-        packed_q_w.shape, size_k, size_n, pack_factor)
+        packed_q_w.shape, size_k, size_n, pack_factor
+    )
 
     orig_device = packed_q_w.device
 
