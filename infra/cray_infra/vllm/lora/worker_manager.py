@@ -22,7 +22,7 @@ from vllm.lora.models import (
 from infra.cray_infra.vllm.tokenformer.tokenformer_model_manager import (
     TokenformerModelManager,
     TokenformerModel, 
-    vLLMTokenformerModelManager
+    TokenformerModelManager
 )
 
 from vllm.lora.request import LoRARequest
@@ -245,7 +245,7 @@ class WorkerTokenformerManager(AbstractWorkerManager):
     Every request, the requested tokenformer model will be loaded (unless it is already
     loaded)"""
 
-    _manager_cls: Type[TokenformerModelManager] = vLLMTokenformerModelManager
+    _manager_cls: Type[TokenformerModelManager] = TokenformerModelManager
     
     def __init__(
         self,
@@ -255,7 +255,7 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         self._tokenformer_model_cls = tokenformer_model_cls
         super().__init__(device)
         # Lazily initialized by create_tokenformer_manager.
-        self._adapter_manager: vLLMTokenformerModelManager
+        self._adapter_manager: TokenformerModelManager
     
     @property
     def is_enabled(self) -> bool:
