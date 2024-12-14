@@ -9,14 +9,14 @@ commands:
   help: Build image from dockerfile
   args:
     - name: target
-      allowed: ["cpu", "nvidia"]
+      allowed: ["cpu", "nvidia", "arm", "amd"]
       default: "cpu"
 
 - name: depot-build
   help: Build image from dockerfile and push to depot
   args:
     - name: target
-      allowed: ["cpu", "nvidia"]
+      allowed: ["cpu", "nvidia", "arm", "amd"]
       default: "cpu"
 
 - name: up
