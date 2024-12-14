@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import torch
 from torch import nn
 from typing import Optional, Any, Dict
@@ -43,7 +44,29 @@ class TokenformerAttentionAdapter(nn.Module):
         self.tokenformer_k = nn.Parameter(torch.randn(hidden_size, hidden_size))
         self.tokenformer_v = nn.Parameter(torch.zeros(hidden_size, hidden_size))
 
-    # Call layer with all inputs and kwargs
+    def forward(
+        self,
+        query,
+        base_layer_results
+    ) -> torch.Tensor:
+
+        tokenformer_results = torch.nn.functional.scaled_dot_product_attention(
+            query=query, 
+            key=self.tokenformer_k, 
+            value=self.tokenformer_v,
+            attn_mask=None,
+            dropout_p=0.0,
+            is_causal=False # should be false for tokenformer
+        )
+        
+        # sum the two outputs
+        layer_and_adaptor_sum = base_layer_results + tokenformer_results
+        return layer_and_adaptor_sum   
+    
+class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
+    def __init__(self, layer, hidden_size):
+        super().__init__(layer, hidden_size)
+        
     def forward(
         self,
         query,
@@ -60,18 +83,23 @@ class TokenformerAttentionAdapter(nn.Module):
                                         attn_metadata=attn_metadata, 
                                         attn_type=attn_type)
         
-        tokenformer_results = torch.nn.functional.scaled_dot_product_attention(
-            query=query, 
-            key=self.tokenformer_k, 
-            value=self.tokenformer_v,
-            attn_mask=None,
-            dropout_p=0.0,
-            is_causal=False # should be false for tokenformer
-        )
+        return super().forward(query, base_layer_results)
+    
+class TransformersTokenformerAttentionAdapter(TokenformerAttentionAdapter):
+    def __init__(self, layer, hidden_size):
+        super().__init__(layer, hidden_size)
         
-        # sum the two outputs
-        layer_and_adaptor_sum = base_layer_results + tokenformer_results
-        return layer_and_adaptor_sum    
+    def forward(self, query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False
+    ) -> torch.Tensor:
+        base_layer_results = self.layer(query=query, 
+                                        key=key, 
+                                        value=value, 
+                                        attn_mask=attn_mask,
+                                        dropout_p=dropout_p,
+                                        is_causal=is_causal)
+        
+        return super().forward(query, base_layer_results)
+    
 
 class TokenformerModel(AdapterModel):
     """A tokenformer pre-trained model."""
@@ -139,6 +167,27 @@ class TokenformerModelManager(AdapterModelManager):
         # Wrap the layer with a TokenformerMLPAdapter
         self._recursive_setattr(model, name, TokenformerMLPAdapter(layer, model.config.hidden_size))
 
+    @abstractmethod
+    def _try_to_update_attn(self, name, layer, model):
+        pass
+    
+    def _insert_tokenformer_adapter_modules(self): 
+        # Add tokenformer adapters for mlp and attention
+        for name, layer in self.model.named_modules():
+            self._try_to_update_mlp(name, layer, self.model)
+            self._try_to_update_attn(name, layer, self.model)
+
+
+class vLLMTokenformerModelManager(AdapterModelManager):
+    """A manager that manages tokenformer models."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+    ):
+        super().__init__(model)
+
+
     def _try_to_update_attn(self, name, layer, model):
         """Try to wrap the layer with a TokenformerAttentionAdaptor."""
         if not self._is_attn_layer(name):
@@ -147,13 +196,7 @@ class TokenformerModelManager(AdapterModelManager):
         logger.info(f"Wrapping layer {name} with TokenformerAttentionAdaptor")
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(model, name, TokenformerAttentionAdapter(layer, model.config.hidden_size))
-
-    def _insert_tokenformer_adapter_modules(self): 
-        # Add tokenformer adapters for mlp and attention
-        for name, layer in self.model.named_modules():
-            self._try_to_update_mlp(name, layer, self.model)
-            self._try_to_update_attn(name, layer, self.model)
+        self._recursive_setattr(model, name, vLLMTokenformerAttentionAdapter(layer, model.config.hidden_size))
 
     @property
     def capacity(self) -> int:
@@ -192,3 +235,58 @@ class TokenformerModelManager(AdapterModelManager):
         pass
 
 
+class TransformersTokenformerModelManager(AdapterModelManager):
+    """A manager that manages tokenformer models."""
+
+    def __init__(
+        self,
+        model: nn.Module,
+    ):
+        super().__init__(model)
+
+
+    def _try_to_update_attn(self, name, layer, model):
+        """Try to wrap the layer with a TokenformerAttentionAdaptor."""
+        if not self._is_attn_layer(name):
+            return
+
+        logger.info(f"Wrapping layer {name} with TokenformerAttentionAdaptor")
+
+        # Wrap the layer with a TokenformerAttentionAdapter
+        self._recursive_setattr(model, name, TransformersTokenformerAttentionAdapter(layer, model.config.intermediate_size))
+        
+    @property
+    def capacity(self) -> int:
+        pass
+
+    @property
+    def adapter_slots(self) -> int:
+        return self.lora_config.max_loras
+
+
+    def activate_adapter(self, adapter_id: int) -> bool:
+        pass
+
+    def deactivate_adapter(self, adapter_id: int) -> bool:
+        pass
+
+    def add_adapter(self, adapter: TokenformerModel) -> bool:
+        pass
+
+    def set_adapter_mapping(self, mapping: Any) -> None:
+        pass
+
+    def remove_adapter(self, adapter_id: int) -> bool:
+        pass
+
+    def remove_all_adapters(self) -> None:
+        pass
+
+    def get_adapter(self, adapter_id: int) -> Optional[Any]:
+        pass
+
+    def list_adapters(self) -> Dict[int, Any]:
+        pass
+
+    def pin_adapter(self, adapter_id: int) -> bool:
+        pass

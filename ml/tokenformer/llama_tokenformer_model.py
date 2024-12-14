@@ -1,5 +1,5 @@
 from ml.tokenformer.llama_tokenformer_layers import LlamaTokenformerDecoderLayer
-from infra.cray_infra.vllm.tokenformer.tokenformer_model_manager import TokenformerModelManager
+from infra.cray_infra.vllm.tokenformer.tokenformer_model_manager import TransformersTokenformerModelManager
 import logging
 
 logger = logging.getLogger(__name__)
@@ -14,7 +14,7 @@ def replace_layers(model, custom_layer_class):
 
 def create_llama_tokenformer_model(model):
     model = replace_layers(model, LlamaTokenformerDecoderLayer)
-    tokenformer_model_manager = TokenformerModelManager(model)
+    tokenformer_model_manager = TransformersTokenformerModelManager(model)
     tokenformer_model = tokenformer_model_manager.model
     # Set requires_grad to False for all parameters in the model
     for param in tokenformer_model.parameters():
