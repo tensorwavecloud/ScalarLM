@@ -21,8 +21,7 @@ from vllm.lora.models import (
 
 from infra.cray_infra.vllm.tokenformer.tokenformer_model_manager import (
     TokenformerModelManager,
-    TokenformerModel, 
-    TokenformerModelManager
+    TokenformerModel,
 )
 
 from vllm.lora.request import LoRARequest
