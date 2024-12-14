@@ -35,7 +35,7 @@ async def train(request: Request):
     training_data_path, params = await upload_training_data(request)
 
     try:
-        train_args = json.loads(params)
+        train_args = params
 
         logger.info(f"Training args: {train_args}")
     except Exception as e:
@@ -92,7 +92,7 @@ async def upload_training_data(request: Request):
 
         file_hash = get_file_hash(temp_filepath)
 
-        train_args = params.value
+        train_args = json.loads(params.value)
 
         job_directory = get_job_directory(train_args)
 
