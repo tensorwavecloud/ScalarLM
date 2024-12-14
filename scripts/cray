@@ -73,7 +73,7 @@ cray_build_image_usage() {
     # :argument.usage
     printf "  %s\n" "TARGET"
     printf "\n"
-    printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Allowed: cpu, nvidia, arm, amd"
     printf "    %s\n" "Default: cpu"
     echo
 
@@ -104,7 +104,7 @@ cray_depot_build_usage() {
     # :argument.usage
     printf "  %s\n" "TARGET"
     printf "\n"
-    printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Allowed: cpu, nvidia, arm, amd"
     printf "    %s\n" "Default: cpu"
     echo
 
@@ -365,6 +365,9 @@ cray_build_image_command() {
   if [ "$target" == "cpu" ]; then
       vllm_target_device=("cpu")
       docker_platform=("linux/arm64/v8")
+  elif [ "$target" == "amd" ]; then
+      vllm_target_device=("rocm")
+      docker_platform=("linux/amd64")
   else
       vllm_target_device=("cuda")
       docker_platform=("linux/amd64")
@@ -394,6 +397,12 @@ cray_depot_build_command() {
   # If target is cpu, build the image with the cpu base image
   if [ "$target" == "cpu" ]; then
       vllm_target_device=("cpu")
+      docker_platform=("linux/amd64")
+  elif [ "$target" == "arm" ]; then
+      vllm_target_device=("cpu")
+      docker_platform=("linux/arm64/v8")
+  elif [ "$target" == "amd" ]; then
+      vllm_target_device=("rocm")
       docker_platform=("linux/amd64")
   else
       vllm_target_device=("cuda")
@@ -723,8 +732,8 @@ cray_build_image_parse_requirements() {
   [[ -n ${args['target']:-} ]] || args['target']="cpu"
 
   # :command.whitelist_filter
-  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then
-    printf "%s\n" "target must be one of: cpu, nvidia" >&2
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia|arm|amd)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia, arm, amd" >&2
     exit 1
   fi
 
@@ -783,8 +792,8 @@ cray_depot_build_parse_requirements() {
   [[ -n ${args['target']:-} ]] || args['target']="cpu"
 
   # :command.whitelist_filter
-  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then
-    printf "%s\n" "target must be one of: cpu, nvidia" >&2
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia|arm|amd)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia, arm, amd" >&2
     exit 1
   fi
 

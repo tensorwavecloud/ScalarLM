@@ -11,6 +11,8 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN python -m venv $VIRTUAL_ENV
 RUN . $VIRTUAL_ENV/bin/activate
 
+ENV MAX_JOBS=8
+
 # Put HPC-X MPI in the PATH, i.e. mpirun
 ENV PATH=/opt/hpcx/ompi/bin:$PATH
 ENV LD_LIBRARY_PATH=/opt/hpcx/ompi/lib:$LD_LIBRARY_PATH
@@ -34,10 +36,23 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV
 RUN . $VIRTUAL_ENV/bin/activate
 
+ENV MAX_JOBS=8
+
 ARG TORCH_VERSION="2.4.0"
 
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.org/whl/cpu
+
+###############################################################################
+# AMD BASE IMAGE
+FROM rocm/pytorch@sha256:402c9b4f1a6b5a81c634a1932b56cbe01abb699cfcc7463d226276997c6cf8ea AS amd
+
+ENV PATH="/opt/conda/envs/py_3.10/bin:$PATH"
+ENV CONDA_PREFIX=/opt/conda/envs/py_3.10
+
+ENV MAX_JOBS=4
+
+RUN pip install uv
 
 ###############################################################################
 # VLLM BUILD STAGE
@@ -77,8 +92,8 @@ ARG VLLM_TARGET_DEVICE=cpu
 # Build vllm python package
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/ccache \
-    MAX_JOBS=8 TORCH_CUDA_ARCH_LIST="7.5 8.6" VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
-    python3 ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
+    MAX_JOBS=${MAX_JOBS} TORCH_CUDA_ARCH_LIST="7.5 8.6" VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
+    python ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
     pip install ${INSTALL_ROOT}/infra/cray_infra/dist/*.whl && \
     rm -rf ${INSTALL_ROOT}/infra/cray_infra/dist
 

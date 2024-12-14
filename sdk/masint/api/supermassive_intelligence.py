@@ -24,6 +24,9 @@ class SupermassiveIntelligence:
     def health(self):
         return asyncio.run(self.async_api.health())
 
+    def learn_classes(self, classes):
+        return asyncio.run(self.async_api.learn_classes(classes=classes))
+
     def learn_docs(self, docs):
         return asyncio.run(self.async_api.learn_docs(docs=docs))
 
