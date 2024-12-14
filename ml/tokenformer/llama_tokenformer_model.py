@@ -1,5 +1,5 @@
-from ml.tokenformer.llama_tokenformer_layers import LlamaTokenformerDecoderLayer
-from ml.tokenformer.tokenformer_surgeon import TransformersTokenformerSurgeon
+from tokenformer.llama_tokenformer_layers import LlamaTokenformerDecoderLayer
+from tokenformer.transformers_tokenformer import TransformersTokenformerSurgeon
 import logging
 
 logger = logging.getLogger(__name__)

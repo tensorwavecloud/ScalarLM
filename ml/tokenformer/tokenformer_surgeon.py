@@ -1,8 +1,6 @@
 from abc import abstractmethod, ABC
 import torch
 from torch import nn
-from typing import Optional
-from infra.cray_infra.vllm.attention import AttentionMetadata, AttentionType
 import logging
 
 logger = logging.getLogger(__name__)
@@ -61,43 +59,6 @@ class TokenformerAttentionAdapter(nn.Module):
         layer_and_adaptor_sum = base_layer_results + tokenformer_results
         return layer_and_adaptor_sum   
     
-class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
-    def __init__(self, layer, hidden_size):
-        super().__init__(layer, hidden_size)
-        
-    def forward(
-        self,
-        query,
-        key,
-        value,
-        kv_cache: Optional[torch.Tensor],
-        attn_metadata: AttentionMetadata,
-        attn_type: AttentionType = AttentionType.DECODER,
-    ) -> torch.Tensor:
-        base_layer_results = self.layer(query=query, 
-                                        key=key, 
-                                        value=value, 
-                                        kv_cache=kv_cache, 
-                                        attn_metadata=attn_metadata, 
-                                        attn_type=attn_type)
-        
-        return super().forward(query, base_layer_results)
-    
-class TransformersTokenformerAttentionAdapter(TokenformerAttentionAdapter):
-    def __init__(self, layer, hidden_size):
-        super().__init__(layer, hidden_size)
-        
-    def forward(self, query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False
-    ) -> torch.Tensor:
-        base_layer_results = self.layer(query=query, 
-                                        key=key, 
-                                        value=value, 
-                                        attn_mask=attn_mask,
-                                        dropout_p=dropout_p,
-                                        is_causal=is_causal)
-        
-        return super().forward(query, base_layer_results)
-    
     
 class TokenformerSurgeon(ABC):
     
@@ -138,44 +99,5 @@ class TokenformerSurgeon(ABC):
             self._try_to_update_attn(name, layer)
         
         return self.model
-    
 
-class vLLMTokenformerSurgeon(TokenformerSurgeon):
-    
-    def __init__(
-        self,
-        model: nn.Module,
-    ):
-        super().__init__(model)
-
-
-    def _try_to_update_attn(self, name, layer):
-        """Try to wrap the layer with a TokenformerAttentionAdaptor."""
-        if not self._is_attn_layer(name):
-            return
-
-        logger.info(f"Wrapping layer {name} with TokenformerAttentionAdaptor")
-
-        # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, self.model.config.hidden_size))
-
-class TransformersTokenformerSurgeon(TokenformerSurgeon):
-    
-    def __init__(
-        self,
-        model: nn.Module,
-    ):
-        super().__init__(model)
-
-
-    def _try_to_update_attn(self, name, layer):
-        """Try to wrap the layer with a TokenformerAttentionAdaptor."""
-        if not self._is_attn_layer(name):
-            return
-
-        logger.info(f"Wrapping layer {name} with TokenformerAttentionAdaptor")
-
-        # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, TransformersTokenformerAttentionAdapter(layer, self.model.config.intermediate_size))
-        
         

@@ -1,11 +1,52 @@
-from abc import abstractmethod, ABC
 import torch
 from torch import nn
 from typing import Optional, Any, Dict
 from infra.cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 import os
-from ml.tokenformer.tokenformer_surgeon import vLLMTokenformerSurgeon
+from ml.tokenformer.tokenformer_surgeon import TokenformerSurgeon, TokenformerAttentionAdapter
 from vllm.model_executor.models import SupportsLoRA
+from infra.cray_infra.vllm.attention import AttentionMetadata, AttentionType
+
+
+class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
+    def __init__(self, layer, hidden_size):
+        super().__init__(layer, hidden_size)
+        
+    def forward(
+        self,
+        query,
+        key,
+        value,
+        kv_cache: Optional[torch.Tensor],
+        attn_metadata: AttentionMetadata,
+        attn_type: AttentionType = AttentionType.DECODER,
+    ) -> torch.Tensor:
+        base_layer_results = self.layer(query=query, 
+                                        key=key, 
+                                        value=value, 
+                                        kv_cache=kv_cache, 
+                                        attn_metadata=attn_metadata, 
+                                        attn_type=attn_type)
+        
+        return super().forward(query, base_layer_results)
+    
+class vLLMTokenformerSurgeon(TokenformerSurgeon):
+    
+    def __init__(
+        self,
+        model: nn.Module,
+    ):
+        super().__init__(model)
+
+
+    def _try_to_update_attn(self, name, layer):
+        """Try to wrap the layer with a TokenformerAttentionAdaptor."""
+        if not self._is_attn_layer(name):
+            return
+
+        # Wrap the layer with a TokenformerAttentionAdapter
+        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, self.model.config.hidden_size))
+
 
 class TokenformerModel(AdapterModel):
     """A tokenformer pre-trained model."""
