@@ -2,6 +2,7 @@ import dataclasses
 import weakref
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from vllm.model_executor.models import supports_lora
 
 import torch
 from torch import nn
@@ -34,6 +35,7 @@ from vllm.worker.model_runner_base import (
     _init_attn_metadata_from_tensor_dict,
     _init_sampling_metadata_from_tensor_dict,
 )
+from vllm.lora.worker_manager import WorkerTokenformerManager
 
 if TYPE_CHECKING:
     from vllm.attention.backends.abstract import AttentionBackend
@@ -484,6 +486,18 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             scheduler_config=self.scheduler_config,
             cache_config=self.cache_config,
         )
+
+        if self.lora_config:
+            assert supports_lora(
+                self.model
+            ), f"{self.model.__class__.__name__} does not support LoRA yet."
+            
+            self.tokenformer_manager = WorkerTokenformerManager(
+                    self.lora_config,
+                    self.device,
+                )
+            logger.info("Creating Tokenformer model...")
+            self.model = self.tokenformer_manager.create_tokenformer_manager(self.model).to(self.model_config.dtype)
 
     def make_model_input_from_broadcasted_tensor_dict(
         self,

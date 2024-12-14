@@ -18,6 +18,13 @@ from vllm.lora.models import (
     LRUCacheLoRAModelManager,
     create_lora_manager,
 )
+
+from infra.cray_infra.vllm.tokenformer.tokenformer_model_manager import (
+    TokenformerModelManager,
+    TokenformerModel, 
+    TokenformerModelManager
+)
+
 from vllm.lora.request import LoRARequest
 from vllm.lora.utils import get_adapter_absolute_path
 
@@ -230,3 +237,53 @@ class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
             )
         self._adapter_manager.activate_adapter(lora_request.lora_int_id)
         return loaded
+
+class WorkerTokenformerManager(AbstractWorkerManager):
+    
+    """WorkerTokenformerManager that manages tokenformer models on the worker side.
+
+    Every request, the requested tokenformer model will be loaded (unless it is already
+    loaded)"""
+
+    _manager_cls: Type[TokenformerModelManager] = TokenformerModelManager
+    
+    def __init__(
+        self,
+        device: torch.device,
+        tokenformer_model_cls: Type[TokenformerModel] = TokenformerModel,
+    ):
+        self._tokenformer_model_cls = tokenformer_model_cls
+        super().__init__(device)
+        # Lazily initialized by create_tokenformer_manager.
+        self._adapter_manager: TokenformerModelManager
+    
+    @property
+    def is_enabled(self) -> bool:
+        pass
+
+    def set_active_adapters(self, requests: Set[Any],
+                            mapping: Optional[Any]) -> None:
+        pass
+
+    def add_adapter(self, adapter_request: Any) -> bool:
+        return self._adapter_manager.add_adapter(None)
+
+    def remove_adapter(self, adapter_id: int) -> bool:
+        pass
+
+    def remove_all_adapters(self) -> None:
+        pass
+
+    def list_adapters(self) -> Set[int]:
+        pass
+    
+    def create_tokenformer_manager(
+        self,
+        model: torch.nn.Module,
+    ) -> Any:
+        
+        tokenformer_manager = self._manager_cls(
+            model=model)
+        
+        self._adapter_manager = tokenformer_manager
+        return tokenformer_manager.model
