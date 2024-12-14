@@ -37,7 +37,8 @@ set(PYTHON_SUPPORTED_VERSIONS "3.8" "3.9" "3.10" "3.11" "3.12")
 set(CUDA_SUPPORTED_ARCHS "7.0;7.5;8.0;8.6;8.9;9.0")
 
 # Supported AMD GPU architectures.
-set(HIP_SUPPORTED_ARCHS "gfx906;gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100")
+#set(HIP_SUPPORTED_ARCHS "gfx906;gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100")
+set(HIP_SUPPORTED_ARCHS "gfx1100")
 
 #
 # Supported/expected torch versions for CUDA/ROCm.
@@ -204,8 +205,8 @@ set(VLLM_EXT_SRC
   "csrc/pos_encoding_kernels.cu"
   "csrc/activation_kernels.cu"
   "csrc/layernorm_kernels.cu"
-  "csrc/quantization/gptq/q_gemm.cu"
-  "csrc/quantization/compressed_tensors/int8_quant_kernels.cu"
+#  "csrc/quantization/gptq/q_gemm.cu"
+#  "csrc/quantization/compressed_tensors/int8_quant_kernels.cu"
   "csrc/quantization/fp8/common.cu"
   "csrc/cuda_utils_kernels.cu"
   "csrc/moe_align_block_size_kernels.cu"
@@ -234,9 +235,9 @@ if(VLLM_GPU_LANG STREQUAL "CUDA")
   list(APPEND VLLM_EXT_SRC
     "csrc/mamba/mamba_ssm/selective_scan_fwd.cu"
     "csrc/mamba/causal_conv1d/causal_conv1d.cu"
-    "csrc/quantization/aqlm/gemm_kernels.cu"
-    "csrc/quantization/awq/gemm_kernels.cu"
-    "csrc/quantization/gguf/gguf_kernel.cu"
+#    "csrc/quantization/aqlm/gemm_kernels.cu"
+#    "csrc/quantization/awq/gemm_kernels.cu"
+#    "csrc/quantization/gguf/gguf_kernel.cu"
     "csrc/custom_all_reduce.cu"
     "csrc/permute_cols.cu"
     "csrc/quantization/cutlass_w8a8/scaled_mm_entry.cu")

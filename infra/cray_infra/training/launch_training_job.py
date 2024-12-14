@@ -3,6 +3,7 @@ from cray_infra.util.get_config import get_config
 import json
 import os
 import yaml
+import time
 import subprocess
 import datetime
 import re
@@ -15,6 +16,7 @@ logger = logging.getLogger(__name__)
 
 
 async def launch_training_job(train_args: Dict):
+    await wait_for_slurm()
 
     if job_already_exists(train_args):
         logging.info(f"Job already exists: {job_directory}")
@@ -26,11 +28,23 @@ async def launch_training_job(train_args: Dict):
 
     return get_existing_job_info(train_args)
 
+async def wait_for_slurm():
+    config = get_config()
+
+    # wait up to 30 seconds for slurm to be ready
+    start_time = time.time()
+
+    while time.time() - start_time < config.get("slurm_wait_time", 30):
+        try:
+            subprocess.run(["squeue"], check=True)
+            return
+        except subprocess.CalledProcessError:
+            time.sleep(1)
 
 def job_already_exists(train_args: Dict):
     config = get_config()
 
-    train_args_path = os.path.join(train_args["job_directory"], "config.yaml")
+    train_args_path = os.path.join(train_args["job_directory"], "status.json")
 
     return os.path.exists(train_args_path)
 

@@ -9,6 +9,12 @@ declare -a docker_platform
 if [ "$target" == "cpu" ]; then
     vllm_target_device=("cpu")
     docker_platform=("linux/amd64")
+elif [ "$target" == "arm" ]; then
+    vllm_target_device=("cpu")
+    docker_platform=("linux/arm64/v8")
+elif [ "$target" == "amd" ]; then
+    vllm_target_device=("rocm")
+    docker_platform=("linux/amd64")
 else
     vllm_target_device=("cuda")
     docker_platform=("linux/amd64")

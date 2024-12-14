@@ -450,7 +450,7 @@ def get_requirements() -> List[str]:
             modified_requirements.append(req)
         requirements = modified_requirements
     elif _is_hip():
-        requirements = _read_requirements("requirements-rocm.txt")
+        requirements = _read_requirements("requirements.txt")
     elif _is_neuron():
         requirements = _read_requirements("requirements-neuron.txt")
     elif _is_openvino():
