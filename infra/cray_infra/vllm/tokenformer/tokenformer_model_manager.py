@@ -5,6 +5,7 @@ from typing import Optional, Any, Dict
 from infra.cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 import os
 from ml.tokenformer.tokenformer_surgeon import vLLMTokenformerSurgeon
+from vllm.model_executor.models import SupportsLoRA
 
 class TokenformerModel(AdapterModel):
     """A tokenformer pre-trained model."""
@@ -42,7 +43,7 @@ class TokenformerModelManager(AdapterModelManager):
 
     def __init__(
         self,
-        model: nn.Module,
+        model: SupportsLoRA,
     ):
         self.model = vLLMTokenformerSurgeon(model).insert_adapter_modules()
         self.tokenformer_model_cls = TokenformerModel
