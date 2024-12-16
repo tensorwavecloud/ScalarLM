@@ -19,7 +19,7 @@ async def launch_training_job(train_args: Dict):
     await wait_for_slurm()
 
     if job_already_exists(train_args):
-        logging.info(f"Job already exists: {job_directory}")
+        logging.info(f"Job already exists: {train_args['job_directory']}")
         return get_existing_job_info(train_args)
 
     make_training_directory(train_args)

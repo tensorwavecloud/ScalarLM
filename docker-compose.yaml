@@ -13,8 +13,8 @@ services:
            #   source: ./models
            #   target: /root/.cache/huggingface
             - type: bind
-              source: ./infra
-              target: /app/cray/infra
+              source: ./infra/cray_config
+              target: /app/cray/infra/cray_config
             - type: bind
               source: ./scripts
               target: /app/cray/scripts

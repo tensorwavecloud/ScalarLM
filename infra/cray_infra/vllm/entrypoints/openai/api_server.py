@@ -174,6 +174,7 @@ async def async_completion_task(request, app):
         model=request["model"],
         prompt=request["prompt"],
         max_tokens=request["max_tokens"],
+        temperature=0.0,
     )
 
     raw_request = Request(
