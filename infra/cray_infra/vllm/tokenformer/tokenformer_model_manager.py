@@ -6,7 +6,9 @@ import os
 from ml.tokenformer.tokenformer_surgeon import TokenformerSurgeon, TokenformerAttentionAdapter
 from vllm.model_executor.models import SupportsLoRA
 from infra.cray_infra.vllm.attention import AttentionMetadata, AttentionType
+from vllm.logger import init_logger
 
+logger = init_logger(__name__)
 
 class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
     def __init__(self, layer, hidden_size):
@@ -74,7 +76,7 @@ class TokenformerModel(AdapterModel):
 
         tokenformers = {}
         for key, tensor in tensors.items():
-            if isinstance(tensor, torch.Tensor) and "tokenformer" in key:
+            if isinstance(tensor, torch.Tensor) and ("tokenformer" in key or "lm_head" in key):
                 tokenformers[key] = nn.Parameter(tensor)
         
         return cls(tokenformers)
@@ -87,6 +89,7 @@ class TokenformerModelManager(AdapterModelManager):
         model: SupportsLoRA,
     ):
         self.model = vLLMTokenformerSurgeon(model).insert_adapter_modules()
+        self._registered_adapters = Dict[int, Any]
         self.tokenformer_model_cls = TokenformerModel
     
     @property
@@ -105,7 +108,7 @@ class TokenformerModelManager(AdapterModelManager):
         pass
 
     def add_adapter(self, adapter: TokenformerModel) -> bool:
-        pass
+        self._registered_adapters[adapter.id] = adapter
 
     def set_adapter_mapping(self, mapping: Any) -> None:
         pass
@@ -120,7 +123,7 @@ class TokenformerModelManager(AdapterModelManager):
         pass
 
     def list_adapters(self) -> Dict[int, Any]:
-        pass
+        return self._registered_adapters
 
     def pin_adapter(self, adapter_id: int) -> bool:
         pass

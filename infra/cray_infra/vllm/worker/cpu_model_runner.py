@@ -576,6 +576,13 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             raise ValueError("CPU worker does not support multi-step execution.")
 
         model_executable = self.model
+        
+        if self.lora_config:
+            assert model_input.lora_requests is not None
+            for lora_request in model_input.lora_requests:
+                self.tokenformer_manager.add_adapter(lora_request)
+            model_executable = self.tokenformer_manager._adapter_manager.model
+
         execute_model_kwargs = {
             "input_ids": model_input.input_tokens,
             "positions": model_input.input_positions,
