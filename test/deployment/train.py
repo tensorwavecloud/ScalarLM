@@ -11,7 +11,7 @@ def get_dataset():
 
     for i in range(count):
         dataset.append(
-            {"input": f"What is {i} + {i}", "output": "The answer is " + str(i + i)}
+            {"input": f"What is {i} + {i}? ", "output": "The answer is " + str(i + i)}
         )
 
     return dataset
@@ -21,6 +21,6 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-status = llm.train(dataset, train_args={"max_steps": 52})
+status = llm.train(dataset, train_args={"max_steps": 300})
 
 print(status)

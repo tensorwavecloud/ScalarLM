@@ -8,10 +8,10 @@ import masint
 def get_dataset():
     dataset = []
 
-    count = 1000
+    count = 1
 
     for i in range(count):
-        dataset.append(f"What is {i} + {i}?")
+        dataset.append(f"What is {i} + {i}? ")
 
     return dataset
 
