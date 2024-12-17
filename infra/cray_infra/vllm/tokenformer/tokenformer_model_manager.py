@@ -33,11 +33,12 @@ class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
                                         attn_metadata=attn_metadata, 
                                         attn_type=attn_type)
         
-        modify_query = torch.reshape(query, [1, self.layer.num_heads, -1, self.layer.head_dim])
-        modify_base_layer_results = torch.reshape(base_layer_results, [1, self.layer.num_heads, -1, self.layer.head_dim])
-        result = super().forward(modify_query, modify_base_layer_results)
-        reshaped_result = torch.reshape(result, [-1, self.layer.num_heads * self.layer.head_dim])
-        return reshaped_result
+        seq_len = query.shape[0]
+        new_shape = [-1, self.layer.num_heads, seq_len, self.layer.head_dim]
+        reshaped_query = torch.reshape(query, new_shape)
+        reshaped_base_layer_results = torch.reshape(base_layer_results, new_shape)
+        result = super().forward(reshaped_query, reshaped_base_layer_results)
+        return torch.reshape(result, [-1, self.layer.num_heads * self.layer.head_dim])
     
 class vLLMTokenformerSurgeon(TokenformerSurgeon):
     

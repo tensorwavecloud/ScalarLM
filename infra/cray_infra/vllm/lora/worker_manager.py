@@ -265,6 +265,8 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         pass
 
     def add_adapter(self, adapter_request: Any) -> bool:
+        if adapter_request is None:
+            return False
         return add_adapter_worker(adapter_request, 
                                   self.list_adapters, 
                                   self._load_adapter, 
