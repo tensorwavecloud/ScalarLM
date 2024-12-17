@@ -1,11 +1,13 @@
 import torch
 from torch import nn
-from typing import Optional, Any, Dict
+import safetensors.torch
+from typing import Optional, Any, Dict, List
 from infra.cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 import os
 from ml.tokenformer.tokenformer_surgeon import TokenformerSurgeon, TokenformerAttentionAdapter
 from vllm.model_executor.models import SupportsLoRA
 from infra.cray_infra.vllm.attention import AttentionMetadata, AttentionType
+from vllm.lora.models import get_lora_id
 from vllm.logger import init_logger
 
 logger = init_logger(__name__)
@@ -55,29 +57,19 @@ class TokenformerModel(AdapterModel):
 
     def __init__(
         self,
-        tokenformers: Dict[str, nn.Parameter],
+        tokenformers: Dict[str, torch.Tensor]
     ) -> None:
-        super().__init__()
-        self.tokenformers = nn.ParameterDict(tokenformers)
+        super().__init__(get_lora_id())
+        self.tokenformers = tokenformers
 
     @classmethod
     def from_local_checkpoint(cls, model_dir: str) -> "TokenformerModel":
-        checkpoint_files = [f for f in os.listdir(model_dir) if f.endswith('.pt')]
-        if not checkpoint_files:
-            raise FileNotFoundError(f"No .pt files found in {model_dir}")
-        checkpoint_file = checkpoint_files[0]
-
-        checkpoint_path = os.path.join(model_dir, checkpoint_file)
-
-        if not os.path.exists(checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
-
-        tensors = torch.load(checkpoint_path, map_location=torch.device("cpu"))
-
-        tokenformers = {}
-        for key, tensor in tensors.items():
-            if isinstance(tensor, torch.Tensor) and ("tokenformer" in key or "lm_head" in key):
-                tokenformers[key] = nn.Parameter(tensor)
+        tokenformers: Dict[str, torch.Tensor] = {}
+        tokenformer_tensor_path = os.path.join(model_dir, "model.safetensors")
+        if os.path.isfile(tokenformer_tensor_path):
+            with safetensors.safe_open(tokenformer_tensor_path, framework="pt") as f:
+                for module in f.keys(): 
+                    tokenformers[module] = f.get_tensor(module)
         
         return cls(tokenformers)
 
@@ -89,7 +81,8 @@ class TokenformerModelManager(AdapterModelManager):
         model: SupportsLoRA,
     ):
         self.model = vLLMTokenformerSurgeon(model).insert_adapter_modules()
-        self._registered_adapters = Dict[int, Any]
+        self._registered_adapters: Dict[int, Any] = {}
+        self._active_adapters: List[int] = []
         self.tokenformer_model_cls = TokenformerModel
     
     @property
@@ -102,10 +95,30 @@ class TokenformerModelManager(AdapterModelManager):
 
 
     def activate_adapter(self, adapter_id: int) -> bool:
-        pass
+        if adapter_id in self._active_adapters:
+            return False
+    
+        logger.info("Activating Tokenformer - adapter id: %d", adapter_id)
+        
+        model_state_dict = self.model.state_dict()
+        for k, v in model_state_dict.items():
+            logger.info(f"MODEL_STATE_DICT key: {k}, tensor size: {v.size()}")
+        for id, adapter in self._registered_adapters.items():
+            tokenformers = adapter.tokenformers
+            for key, value in tokenformers.items():
+                logger.info(f"TOKENFORMER key: {key}, tensor size: {value.size()}")
+                model_state_dict[key] = value
+        
+        self.model.load_state_dict(model_state_dict)
+        self._active_adapters.append(adapter_id)
+        return True
 
     def deactivate_adapter(self, adapter_id: int) -> bool:
-        pass
+        if adapter_id not in self._active_adapters:
+            return False
+
+        self._active_adapters.remove(adapter_id)
+        return True
 
     def add_adapter(self, adapter: TokenformerModel) -> bool:
         self._registered_adapters[adapter.id] = adapter

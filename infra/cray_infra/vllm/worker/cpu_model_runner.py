@@ -150,8 +150,9 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
                 attn_metadata,
                 seq_lens,
                 multi_modal_kwargs,
+                lora_requests,
             ) = self._prepare_prompt(self.seq_group_metadata_list)
-            lora_requests = None
+            
         else:
             (input_tokens, input_positions, attn_metadata, lora_requests) = self._prepare_decode(
                 self.seq_group_metadata_list
@@ -219,12 +220,16 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
         input_tokens: List[int] = []
         input_positions: List[int] = []
         input_mrope_positions: List[List[int]] = [[] for _ in range(3)]
+        lora_requests: Set[LoRARequest] = set()
 
         slot_mapping: List[int] = []
         seq_lens: List[int] = []
         multi_modal_inputs_list: List[MultiModalInputs] = []
 
         for seq_group_metadata in seq_group_metadata_list:
+            
+            lora_requests.add(seq_group_metadata.lora_request)
+            
             assert seq_group_metadata.is_prompt
             seq_ids = list(seq_group_metadata.seq_data.keys())
             assert len(seq_ids) == 1
@@ -317,6 +322,7 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
             attn_metadata,
             seq_lens,
             multi_modal_kwargs,
+            lora_requests,
         )
 
     def _prepare_decode(
@@ -503,7 +509,6 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             ), f"{self.model.__class__.__name__} does not support LoRA yet."
             
             self.tokenformer_manager = WorkerTokenformerManager(
-                    self.lora_config,
                     self.device,
                 )
             logger.info("Creating Tokenformer model...")
