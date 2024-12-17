@@ -585,7 +585,7 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         
         if self.lora_config:
             assert model_input.lora_requests is not None
-            for lora_request in model_input.lora_requests:
+            for lora_request in model_input.lora_requests and lora_request is not None:
                 self.tokenformer_manager.add_adapter(lora_request)
             model_executable = self.tokenformer_manager._adapter_manager.model
 
