@@ -1,6 +1,7 @@
 import torch
 from torch import nn
-import safetensors.torch
+from safetensors.torch import safe_open
+from pathlib import Path
 from typing import Optional, Any, Dict, List
 from infra.cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 import os
@@ -57,29 +58,29 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
         # Wrap the layer with a TokenformerAttentionAdapter
         self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, layer.head_dim))
 
-
 class TokenformerModel(AdapterModel):
     """A tokenformer pre-trained model."""
 
-    def __init__(
-        self,
-        tokenformers: Dict[str, torch.Tensor]
-    ) -> None:
+    def __init__(self, tokenformers: Dict[str, torch.Tensor]) -> None:
         super().__init__(get_lora_id())
         self.tokenformers = tokenformers
 
     @classmethod
     def from_local_checkpoint(cls, model_dir: str) -> "TokenformerModel":
-        tokenformers: Dict[str, torch.Tensor] = {}
-        tokenformer_tensor_path = os.path.join(model_dir, "model.safetensors")
-        if os.path.isfile(tokenformer_tensor_path):
-            with safetensors.safe_open(tokenformer_tensor_path, framework="pt") as f:
-                for module in f.keys():
-                    if "tokenformer" in module or "lm_head" in module:
-                        tokenformers[module] = f.get_tensor(module)
+        tokenformer_tensor_path = Path(model_dir) / "model.safetensors"
         
-        return cls(tokenformers)
+        if not tokenformer_tensor_path.is_file():
+            raise FileNotFoundError(f"Tokenformer tensor file not found: {tokenformer_tensor_path}")
 
+        with safe_open(tokenformer_tensor_path, framework="pt") as f:
+            tokenformers = {
+                module: f.get_tensor(module)
+                for module in f.keys()
+                if any(key in module for key in ("tokenformer", "lm_head"))
+            }
+
+        return cls(tokenformers)
+    
 class TokenformerModelManager(AdapterModelManager):
     """A manager that manages tokenformer models."""
 
