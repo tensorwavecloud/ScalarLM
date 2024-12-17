@@ -19,8 +19,9 @@ def repeat_kv(hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
 
 class Attention(nn.Module):
     def __init__(
-        self) -> None:
+        self, head_dim) -> None:
         super().__init__()
+        self.head_dim = head_dim
     
     def forward(self, query, key, value, attn_mask=None, dropout_p=0.0, is_causal=False):
         
@@ -37,7 +38,7 @@ class Attention(nn.Module):
 class LlamaTokenformerAttention(LlamaSdpaAttention):
     def __init__(self, config, layer_idx: int):
         super().__init__(config, layer_idx)
-        self.attn = Attention()
+        self.attn = Attention(self.head_dim)
         
     def forward(
         self,

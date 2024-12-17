@@ -87,8 +87,7 @@ def materialize_model(model_info):
     '''
     
     model_info["model"] = create_llama_tokenformer_model(model_info["model"])
-    logger.info(model_info["model"])
-
+    
     model_info["model"].to(model_info["distribution_strategy"]["device"])
 
     return model_info

@@ -25,6 +25,7 @@ class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
         attn_metadata: AttentionMetadata,
         attn_type: AttentionType = AttentionType.DECODER,
     ) -> torch.Tensor:
+        
         base_layer_results = self.layer(query=query, 
                                         key=key, 
                                         value=value, 
@@ -32,7 +33,11 @@ class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
                                         attn_metadata=attn_metadata, 
                                         attn_type=attn_type)
         
-        return super().forward(query, base_layer_results)
+        modify_query = torch.reshape(query, [1, self.layer.num_heads, -1, self.layer.head_dim])
+        modify_base_layer_results = torch.reshape(base_layer_results, [1, self.layer.num_heads, -1, self.layer.head_dim])
+        result = super().forward(modify_query, modify_base_layer_results)
+        reshaped_result = torch.reshape(result, [-1, self.layer.num_heads * self.layer.head_dim])
+        return reshaped_result
     
 class vLLMTokenformerSurgeon(TokenformerSurgeon):
     
@@ -49,7 +54,7 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
             return
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, self.model.config.intermediate_size))
+        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, layer.head_dim))
 
 
 class TokenformerModel(AdapterModel):
@@ -68,8 +73,9 @@ class TokenformerModel(AdapterModel):
         tokenformer_tensor_path = os.path.join(model_dir, "model.safetensors")
         if os.path.isfile(tokenformer_tensor_path):
             with safetensors.safe_open(tokenformer_tensor_path, framework="pt") as f:
-                for module in f.keys(): 
-                    tokenformers[module] = f.get_tensor(module)
+                for module in f.keys():
+                    if "tokenformer" in module or "lm_head" in module:
+                        tokenformers[module] = f.get_tensor(module)
         
         return cls(tokenformers)
 
@@ -101,12 +107,9 @@ class TokenformerModelManager(AdapterModelManager):
         logger.info("Activating Tokenformer - adapter id: %d", adapter_id)
         
         model_state_dict = self.model.state_dict()
-        for k, v in model_state_dict.items():
-            logger.info(f"MODEL_STATE_DICT key: {k}, tensor size: {v.size()}")
         for id, adapter in self._registered_adapters.items():
             tokenformers = adapter.tokenformers
             for key, value in tokenformers.items():
-                logger.info(f"TOKENFORMER key: {key}, tensor size: {value.size()}")
                 model_state_dict[key] = value
         
         self.model.load_state_dict(model_state_dict)

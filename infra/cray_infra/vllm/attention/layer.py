@@ -27,7 +27,7 @@ class Attention(nn.Module):
     def __init__(
         self,
         num_heads: int,
-        head_size: int,
+        head_dim: int,
         scale: float,
         num_kv_heads: Optional[int] = None,
         alibi_slopes: Optional[List[float]] = None,
@@ -57,6 +57,9 @@ class Attention(nn.Module):
         self.kv_cache_dtype = kv_cache_dtype
         self._k_scale = 1.0
         self._v_scale = 1.0
+        self.head_dim = head_dim
+        self.num_heads = num_heads
+
         quant_method = (
             quant_config.get_quant_method(self, prefix=prefix) if quant_config else None
         )
@@ -80,7 +83,7 @@ class Attention(nn.Module):
         dtype = torch.get_default_dtype()
         attn_backend = get_attn_backend(
             num_heads,
-            head_size,
+            head_dim,
             num_kv_heads,
             sliding_window,
             dtype,
@@ -91,7 +94,7 @@ class Attention(nn.Module):
         impl_cls = attn_backend.get_impl_cls()
         self.impl = impl_cls(
             num_heads,
-            head_size,
+            head_dim,
             scale,
             num_kv_heads,
             alibi_slopes,

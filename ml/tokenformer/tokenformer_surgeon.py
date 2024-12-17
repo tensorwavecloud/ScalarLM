@@ -37,8 +37,8 @@ class TokenformerAttentionAdapter(nn.Module):
         self.layer = layer
         self.hidden_size = hidden_size
     
-        self.tokenformer_k = nn.Parameter(torch.randn(hidden_size, hidden_size))
-        self.tokenformer_v = nn.Parameter(torch.zeros(hidden_size, hidden_size))
+        self.tokenformer_k = nn.Parameter(torch.randn(self.hidden_size, self.hidden_size))
+        self.tokenformer_v = nn.Parameter(torch.zeros(self.hidden_size, self.hidden_size))
 
     def forward(
         self,

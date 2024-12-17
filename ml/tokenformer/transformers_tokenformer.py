@@ -32,5 +32,5 @@ class TransformersTokenformerSurgeon(TokenformerSurgeon):
             return
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, TransformersTokenformerAttentionAdapter(layer, self.model.config.intermediate_size))
+        self._recursive_setattr(self.model, name, TransformersTokenformerAttentionAdapter(layer, layer.head_dim))
         

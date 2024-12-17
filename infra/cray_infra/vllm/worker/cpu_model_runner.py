@@ -514,6 +514,7 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             logger.info("Creating Tokenformer model...")
             self.model = self.tokenformer_manager.create_tokenformer_manager(self.model).to(self.model_config.dtype)
 
+
     def make_model_input_from_broadcasted_tensor_dict(
         self,
         tensor_dict: Dict[str, Any],
