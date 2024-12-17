@@ -625,8 +625,13 @@ async def run_server(args, **uvicorn_kwargs) -> None:
     # workaround to make sure that we bind the port before the engine is set up.
     # This avoids race conditions with ray.
     # see https://github.com/vllm-project/vllm/issues/8204
-    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    sock.bind(("", args.port))
+
+    # make sure the socket is not already bound
+    try:
+        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        sock.bind(("", args.port))
+    except OSError as e:
+        logger.error(f"Port {args.port} is already in use: {e}")
 
     def signal_handler(*_) -> None:
         # Interrupt server on sigterm while initializing

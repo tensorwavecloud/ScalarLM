@@ -118,6 +118,8 @@ class OpenAIServingCompletion(OpenAIServing):
                 prompt_adapter_request,
             ) = self._maybe_get_adapters(request)
 
+            logger.info(f"Lora request: {lora_request}")
+
             tokenizer = await self.engine_client.get_tokenizer(lora_request)
 
             prompts = list(

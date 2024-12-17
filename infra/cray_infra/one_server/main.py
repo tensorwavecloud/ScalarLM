@@ -1,3 +1,8 @@
+
+import os
+os.environ["VLLM_LOGGING_LEVEL"] = "DEBUG"
+os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"
+
 from cray_infra.one_server.start_cray_server import start_cray_server
 
 from uvicorn.supervisors import ChangeReload

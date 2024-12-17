@@ -58,3 +58,33 @@ commands:
     - name: target
       allowed: ["cpu", "nvidia"]
       default: "cpu"
+
+- name: llm
+  help: Invoke the LLM tool
+
+  commands:
+    - name: plot
+      help: Plot the LLM data
+      args:
+        - name: model
+          help: Model name to plot
+
+
+    - name: logs
+      help: Get the logs for the LLM model
+      args:
+        - name: model
+          help: Model name to get logs for
+      flags:
+        - long: --tail
+          short: -t
+          help: Whether to tail the logs
+        - long: --follow
+          short: -f
+          help: Whether to follow the logs
+        - long: --lines
+          short: -l
+          arg: lines
+          help: Number of lines to show
+          default: "100"
+

@@ -503,11 +503,14 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             cache_config=self.cache_config,
         )
 
+        logger.info(f"Model loaded: {self.model.__class__.__name__}")
+        logger.info(f"Lora config: {self.lora_config}")
+
         if self.lora_config:
             assert supports_lora(
                 self.model
             ), f"{self.model.__class__.__name__} does not support LoRA yet."
-            
+
             self.tokenformer_manager = WorkerTokenformerManager(
                     self.device,
                 )

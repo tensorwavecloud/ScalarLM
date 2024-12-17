@@ -1,26 +1,23 @@
 from cray_infra.api.fastapi.routers.request_types.train_request import (
     TrainResponse,
+    TrainJobStatusResponse,
 )
-from cray_infra.util.get_config import get_config
 
 from cray_infra.training.launch_training_job import launch_training_job
+from cray_infra.training.upload_training_data import upload_training_data
+from cray_infra.training.training_logs_generator import training_logs_generator
+from cray_infra.training.training_logs_generator import get_latest_model
+
+from cray_infra.util.get_config import get_config
 
 from fastapi import APIRouter, Request, HTTPException, status
-from starlette.requests import ClientDisconnect
-
-import streaming_form_data
-from streaming_form_data.targets import FileTarget, ValueTarget
-from streaming_form_data import StreamingFormDataParser
-from streaming_form_data.validators import MaxSizeValidator
-from streaming_form_data.validators import ValidationError
-
-from typing import Dict
+from fastapi.responses import StreamingResponse, JSONResponse
 
 import os
-import tempfile
-import hashlib
-import time
+import traceback
 import json
+import asyncio
+
 
 import logging
 
@@ -45,8 +42,6 @@ async def train(request: Request):
             detail="Invalid request body",
         )
 
-    train_args["training_data_path"] = training_data_path
-
     job_info = await launch_training_job(train_args)
 
     return TrainResponse(
@@ -59,119 +54,63 @@ async def train(request: Request):
     )
 
 
-async def upload_training_data(request: Request):
-
+@megatron_router.get("/train/{job_hash}")
+async def get_training_job_info(job_hash: str):
     try:
-        temp_filepath = get_temp_filepath()
+        if job_hash == "latest":
+            job_hash = get_latest_model()
 
-        config = get_config()
-        max_file_size = config["max_upload_file_size"]
-        max_request_body_size = config["max_upload_file_size"] * 2
+        job_directory_path = get_job_directory_for_hash(job_hash)
+        status_filepath = os.path.join(job_directory_path, "status.json")
 
-        body_validator = MaxBodySizeValidator(max_file_size)
+        job_info = None
 
-        file = FileTarget(temp_filepath, validator=MaxSizeValidator(max_file_size))
-        params = ValueTarget()
-        parser = StreamingFormDataParser(headers=request.headers)
-        parser.register("file", file)
-        parser.register("params", params)
+        try:
+            with open(status_filepath, "r") as file:
+                job_info = json.loads(file.readline().strip())
+        except FileNotFoundError:
+            logger.error("File not found")
+        except json.JSONDecodeError:
+            logger.error("Invalid JSON in first line")
 
-        start_time = time.time()
-        async for chunk in request.stream():
-            body_validator(chunk)
-            parser.data_received(chunk)
+        if job_info is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Training job was not found at {job_directory_path}",
+            )
 
-        end_time = time.time()
-
-        logger.info(f"Uploaded file in {end_time - start_time} seconds")
-        logger.info(f"Uploaded file to {temp_filepath}")
-        logger.info(f"Uploaded file size: {os.path.getsize(temp_filepath)} bytes")
-        logger.info(
-            f"Transfer rate: {os.path.getsize(temp_filepath) / (1.0e6 * (end_time - start_time))} MB/sec"
-        )
-
-        file_hash = get_file_hash(temp_filepath)
-
-        train_args = json.loads(params.value)
-
-        job_directory = get_job_directory(train_args)
-
-        train_args["job_directory"] = job_directory
-
-        os.makedirs(job_directory, exist_ok=True)
-
-        final_filepath = os.path.join(
-            job_directory, "dataset_" + file_hash.hexdigest() + ".jsonlines"
-        )
-
-        os.rename(temp_filepath, final_filepath)
-
-    except ClientDisconnect:
-        logger.warning("Client Disconnected")
-    except MaxBodySizeException as e:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Maximum request body size limit ({max_request_body_size} bytes) exceeded ({e.body_len} bytes read)",
-        )
-    except ValidationError:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail=f"Maximum file size limit ({max_file_size} bytes) exceeded",
+        return TrainJobStatusResponse(
+            job_id=job_info["job_id"],
+            status=job_info["status"],
+            history=job_info.get("history", []),
+            model_name=job_hash,
+            message=job_info.get("message", "Job details retrieved"),
+            job_directory=job_directory_path,
         )
     except Exception as e:
-        # Log the backtrace
-        logger.exception(e)
-
+        logger.exception(
+            f"Error retrieving training job {job_hash} "
+            "Exception: {type(e).__name__}, Message: {str(e)}"
+        )
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"There was an error uploading the file: {e}",
+            detail=f"Failed to retrieve training job information: {str(e)}",
         )
 
-    if not file.multipart_filename:
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="File is missing"
-        )
 
-    return final_filepath, train_args
-
-
-def get_temp_filepath():
-    # Get a random temp file path
-    return os.path.join(tempfile.gettempdir(), "training_data.jsonlines")
-
-
-def get_file_hash(filepath: str):
-    # Get the hash of the file
-    sha256_hash = hashlib.sha256()
-    with open(filepath, "rb") as f:
-        # Read and update hash string value in blocks of 4K
-        for byte_block in iter(lambda: f.read(4096), b""):
-            sha256_hash.update(byte_block)
-
-    return sha256_hash
-
-
-class MaxBodySizeException(Exception):
-    def __init__(self, body_len: str):
-        self.body_len = body_len
-
-
-class MaxBodySizeValidator:
-    def __init__(self, max_size: int):
-        self.body_len = 0
-        self.max_size = max_size
-
-    def __call__(self, chunk: bytes):
-        self.body_len += len(chunk)
-        if self.body_len > self.max_size:
-            raise MaxBodySizeException(body_len=self.body_len)
-
-def get_job_directory(train_args: Dict):
-    contents = json.dumps(train_args)
-    hash_id = hashlib.sha256(contents.encode()).hexdigest()
-
+def get_job_directory_for_hash(hash_id: str):
     config = get_config()
+    return os.path.join(config["training_job_directory"], hash_id)
 
-    job_directory = os.path.join(config["training_job_directory"], hash_id)
 
-    return job_directory
+@megatron_router.get("/train/logs/{model_name}")
+async def get_training_logs(model_name: str, starting_line_number: int = 0):
+    try:
+        return StreamingResponse(
+            content=training_logs_generator(model_name, starting_line_number),
+            media_type="text/event-stream",
+        )
+    except Exception as e:
+        logger.exception(e)
+        logger.error(traceback.format_exc())
+        return JSONResponse(content={"error": str(e)}, status_code=500)

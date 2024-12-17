@@ -12,6 +12,7 @@ class JobConfig(BaseModel):
 
     job_directory: str
     training_data_path: str
+    dataset_hash: str
 
     llm_name: str = "masint/tiny-random-llama"
 

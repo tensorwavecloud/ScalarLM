@@ -3,3 +3,4 @@ jsonlines
 aiofiles
 streaming-form-data
 persist-queue
+matplotlib

@@ -7,11 +7,11 @@ import masint
 def get_dataset():
     dataset = []
 
-    count = 1
+    count = 30
 
     for i in range(count):
         dataset.append(
-            {"input": f"What is {i} + {i}? ", "output": "The answer is " + str(i + i)}
+            {"input": f"<start>{i} + {i} = ", "output": str(i + i) + "<end>"}
         )
 
     return dataset
@@ -21,6 +21,6 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-status = llm.train(dataset, train_args={"max_steps": 300})
+status = llm.train(dataset, train_args={"max_steps": 2000, "learning_rate": 3e-3})
 
 print(status)

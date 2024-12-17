@@ -4,8 +4,8 @@ from vllm.entrypoints.openai.api_server import run_server
 from vllm.entrypoints.openai.cli_args import make_arg_parser
 from vllm.utils import FlexibleArgumentParser
 
-import os
 import uvicorn
+import os
 
 import logging
 
@@ -14,9 +14,7 @@ logger = logging.getLogger(__name__)
 
 async def create_vllm(port, running_status):
 
-    os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"
     os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
-    os.environ["VLLM_LOGGING_LEVEL"] = "DEBUG"
 
     parser = FlexibleArgumentParser(
         description="vLLM OpenAI-Compatible RESTful API server."

@@ -9,12 +9,12 @@ services:
             - "8000:8000"
             - "8001:8001"
         volumes:
-           # - type: bind
-           #   source: ./models
-           #   target: /root/.cache/huggingface
             - type: bind
-              source: ./infra
-              target: /app/cray/infra
+              source: ./models
+              target: /root/.cache/huggingface
+            - type: bind
+              source: ./infra/cray_infra
+              target: /app/cray/infra/cray_infra
             - type: bind
               source: ./scripts
               target: /app/cray/scripts

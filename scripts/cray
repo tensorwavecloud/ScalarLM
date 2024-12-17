@@ -32,6 +32,7 @@ cray_usage() {
   printf "  %s   Run tests in the container\n" "test       "
   printf "  %s   Deploy the cray platform to modal\n" "deploy     "
   printf "  %s   Serve the cray platform using modal\n" "serve      "
+  printf "  %s   Invoke the LLM tool\n" "llm        "
   echo
 
   # :command.long_usage
@@ -239,6 +240,107 @@ cray_serve_usage() {
     printf "\n"
     printf "    %s\n" "Allowed: cpu, nvidia"
     printf "    %s\n" "Default: cpu"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_llm_usage() {
+  printf "cray llm - Invoke the LLM tool\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray llm COMMAND\n"
+  printf "  cray llm [COMMAND] --help | -h\n"
+  echo
+  # :command.usage_commands
+  printf "%s\n" "Commands:"
+  printf "  %s   Plot the LLM data\n" "plot"
+  printf "  %s   Get the logs for the LLM model\n" "logs"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_llm_plot_usage() {
+  printf "cray llm plot - Plot the LLM data\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray llm plot [MODEL]\n"
+  printf "  cray llm plot --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "MODEL"
+    printf "    Model name to plot\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_llm_logs_usage() {
+  printf "cray llm logs - Get the logs for the LLM model\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray llm logs [MODEL] [OPTIONS]\n"
+  printf "  cray llm logs --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_flags
+    # :flag.usage
+    printf "  %s\n" "--tail, -t"
+    printf "    Whether to tail the logs\n"
+    echo
+
+    # :flag.usage
+    printf "  %s\n" "--follow, -f"
+    printf "    Whether to follow the logs\n"
+    echo
+
+    # :flag.usage
+    printf "  %s\n" "--lines, -l LINES"
+    printf "    Number of lines to show\n"
+    printf "    %s\n" "Default: 100"
+    echo
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "MODEL"
+    printf "    Model name to get logs for\n"
     echo
 
   fi
@@ -571,6 +673,97 @@ cray_serve_command() {
 
 }
 
+# :command.function
+cray_llm_plot_command() {
+
+  # cmd/llm_plot_command.sh
+  inspect_args
+
+  model=${args[model]}
+
+  if [ -z "$model" ]; then
+      model="latest"
+  fi
+
+  ./cray build-image
+
+  declare -a plot_command_parts
+  plot_command_parts=(
+        "python" "/app/cray/sdk/cli/main.py" "plot" "--model" "$model"
+  )
+
+  plot_command="${plot_command_parts[*]}"
+
+  echo $command
+
+  # Get the directory of this script
+  LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+  # Set cwd to the project root directory
+  ROOT_DIRECTORY=$LOCAL_DIRECTORY/..
+
+  declare -a docker_command_parts
+
+  docker_command_parts=("docker" "run" "--rm" "-v" "$ROOT_DIRECTORY:/app/cray/data" "--network" "host")
+
+  docker_command_parts+=("cray:latest" "sh" "-c" "'$plot_command'")
+
+  docker_command="${docker_command_parts[*]}"
+  echo $docker_command
+  eval $docker_command
+
+}
+
+# :command.function
+cray_llm_logs_command() {
+
+  # cmd/llm_logs_command.sh
+  inspect_args
+
+  model=${args[model]}
+  tail=${args[--tail]}
+  lines=${args[--lines]}
+  follow=${args[--follow]}
+
+  if [ -z "$model" ]; then
+      model="latest"
+  fi
+
+  ./cray build-image
+
+  declare -a log_command_parts
+  log_command_parts=(
+        "python" "/app/cray/sdk/cli/main.py" "logs" "--model" "$model" "--lines" "$lines"
+  )
+
+  echo $tail
+
+  # If tail exists, add it to the command
+  if [ -n "$tail" ]; then
+      log_command_parts+=("--tail")
+  fi
+
+  # If follow exists, add it to the command
+  if [ -n "$follow" ]; then
+      log_command_parts+=("--follow")
+  fi
+
+  log_command="${log_command_parts[*]}"
+
+  echo $command
+
+  declare -a docker_command_parts
+
+  docker_command_parts=("docker" "run" "-it" "--rm" "--network" "host")
+
+  docker_command_parts+=("cray:latest" "sh" "-c" "'$log_command'")
+
+  docker_command="${docker_command_parts[*]}"
+  echo $docker_command
+  eval $docker_command
+
+}
+
 # :command.parse_requirements
 parse_requirements() {
   # :command.fixed_flags_filter
@@ -640,6 +833,13 @@ parse_requirements() {
       action="serve"
       shift
       cray_serve_parse_requirements "$@"
+      shift $#
+      ;;
+
+    llm)
+      action="llm"
+      shift
+      cray_llm_parse_requirements "$@"
       shift $#
       ;;
 
@@ -1068,6 +1268,215 @@ cray_serve_parse_requirements() {
 
 }
 
+# :command.parse_requirements
+cray_llm_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_llm_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action=${1:-}
+
+  case $action in
+    -*) ;;
+
+    plot)
+      action="plot"
+      shift
+      cray_llm_plot_parse_requirements "$@"
+      shift $#
+      ;;
+
+    logs)
+      action="logs"
+      shift
+      cray_llm_logs_parse_requirements "$@"
+      shift $#
+      ;;
+
+    # :command.command_fallback
+    "")
+      cray_llm_usage >&2
+      exit 1
+      ;;
+
+    *)
+      printf "invalid command: %s\n" "$action" >&2
+      exit 1
+      ;;
+
+  esac
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        printf "invalid argument: %s\n" "$key" >&2
+        exit 1
+
+        ;;
+
+    esac
+  done
+
+}
+
+# :command.parse_requirements
+cray_llm_plot_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_llm_plot_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="llm plot"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        # :argument.case
+        if [[ -z ${args['model']+x} ]]; then
+          args['model']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
+
+        ;;
+
+    esac
+  done
+
+}
+
+# :command.parse_requirements
+cray_llm_logs_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_llm_logs_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="llm logs"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      # :flag.case
+      --tail | -t)
+
+        # :flag.case_no_arg
+        args['--tail']=1
+        shift
+        ;;
+
+      # :flag.case
+      --follow | -f)
+
+        # :flag.case_no_arg
+        args['--follow']=1
+        shift
+        ;;
+
+      # :flag.case
+      --lines | -l)
+
+        # :flag.case_arg
+        if [[ -n ${2+x} ]]; then
+          args['--lines']="$2"
+          shift
+          shift
+        else
+          printf "%s\n" "--lines requires an argument: --lines, -l LINES" >&2
+          exit 1
+        fi
+        ;;
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        # :argument.case
+        if [[ -z ${args['model']+x} ]]; then
+          args['model']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
+
+        ;;
+
+    esac
+  done
+
+  # :command.default_assignments
+  [[ -n ${args['--lines']:-} ]] || args['--lines']="100"
+
+}
+
 # :command.initialize
 initialize() {
   version="0.1.0"
@@ -1093,6 +1502,9 @@ run() {
     "test") cray_test_command ;;
     "deploy") cray_deploy_command ;;
     "serve") cray_serve_command ;;
+    "llm") cray_llm_command ;;
+    "llm plot") cray_llm_plot_command ;;
+    "llm logs") cray_llm_logs_command ;;
   esac
 }
 
