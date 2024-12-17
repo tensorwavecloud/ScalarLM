@@ -49,7 +49,7 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
             return
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, self.model.config.hidden_size))
+        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, self.model.config.intermediate_size))
 
 
 class TokenformerModel(AdapterModel):
