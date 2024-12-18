@@ -78,7 +78,7 @@ class TokenformerSurgeon(ABC):
         else:
             self._recursive_setattr(getattr(obj, attr[0]), attr[1], value)
 
-    def _try_to_update_mlp(self, name, layer):
+    def update_mlp(self, name, layer):
         """Try to wrap the layer with a TokenformerMLPAdaptor."""
         if not self._is_mlp_layer(name):
             return
@@ -89,14 +89,14 @@ class TokenformerSurgeon(ABC):
         self._recursive_setattr(self.model, name, TokenformerMLPAdapter(layer, self.model.config.hidden_size))
 
     @abstractmethod
-    def _try_to_update_attn(self, name, layer):
+    def update_attn(self, name, layer):
         pass
     
     def insert_adapter_modules(self):
         # Add tokenformer adapters for mlp and attention
         for name, layer in self.model.named_modules():
-            self._try_to_update_mlp(name, layer)
-            self._try_to_update_attn(name, layer)
+            self.update_mlp(name, layer)
+            self.update_attn(name, layer)
         
         return self.model
 

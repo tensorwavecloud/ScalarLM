@@ -50,7 +50,7 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
         super().__init__(model)
 
 
-    def _try_to_update_attn(self, name, layer):
+    def update_attn(self, name, layer):
         """Try to wrap the layer with a TokenformerAttentionAdaptor."""
         if not self._is_attn_layer(name):
             return

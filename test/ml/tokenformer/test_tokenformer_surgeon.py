@@ -47,10 +47,10 @@ def test_recursive_setattr(mock_model):
     surgeon._recursive_setattr(mock_model, "mlp", new_mlp)
     assert mock_model.mlp == new_mlp
 
-def test_try_to_update_attn(mock_model):
+def test_update_attn(mock_model):
     surgeon = TransformersTokenformerSurgeon(mock_model)
     assert not isinstance(mock_model.attn, TransformersTokenformerAttentionAdapter)
-    surgeon._try_to_update_attn("attn", mock_model.attn)
+    surgeon.update_attn("attn", mock_model.attn)
     assert isinstance(mock_model.attn, TransformersTokenformerAttentionAdapter)
 
 def test_insert_adapter_modules(mock_model):
