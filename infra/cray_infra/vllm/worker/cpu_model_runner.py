@@ -1,8 +1,9 @@
 import dataclasses
 import weakref
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, Tuple, Type, Union
+from typing import TYPE_CHECKING, Any, Dict, List, Set, Optional, Tuple, Type, Union
 from vllm.model_executor.models import supports_lora
+from vllm.lora.request import LoRARequest
 
 import torch
 from torch import nn
@@ -58,12 +59,14 @@ class ModelInputForCPU(ModelRunnerInputBase):
     virtual_engine: Optional[int] = None
     seq_lens: Optional[List[int]] = None
     query_lens: Optional[List[int]] = None
+    lora_requests: Optional[Set[LoRARequest]] = None
 
     def as_broadcastable_tensor_dict(self) -> Dict[str, Union[int, torch.Tensor]]:
         tensor_dict = {
             "input_tokens": self.input_tokens,
             "input_positions": self.input_positions,
             "multi_modal_kwargs": self.multi_modal_kwargs,
+            "lora_requests": self.lora_requests,
         }
         _add_attn_metadata_broadcastable_dict(tensor_dict, self.attn_metadata)
 
@@ -94,6 +97,7 @@ class ModelInputForCPUWithSamplingMetadata(ModelInputForCPU):
         tensor_dict = {
             "input_tokens": self.input_tokens,
             "input_positions": self.input_positions,
+            "lora_requests": self.lora_requests,
         }
         _add_attn_metadata_broadcastable_dict(tensor_dict, self.attn_metadata)
         _add_sampling_metadata_broadcastable_dict(tensor_dict, self.sampling_metadata)
@@ -146,9 +150,11 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
                 attn_metadata,
                 seq_lens,
                 multi_modal_kwargs,
+                lora_requests,
             ) = self._prepare_prompt(self.seq_group_metadata_list)
+            
         else:
-            (input_tokens, input_positions, attn_metadata) = self._prepare_decode(
+            (input_tokens, input_positions, attn_metadata, lora_requests) = self._prepare_decode(
                 self.seq_group_metadata_list
             )
             seq_lens = None
@@ -163,6 +169,7 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
             # just use seq_lens instead.
             seq_lens=seq_lens,
             query_lens=seq_lens,
+            lora_requests=lora_requests,
         )
 
     def _compute_multi_modal_input(
@@ -213,12 +220,16 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
         input_tokens: List[int] = []
         input_positions: List[int] = []
         input_mrope_positions: List[List[int]] = [[] for _ in range(3)]
+        lora_requests: Set[LoRARequest] = set()
 
         slot_mapping: List[int] = []
         seq_lens: List[int] = []
         multi_modal_inputs_list: List[MultiModalInputs] = []
 
         for seq_group_metadata in seq_group_metadata_list:
+            
+            lora_requests.add(seq_group_metadata.lora_request)
+            
             assert seq_group_metadata.is_prompt
             seq_ids = list(seq_group_metadata.seq_data.keys())
             assert len(seq_ids) == 1
@@ -311,6 +322,7 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
             attn_metadata,
             seq_lens,
             multi_modal_kwargs,
+            lora_requests,
         )
 
     def _prepare_decode(
@@ -324,10 +336,13 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
         slot_mapping: List[int] = []
         seq_lens: List[int] = []
         block_tables: List[List[int]] = []
+        lora_requests: Set[LoRARequest] = set()
 
         for seq_group_metadata in seq_group_metadata_list:
             assert not seq_group_metadata.is_prompt
             assert seq_group_metadata.token_chunk_size == 1
+
+            lora_requests.add(seq_group_metadata.lora_request)
 
             seq_ids = list(seq_group_metadata.seq_data.keys())
 
@@ -406,6 +421,7 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
             input_tokens,
             input_positions,
             attn_metadata,
+            lora_requests,
         )
 
 
@@ -493,11 +509,11 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             ), f"{self.model.__class__.__name__} does not support LoRA yet."
             
             self.tokenformer_manager = WorkerTokenformerManager(
-                    self.lora_config,
                     self.device,
                 )
             logger.info("Creating Tokenformer model...")
             self.model = self.tokenformer_manager.create_tokenformer_manager(self.model).to(self.model_config.dtype)
+
 
     def make_model_input_from_broadcasted_tensor_dict(
         self,
@@ -566,6 +582,14 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             raise ValueError("CPU worker does not support multi-step execution.")
 
         model_executable = self.model
+        
+        if self.lora_config:
+            assert model_input.lora_requests is not None
+            for lora_request in model_input.lora_requests:
+                if lora_request is not None:
+                    self.tokenformer_manager.add_adapter(lora_request)
+            model_executable = self.tokenformer_manager._adapter_manager.model
+
         execute_model_kwargs = {
             "input_ids": model_input.input_tokens,
             "positions": model_input.input_positions,

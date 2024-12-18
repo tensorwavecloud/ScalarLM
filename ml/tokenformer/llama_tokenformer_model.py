@@ -1,8 +1,7 @@
-from ml.tokenformer.llama_tokenformer_layers import LlamaTokenformerDecoderLayer
-from ml.tokenformer.tokenformer_surgeon import TransformersTokenformerSurgeon
-import logging
 
-logger = logging.getLogger(__name__)
+import logging
+from tokenformer.llama_tokenformer_layers import LlamaTokenformerDecoderLayer
+from tokenformer.transformers_tokenformer import TransformersTokenformerSurgeon
 
 def replace_layers(model, custom_layer_class):
     # Replace layers with custom layers
@@ -12,18 +11,26 @@ def replace_layers(model, custom_layer_class):
         model.model.layers[i] = new_layer
     return model
 
+def log_param_gradients(model, logger=logging.getLogger(__name__)):
+    for name, param in model.named_parameters():
+        logger.debug(f"Parameter: {name}, Requires Grad: {param.requires_grad}")
+
+
 def create_llama_tokenformer_model(model):
     model = replace_layers(model, LlamaTokenformerDecoderLayer)
     tokenformer_model = TransformersTokenformerSurgeon(model).insert_adapter_modules()
-    # Set requires_grad to False for all parameters in the model
+    
+    # Freeze all parameters
     for param in tokenformer_model.parameters():
         param.requires_grad = False
-
-    # Set requires_grad to True for tokenformer params and lm_head
+    
+    # Unfreeze tokenformer and lm_head parameters
     for name, param in tokenformer_model.named_parameters():
-        for item in ["tokenformer", "lm_head"]:
-            if item in name:
-                param.requires_grad = True
-        logger.debug(f"Parameter: {name}, Requires Grad: {param.requires_grad}")
+        if any(module_name in name for module_name in ["tokenformer", "lm_head"]):
+            param.requires_grad = True
+    
+    # Log parameter gradients
+    log_param_gradients(tokenformer_model)
     
     return tokenformer_model
+

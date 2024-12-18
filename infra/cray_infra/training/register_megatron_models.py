@@ -35,7 +35,7 @@ async def get_models():
     logger.info(f"Getting models from {config['training_job_directory']}")
     for root, dirs, files in os.walk(config["training_job_directory"]):
         logger.info(f"Checking {root}")
-        if "adapter_config.json" in files:
+        if "config.json" in files:
             yield os.path.basename(os.path.split(root)[0])
 
 

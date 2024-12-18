@@ -16,7 +16,7 @@ class JobConfig(BaseModel):
     llm_name: str = "masint/tiny-random-llama"
 
     max_steps: int = 100
-    learning_rate: float = 1e-3
+    learning_rate: float = 3e-3
     steps_per_checkpoint: int = 100
     batch_size: int = 1
 

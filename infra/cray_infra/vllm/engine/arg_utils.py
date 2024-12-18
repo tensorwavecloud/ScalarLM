@@ -163,7 +163,7 @@ class EngineArgs:
     max_prompt_adapters: int = 1
     max_prompt_adapter_token: int = 0
     fully_sharded_loras: bool = False
-    lora_extra_vocab_size: int = 256
+    lora_extra_vocab_size: int = 0
     long_lora_scaling_factors: Optional[Tuple[float]] = None
     lora_dtype: Optional[Union[str, torch.dtype]] = "auto"
     max_cpu_loras: Optional[int] = None

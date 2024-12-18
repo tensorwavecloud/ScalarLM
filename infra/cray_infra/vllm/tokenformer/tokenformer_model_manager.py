@@ -1,43 +1,86 @@
-from abc import abstractmethod, ABC
 import torch
 from torch import nn
-from typing import Optional, Any, Dict
+from safetensors.torch import safe_open
+from pathlib import Path
+from typing import Optional, Any, Dict, List
 from infra.cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 import os
-from ml.tokenformer.tokenformer_surgeon import vLLMTokenformerSurgeon
+from ml.tokenformer.tokenformer_surgeon import TokenformerSurgeon, TokenformerAttentionAdapter
 from vllm.model_executor.models import SupportsLoRA
+from infra.cray_infra.vllm.attention import AttentionMetadata, AttentionType
+from vllm.lora.models import get_lora_id
+from vllm.logger import init_logger
+
+logger = init_logger(__name__)
+
+class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
+    def __init__(self, layer, hidden_size):
+        super().__init__(layer, hidden_size)
+        
+    def forward(
+        self,
+        query,
+        key,
+        value,
+        kv_cache: Optional[torch.Tensor],
+        attn_metadata: AttentionMetadata,
+        attn_type: AttentionType = AttentionType.DECODER,
+    ) -> torch.Tensor:
+        
+        base_layer_results = self.layer(query=query, 
+                                        key=key, 
+                                        value=value, 
+                                        kv_cache=kv_cache, 
+                                        attn_metadata=attn_metadata, 
+                                        attn_type=attn_type)
+        
+        seq_len = query.shape[0]
+        new_shape = [-1, self.layer.num_heads, seq_len, self.layer.head_dim]
+        reshaped_query = torch.reshape(query, new_shape)
+        reshaped_base_layer_results = torch.reshape(base_layer_results, new_shape)
+        result = super().forward(reshaped_query, reshaped_base_layer_results)
+        return torch.reshape(result, [-1, self.layer.num_heads * self.layer.head_dim])
+    
+class vLLMTokenformerSurgeon(TokenformerSurgeon):
+    
+    def __init__(
+        self,
+        model: nn.Module,
+    ):
+        super().__init__(model)
+
+
+    def update_attn(self, name, layer):
+        """Try to wrap the layer with a TokenformerAttentionAdaptor."""
+        if not self._is_attn_layer(name):
+            return
+
+        # Wrap the layer with a TokenformerAttentionAdapter
+        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, layer.head_dim))
 
 class TokenformerModel(AdapterModel):
     """A tokenformer pre-trained model."""
 
-    def __init__(
-        self,
-        tokenformers: Dict[str, nn.Parameter],
-    ) -> None:
-        super().__init__()
-        self.tokenformers = nn.ParameterDict(tokenformers)
+    def __init__(self, tokenformers: Dict[str, torch.Tensor]) -> None:
+        super().__init__(get_lora_id())
+        self.tokenformers = tokenformers
 
     @classmethod
     def from_local_checkpoint(cls, model_dir: str) -> "TokenformerModel":
-        checkpoint_files = [f for f in os.listdir(model_dir) if f.endswith('.pt')]
-        if not checkpoint_files:
-            raise FileNotFoundError(f"No .pt files found in {model_dir}")
-        checkpoint_file = checkpoint_files[0]
-
-        checkpoint_path = os.path.join(model_dir, checkpoint_file)
-
-        if not os.path.exists(checkpoint_path):
-            raise FileNotFoundError(f"Checkpoint file not found: {checkpoint_path}")
-
-        tensors = torch.load(checkpoint_path, map_location=torch.device("cpu"))
-
-        tokenformers = {}
-        for key, tensor in tensors.items():
-            if isinstance(tensor, torch.Tensor) and "tokenformer" in key:
-                tokenformers[key] = nn.Parameter(tensor)
+        tokenformer_tensor_path = Path(model_dir) / "model.safetensors"
         
-        return cls(tokenformers)
+        if not tokenformer_tensor_path.is_file():
+            raise FileNotFoundError(f"Tokenformer tensor file not found: {tokenformer_tensor_path}")
 
+        with safe_open(tokenformer_tensor_path, framework="pt") as f:
+            tokenformers = {
+                module: f.get_tensor(module)
+                for module in f.keys()
+                if any(key in module for key in ("tokenformer", "lm_head"))
+            }
+
+        return cls(tokenformers)
+    
 class TokenformerModelManager(AdapterModelManager):
     """A manager that manages tokenformer models."""
 
@@ -46,6 +89,8 @@ class TokenformerModelManager(AdapterModelManager):
         model: SupportsLoRA,
     ):
         self.model = vLLMTokenformerSurgeon(model).insert_adapter_modules()
+        self._registered_adapters: Dict[int, Any] = {}
+        self._active_adapters: List[int] = []
         self.tokenformer_model_cls = TokenformerModel
     
     @property
@@ -58,13 +103,30 @@ class TokenformerModelManager(AdapterModelManager):
 
 
     def activate_adapter(self, adapter_id: int) -> bool:
-        pass
+        if adapter_id in self._active_adapters:
+            return False
+    
+        logger.info("Activating Tokenformer - adapter id: %d", adapter_id)
+        
+        model_state_dict = self.model.state_dict()
+        for id, adapter in self._registered_adapters.items():
+            tokenformers = adapter.tokenformers
+            for key, value in tokenformers.items():
+                model_state_dict[key] = value
+        
+        self.model.load_state_dict(model_state_dict)
+        self._active_adapters.append(adapter_id)
+        return True
 
     def deactivate_adapter(self, adapter_id: int) -> bool:
-        pass
+        if adapter_id not in self._active_adapters:
+            return False
+
+        self._active_adapters.remove(adapter_id)
+        return True
 
     def add_adapter(self, adapter: TokenformerModel) -> bool:
-        pass
+        self._registered_adapters[adapter.id] = adapter
 
     def set_adapter_mapping(self, mapping: Any) -> None:
         pass
@@ -79,7 +141,7 @@ class TokenformerModelManager(AdapterModelManager):
         pass
 
     def list_adapters(self) -> Dict[int, Any]:
-        pass
+        return self._registered_adapters
 
     def pin_adapter(self, adapter_id: int) -> bool:
         pass

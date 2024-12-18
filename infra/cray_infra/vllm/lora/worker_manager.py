@@ -265,7 +265,11 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         pass
 
     def add_adapter(self, adapter_request: Any) -> bool:
-        return self._adapter_manager.add_adapter(None)
+        return add_adapter_worker(adapter_request, 
+                                  self.list_adapters, 
+                                  self._load_adapter, 
+                                  self._adapter_manager.add_adapter, 
+                                  self._adapter_manager.activate_adapter)
 
     def remove_adapter(self, adapter_id: int) -> bool:
         pass
@@ -274,7 +278,7 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         pass
 
     def list_adapters(self) -> Set[int]:
-        pass
+        return list_adapters_worker(self._adapter_manager.list_adapters)
     
     def create_tokenformer_manager(
         self,
@@ -286,3 +290,11 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         
         self._adapter_manager = tokenformer_manager
         return tokenformer_manager.model
+    
+    def _load_adapter(self, lora_request: LoRARequest) -> TokenformerModel:
+        try:
+            lora_path = get_adapter_absolute_path(lora_request.lora_path)
+            tokenformer = self._tokenformer_model_cls.from_local_checkpoint(lora_path)
+        except Exception as e:
+            raise RuntimeError(f"Loading tokenformer {lora_path} failed") from e
+        return tokenformer
