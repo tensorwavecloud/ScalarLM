@@ -1,5 +1,6 @@
 from cli.view_logs import view_logs
 from cli.plot import plot
+from cli.ls import ls
 
 from argparse import ArgumentParser
 
@@ -24,6 +25,9 @@ def main():
     elif argumments.command == "plot":
         plot(model_name=argumments.model)
 
+    elif argumments.command == "ls":
+        ls()
+
     else:
         logger.error(f"Unknown command {argumments.command}")
         parser.print_help()
@@ -34,6 +38,7 @@ def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
+    logging.getLogger("asyncio").setLevel(logging.WARNING)
 
 
 def parse_arguments():
@@ -44,6 +49,7 @@ def parse_arguments():
 
     add_logs_parser(subparsers)
     add_plot_parser(subparsers)
+    add_ls_parser(subparsers)
 
     args = parser.parse_args()
 
@@ -75,6 +81,10 @@ def add_plot_parser(subparsers):
     plot_parser = subparsers.add_parser("plot", help="Plot the results of a model")
 
     plot_parser.add_argument("--model", help="The model to plot results for")
+
+
+def add_ls_parser(subparsers):
+    ls_parser = subparsers.add_parser("ls", help="List models")
 
 
 main()

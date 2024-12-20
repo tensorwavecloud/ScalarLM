@@ -29,13 +29,15 @@ def main():
 
 def run_server_with_autoreload():
 
+    os.chdir("/app/cray/infra")
+
     server_config = uvicorn.Config(
         "cray_infra.one_server.main:run_all_servers",
         host="0.0.0.0",
         port=8000,
         log_level="info",
         reload_dirs=["/app/cray/infra/cray_infra"],
-        reload_excludes=["**/jobs/**/*.yaml"],
+        reload_excludes=["**/jobs/**"],
         reload=True,
         reload_includes=["**/*.py", "**/*.yaml"],
     )

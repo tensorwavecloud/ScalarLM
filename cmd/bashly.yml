@@ -33,7 +33,6 @@ commands:
       arg: coverage-path
       help: Absolute path to a directory to write coverage results into
       default: /tmp/cray/coverage
-
     - long: --verbose
       help: Prints out DEBUG logs as the test is running.
       arg: verbose
@@ -87,4 +86,8 @@ commands:
           arg: lines
           help: Number of lines to show
           default: "100"
+
+
+    - name: ls
+      help: List all the LLM models
 

@@ -16,6 +16,7 @@ import tempfile
 import hashlib
 import time
 import json
+import tarfile
 
 import logging
 
@@ -64,13 +65,20 @@ async def upload_training_data(request: Request):
 
         os.makedirs(job_directory, exist_ok=True)
 
-        final_filepath = os.path.join(
-            job_directory, "dataset_" + file_hash.hexdigest() + ".jsonlines"
+        final_dataset_filepath = os.path.join(
+            job_directory, "dataset.jsonlines"
         )
 
-        train_args["training_data_path"] = final_filepath
+        train_args["training_data_path"] = final_dataset_filepath
 
-        os.rename(temp_filepath, final_filepath)
+        # extract the dataset from the tarball
+        with tarfile.open(temp_filepath, "r:gz") as tar:
+            tar.extractall(job_directory)
+
+        # delete the tarball
+        os.remove(temp_filepath)
+
+        final_filepath = final_dataset_filepath
 
     except ClientDisconnect:
         logger.warning("Client Disconnected")
@@ -103,7 +111,7 @@ async def upload_training_data(request: Request):
 
 def get_temp_filepath():
     # Get a random temp file path
-    return os.path.join(tempfile.gettempdir(), "training_data.jsonlines")
+    return os.path.join(tempfile.gettempdir(), "training_job.tar.gz")
 
 
 def get_file_hash(filepath: str):

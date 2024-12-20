@@ -120,6 +120,8 @@ ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/ml"
 
 ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
 
+RUN mkdir -p ${INSTALL_ROOT}/jobs
+
 COPY ./infra ${INSTALL_ROOT}/infra
 COPY ./sdk ${INSTALL_ROOT}/sdk
 COPY ./test ${INSTALL_ROOT}/test

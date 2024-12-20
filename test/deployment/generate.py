@@ -11,7 +11,7 @@ def get_dataset():
     count = 1
 
     for i in range(count):
-        dataset.append(f"What is {i} + {i}? ")
+        dataset.append(f"What is {i} + {i}?")
 
     return dataset
 
@@ -20,6 +20,6 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-results = llm.generate(prompts=dataset, model_name="1321e27922cdc7112b1eb9320de8e1c4c76c561151edf8ec18ad346a4d065bbd")
+results = llm.generate(prompts=dataset, model_name="7fa9572119913e44aa80c38038cfb840e5bb91b6bf5efae6efb0109b1ee6fb07")
 
 print(results)

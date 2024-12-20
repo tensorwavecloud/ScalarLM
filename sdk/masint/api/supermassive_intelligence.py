@@ -7,6 +7,8 @@ class SupermassiveIntelligence:
     def __init__(self):
         self.async_api = AsyncSupermassiveIntelligence()
 
+    ## Train and Inference API methods
+
     def train(self, data, model_name=None, train_args={}):
         return asyncio.run(
             self.async_api.train(
@@ -21,8 +23,7 @@ class SupermassiveIntelligence:
             )
         )
 
-    def health(self):
-        return asyncio.run(self.async_api.health())
+    ## Alignment API methods
 
     def learn_classes(self, classes):
         return asyncio.run(self.async_api.learn_classes(classes=classes))
@@ -35,3 +36,15 @@ class SupermassiveIntelligence:
 
     def learn_code(self, vcs):
         return asyncio.run(self.async_api.learn_code(vcs=vcs))
+
+    ## Status API methods
+
+    def list_models(self):
+        return asyncio.run(self.async_api.list_models())
+
+    def get_training_job(self, job_dir):
+        return asyncio.run(self.async_api.get_training_job(job_dir=job_dir))
+
+    def health(self):
+        return asyncio.run(self.async_api.health())
+

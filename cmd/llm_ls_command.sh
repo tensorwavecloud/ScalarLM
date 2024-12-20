@@ -1,19 +1,13 @@
 inspect_args
 
-model=${args[model]}
-
-if [ -z "$model" ]; then
-    model="latest"
-fi
-
 ./cray build-image
 
-declare -a plot_command_parts
-plot_command_parts=(
-      "python" "/app/cray/sdk/cli/main.py" "plot" "--model" "$model"
+declare -a ls_command_parts
+ls_command_parts=(
+      "python" "/app/cray/sdk/cli/main.py" "ls"
 )
 
-plot_command="${plot_command_parts[*]}"
+ls_command="${ls_command_parts[*]}"
 
 echo $command
 
@@ -28,9 +22,9 @@ declare -a docker_command_parts
 # Make sure the data directory exists
 mkdir -p $ROOT_DIRECTORY/data
 
-docker_command_parts=("docker" "run" "--rm" "-v" "$ROOT_DIRECTORY/data:/app/cray/data" "--network" "host")
+docker_command_parts=("docker" "run" "--rm" "--network" "host")
 
-docker_command_parts+=("cray:latest" "sh" "-c" "'$plot_command'")
+docker_command_parts+=("cray:latest" "sh" "-c" "'$ls_command'")
 
 docker_command="${docker_command_parts[*]}"
 echo $docker_command
