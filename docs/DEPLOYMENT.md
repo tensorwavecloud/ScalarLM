@@ -65,7 +65,7 @@ cray_image = (
 
 ### Serve Deployment
 ```bash
-modal serve deployment/modal/staging/cpu/cray.py
+modal serve deployment/modal/staging/cpu/deploy.py
 ```
 
 #### Expected Output
