@@ -87,6 +87,8 @@ from vllm.worker.model_runner_base import (
     dump_input_when_exception,
 )
 
+from vllm.lora.worker_manager import WorkerTokenformerManager
+
 if TYPE_CHECKING:
     from vllm.attention.backends.abstract import AttentionBackend
 
@@ -1157,7 +1159,7 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
         logger.info(
             "Loading model weights took %.4f GB", self.model_memory_usage / float(2**30)
         )
-
+        
         if self.lora_config:
             assert supports_lora(
                 self.model
@@ -1177,17 +1179,12 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
                     self.model.config.text_config.max_position_embeddings
                 )
 
-            self.lora_manager = LRUCacheWorkerLoRAManager(
-                self.scheduler_config.max_num_seqs,
-                self.scheduler_config.max_num_batched_tokens,
-                self.vocab_size,
-                self.lora_config,
-                self.device,
-                self.model.embedding_modules,
-                self.model.embedding_padding_modules,
-                max_position_embeddings=max_pos_embeddings,
-            )
-            self.model = self.lora_manager.create_lora_manager(self.model)
+            self.tokenformer_manager = WorkerTokenformerManager(
+                    self.device,
+                )
+            logger.info("Creating Tokenformer model...")
+            self.model = self.tokenformer_manager.create_tokenformer_manager(self.model).to(self.model_config.dtype)
+
 
         if self.prompt_adapter_config:
             self.prompt_adapter_manager = LRUCacheWorkerPromptAdapterManager(
@@ -1739,10 +1736,13 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if num_steps > 1:
             raise ValueError("num_steps > 1 is not supported in ModelRunner")
 
+        model_executable = self.model
         if self.lora_config:
             assert model_input.lora_requests is not None
-            assert model_input.lora_mapping is not None
-            self.set_active_loras(model_input.lora_requests, model_input.lora_mapping)
+            for lora_request in model_input.lora_requests:
+                if lora_request is not None:
+                    self.tokenformer_manager.add_adapter(lora_request)
+            model_executable = self.tokenformer_manager._adapter_manager.model
 
         if self.prompt_adapter_config:
             assert model_input.prompt_adapter_requests is not None
@@ -1752,20 +1752,6 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             )
 
         self.attn_state.begin_forward(model_input)
-
-        # Currently cuda graph is only supported by the decode phase.
-        assert model_input.attn_metadata is not None
-        prefill_meta = model_input.attn_metadata.prefill_metadata
-        decode_meta = model_input.attn_metadata.decode_metadata
-        # TODO(andoorve): We can remove this once all
-        # virtual engines share the same kv cache.
-        virtual_engine = model_input.virtual_engine
-        if prefill_meta is None and decode_meta.use_cuda_graph:
-            assert model_input.input_tokens is not None
-            graph_batch_size = model_input.input_tokens.shape[0]
-            model_executable = self.graph_runners[virtual_engine][graph_batch_size]
-        else:
-            model_executable = self.model
 
         multi_modal_kwargs = model_input.multi_modal_kwargs or {}
         seqlen_agnostic_kwargs = (
