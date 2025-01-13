@@ -1,8 +1,8 @@
 from cray_infra.api.fastapi.routers.request_types.train_request import (
-    TrainResponse,
+    TrainJobStatusResponse,
 )
 
-from cray_infra.training.training_logs_generator import get_latest_model
+from cray_infra.training.get_latest_model import get_latest_model
 
 from cray_infra.util.get_config import get_config
 
@@ -15,6 +15,7 @@ import os
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 async def get_training_job_info(job_hash: str):
     try:
@@ -59,7 +60,9 @@ async def get_training_job_info(job_hash: str):
                 detail=f"Training job config was not found at {job_directory_path}",
             )
 
-        return TrainResponse(job_status=job_status, job_config=job_config)
+        return TrainJobStatusResponse(
+            job_status=job_status, job_config=job_config, model_name=job_hash
+        )
     except Exception as e:
         logger.exception(
             f"Error retrieving training job {job_hash} "

@@ -1,6 +1,7 @@
 from cli.view_logs import view_logs
 from cli.plot import plot
 from cli.ls import ls
+from cli.squeue import squeue
 
 from argparse import ArgumentParser
 
@@ -28,6 +29,9 @@ def main():
     elif argumments.command == "ls":
         ls()
 
+    elif argumments.command == "squeue":
+        squeue()
+
     else:
         logger.error(f"Unknown command {argumments.command}")
         parser.print_help()
@@ -50,6 +54,7 @@ def parse_arguments():
     add_logs_parser(subparsers)
     add_plot_parser(subparsers)
     add_ls_parser(subparsers)
+    add_squeue_parser(subparsers)
 
     args = parser.parse_args()
 
@@ -85,6 +90,10 @@ def add_plot_parser(subparsers):
 
 def add_ls_parser(subparsers):
     ls_parser = subparsers.add_parser("ls", help="List models")
+
+
+def add_squeue_parser(subparsers):
+    squeue_parser = subparsers.add_parser("squeue", help="View the squeue")
 
 
 main()

@@ -8,3 +8,8 @@ Cray is designed for high peformance. It inherits the distributed training capab
 
 Cray-LM is inspired by the work of Seymour Roger Cray (September 28, 1925 – October 5, 1996), an American electrical engineer and supercomputer architect who designed a series of computers that were the fastest in the world for decades, and founded Cray Research, which built many of these machines. Called "the father of supercomputing", Cray has been credited with creating the supercomputer industry.
 
+[Get in Touch](https://forms.gle/tk6LFVrTQDSQp8L69)
+
+![Cray](assets/cray.jpeg)
+
+

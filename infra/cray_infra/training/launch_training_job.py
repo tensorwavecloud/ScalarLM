@@ -28,6 +28,7 @@ async def launch_training_job(train_args: Dict):
 
     return get_existing_job_info(train_args)
 
+
 async def wait_for_slurm():
     config = get_config()
 
@@ -40,6 +41,7 @@ async def wait_for_slurm():
             return
         except subprocess.CalledProcessError:
             time.sleep(1)
+
 
 def job_already_exists(train_args: Dict):
     config = get_config()
@@ -241,7 +243,7 @@ def run_sbatch(run_command, train_args):
         k: v for k, v in clean_environs.items() if not k.startswith("PMI")
     }
 
-    write_job_status("QUEUED", train_args, {})
+    write_job_status("QUEUED", train_args, {"start_time": time.time()})
 
     logger.info(f"sbatch run_command: {' '.join(run_command)}")
 
@@ -275,9 +277,14 @@ def write_job_status(status, train_args, extra_info):
         **extra_info,
     }
 
-    with open(
-        os.path.join(get_training_job_directory(train_args), "status.json"), "w"
-    ) as f:
+    status_path = os.path.join(get_training_job_directory(train_args), "status.json")
+
+    if os.path.exists(status_path):
+        with open(status_path, "r") as f:
+            existing_job_status = json.load(f)
+            job_status = {**existing_job_status, **job_status}
+
+    with open(status_path, "w") as f:
         json.dump(job_status, f)
 
 

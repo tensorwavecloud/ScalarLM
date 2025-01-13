@@ -91,3 +91,12 @@ commands:
     - name: ls
       help: List all the LLM models
 
+    - name: squeue
+      help: Invoke the squeue tool from SLURM
+
+- name: diffusion
+  help: Evaluate a diffusion model
+  args:
+    - name: model
+      help: Model name to evaluate
+

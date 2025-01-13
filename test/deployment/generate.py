@@ -20,6 +20,8 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-results = llm.generate(prompts=dataset, model_name="7fa9572119913e44aa80c38038cfb840e5bb91b6bf5efae6efb0109b1ee6fb07")
+results = llm.generate(prompts=dataset,
+    #model_name="7fa9572119913e44aa80c38038cfb840e5bb91b6bf5efae6efb0109b1ee6fb07"
+)
 
 print(results)

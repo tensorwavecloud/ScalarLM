@@ -8,6 +8,7 @@ from cray_infra.training.upload_training_data import upload_training_data
 from cray_infra.training.training_logs_generator import training_logs_generator
 from cray_infra.training.get_training_job_info import get_training_job_info
 from cray_infra.training.list_models import list_models
+from cray_infra.training.squeue import squeue
 
 from fastapi import APIRouter, Request, HTTPException, status
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -72,3 +73,7 @@ async def get_training_logs(model_name: str, starting_line_number: int = 0):
 @megatron_router.get("/list_models")
 async def models():
     return await list_models()
+
+@megatron_router.get("/squeue")
+async def get_squeue():
+    return await squeue()

@@ -72,7 +72,7 @@ async def upload_training_data(request: Request):
         train_args["training_data_path"] = final_dataset_filepath
 
         # extract the dataset from the tarball
-        with tarfile.open(temp_filepath, "r:gz") as tar:
+        with tarfile.open(temp_filepath, "r") as tar:
             tar.extractall(job_directory)
 
         # delete the tarball

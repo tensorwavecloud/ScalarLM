@@ -3,6 +3,7 @@ from pydantic import BaseModel
 
 class Config(BaseModel):
     api_url: str = "http://localhost:8000"
+    #model: str = "diffusion_forcing"
     model: str = "masint/tiny-random-llama"
     #model: str = "meta-llama/Llama-3.2-1B-Instruct"
 
