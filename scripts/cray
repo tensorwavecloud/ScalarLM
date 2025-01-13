@@ -33,6 +33,7 @@ cray_usage() {
   printf "  %s   Deploy the cray platform to modal\n" "deploy     "
   printf "  %s   Serve the cray platform using modal\n" "serve      "
   printf "  %s   Invoke the LLM tool\n" "llm        "
+  printf "  %s   Evaluate a diffusion model\n" "diffusion  "
   echo
 
   # :command.long_usage
@@ -255,8 +256,10 @@ cray_llm_usage() {
   echo
   # :command.usage_commands
   printf "%s\n" "Commands:"
-  printf "  %s   Plot the LLM data\n" "plot"
-  printf "  %s   Get the logs for the LLM model\n" "logs"
+  printf "  %s   Plot the LLM data\n" "plot  "
+  printf "  %s   Get the logs for the LLM model\n" "logs  "
+  printf "  %s   List all the LLM models\n" "ls    "
+  printf "  %s   Invoke the squeue tool from SLURM\n" "squeue"
   echo
 
   # :command.long_usage
@@ -341,6 +344,77 @@ cray_llm_logs_usage() {
     # :argument.usage
     printf "  %s\n" "MODEL"
     printf "    Model name to get logs for\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_llm_ls_usage() {
+  printf "cray llm ls - List all the LLM models\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray llm ls\n"
+  printf "  cray llm ls --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_llm_squeue_usage() {
+  printf "cray llm squeue - Invoke the squeue tool from SLURM\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray llm squeue\n"
+  printf "  cray llm squeue --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_diffusion_usage() {
+  printf "cray diffusion - Evaluate a diffusion model\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray diffusion [MODEL]\n"
+  printf "  cray diffusion --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "MODEL"
+    printf "    Model name to evaluate\n"
     echo
 
   fi
@@ -511,7 +585,7 @@ cray_depot_build_command() {
       docker_platform=("linux/amd64")
   fi
 
-  docker_build_command="depot build --platform ${docker_platform} --build-arg BASE_NAME=${target} --build-arg VLLM_TARGET_DEVICE=${vllm_target_device} -t gdiamos/masint-$target:latest --push ."
+  docker_build_command="depot build --platform ${docker_platform} --build-arg BASE_NAME=${target} --build-arg VLLM_TARGET_DEVICE=${vllm_target_device} -t gdiamos/cray-${target}:latest --push ."
 
   # Run docker build command
   echo $(green_bold Building image with command: ${docker_build_command})
@@ -704,7 +778,10 @@ cray_llm_plot_command() {
 
   declare -a docker_command_parts
 
-  docker_command_parts=("docker" "run" "--rm" "-v" "$ROOT_DIRECTORY:/app/cray/data" "--network" "host")
+  # Make sure the data directory exists
+  mkdir -p $ROOT_DIRECTORY/data
+
+  docker_command_parts=("docker" "run" "--rm" "-v" "$ROOT_DIRECTORY/data:/app/cray/data" "--network" "host")
 
   docker_command_parts+=("cray:latest" "sh" "-c" "'$plot_command'")
 
@@ -757,6 +834,119 @@ cray_llm_logs_command() {
   docker_command_parts=("docker" "run" "-it" "--rm" "--network" "host")
 
   docker_command_parts+=("cray:latest" "sh" "-c" "'$log_command'")
+
+  docker_command="${docker_command_parts[*]}"
+  echo $docker_command
+  eval $docker_command
+
+}
+
+# :command.function
+cray_llm_ls_command() {
+
+  # cmd/llm_ls_command.sh
+  inspect_args
+
+  ./cray build-image
+
+  declare -a ls_command_parts
+  ls_command_parts=(
+        "python" "/app/cray/sdk/cli/main.py" "ls"
+  )
+
+  ls_command="${ls_command_parts[*]}"
+
+  echo $command
+
+  # Get the directory of this script
+  LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+  # Set cwd to the project root directory
+  ROOT_DIRECTORY=$LOCAL_DIRECTORY/..
+
+  declare -a docker_command_parts
+
+  # Make sure the data directory exists
+  mkdir -p $ROOT_DIRECTORY/data
+
+  docker_command_parts=("docker" "run" "--rm" "--network" "host")
+
+  docker_command_parts+=("cray:latest" "sh" "-c" "'$ls_command'")
+
+  docker_command="${docker_command_parts[*]}"
+  echo $docker_command
+  eval $docker_command
+
+}
+
+# :command.function
+cray_llm_squeue_command() {
+
+  # cmd/llm_squeue_command.sh
+  inspect_args
+
+  ./cray build-image
+
+  declare -a squeue_command_parts
+  squeue_command_parts=(
+        "python" "/app/cray/sdk/cli/main.py" "squeue"
+  )
+
+  squeue_command="${squeue_command_parts[*]}"
+
+  echo $command
+
+  # Get the directory of this script
+  LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+  # Set cwd to the project root directory
+  ROOT_DIRECTORY=$LOCAL_DIRECTORY/..
+
+  declare -a docker_command_parts
+
+  # Make sure the data directory exists
+  mkdir -p $ROOT_DIRECTORY/data
+
+  docker_command_parts=("docker" "run" "--rm" "--network" "host")
+
+  docker_command_parts+=("cray:latest" "sh" "-c" "'$squeue_command'")
+
+  docker_command="${docker_command_parts[*]}"
+  echo $docker_command
+  eval $docker_command
+
+}
+
+# :command.function
+cray_diffusion_command() {
+
+  # cmd/diffusion_command.sh
+  inspect_args
+
+  model=${args[model]}
+
+  if [ -z "$model" ]; then
+      model="latest"
+  fi
+
+  ./cray build-image
+
+  declare -a diffusion_command_parts
+  diffusion_command_parts=(
+        "python" "/app/cray/ml/diffusion_forcing/eval.py" "--model" "$model"
+  )
+
+  echo $tail
+
+  diffusion_command="${diffusion_command_parts[*]}"
+
+  echo $command
+
+  declare -a docker_command_parts
+
+  docker_command_parts=("docker" "exec" "-it" )
+
+  docker_command_parts+=("cray-vllm-1" "sh" "-c" "'$diffusion_command'")
 
   docker_command="${docker_command_parts[*]}"
   echo $docker_command
@@ -840,6 +1030,13 @@ parse_requirements() {
       action="llm"
       shift
       cray_llm_parse_requirements "$@"
+      shift $#
+      ;;
+
+    diffusion)
+      action="diffusion"
+      shift
+      cray_diffusion_parse_requirements "$@"
       shift $#
       ;;
 
@@ -1307,6 +1504,20 @@ cray_llm_parse_requirements() {
       shift $#
       ;;
 
+    ls)
+      action="ls"
+      shift
+      cray_llm_ls_parse_requirements "$@"
+      shift $#
+      ;;
+
+    squeue)
+      action="squeue"
+      shift
+      cray_llm_squeue_parse_requirements "$@"
+      shift $#
+      ;;
+
     # :command.command_fallback
     "")
       cray_llm_usage >&2
@@ -1477,6 +1688,147 @@ cray_llm_logs_parse_requirements() {
 
 }
 
+# :command.parse_requirements
+cray_llm_ls_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_llm_ls_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="llm ls"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        printf "invalid argument: %s\n" "$key" >&2
+        exit 1
+
+        ;;
+
+    esac
+  done
+
+}
+
+# :command.parse_requirements
+cray_llm_squeue_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_llm_squeue_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="llm squeue"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        printf "invalid argument: %s\n" "$key" >&2
+        exit 1
+
+        ;;
+
+    esac
+  done
+
+}
+
+# :command.parse_requirements
+cray_diffusion_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_diffusion_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="diffusion"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        # :argument.case
+        if [[ -z ${args['model']+x} ]]; then
+          args['model']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
+
+        ;;
+
+    esac
+  done
+
+}
+
 # :command.initialize
 initialize() {
   version="0.1.0"
@@ -1505,6 +1857,9 @@ run() {
     "llm") cray_llm_command ;;
     "llm plot") cray_llm_plot_command ;;
     "llm logs") cray_llm_logs_command ;;
+    "llm ls") cray_llm_ls_command ;;
+    "llm squeue") cray_llm_squeue_command ;;
+    "diffusion") cray_diffusion_command ;;
   esac
 }
 

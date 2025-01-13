@@ -23,7 +23,7 @@ def plot(model_name):
 async def plot_async(model_name):
     status = await get_status(model_name)
 
-    history = status["history"]
+    history = status["job_status"]["history"]
     model_name = clip_model_name(status["model_name"])
 
     # Plot loss against step

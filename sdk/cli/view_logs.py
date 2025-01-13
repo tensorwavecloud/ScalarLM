@@ -80,4 +80,4 @@ async def read_log_stream(log_stream):
 
 
 def format_log(log):
-    return f"{log['line_number']} {log['line'].strip()}"
+    return f"{log['line_number']} {log['line'].rstrip()}"

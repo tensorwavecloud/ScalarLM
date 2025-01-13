@@ -51,9 +51,12 @@ async def get_running_jobs():
 
     # get all the directories in the training job directory
     # that have a status.json file
+    if not os.path.exists(config["training_job_directory"]):
+        return
 
-    for root, dirs, files in os.walk(config["training_job_directory"]):
-        if "status.json" in files:
+    for path in os.listdir(config["training_job_directory"]):
+        root = os.path.join(config["training_job_directory"], path)
+        if os.path.exists(os.path.join(root, "status.json")):
             with open(os.path.join(root, "status.json")) as f:
                 status = json.load(f)
                 if (

@@ -13,9 +13,6 @@ class AsyncSupermassiveIntelligence:
             data=data, model_name=model_name, train_args=train_args
         )
 
-    async def health(self):
-        return await self.engine.health()
-
     async def generate(self, prompts, model_name=None, max_tokens=None):
         return await self.engine.generate(
             prompts=prompts, model_name=model_name, max_tokens=max_tokens
@@ -26,8 +23,8 @@ class AsyncSupermassiveIntelligence:
             prompts=prompts, model_name=model_name, max_tokens=max_tokens
         )
 
-    async def get_results(self, request_ids):
-        return await self.engine.get_results(request_ids)
+    async def learn_classes(self, classes):
+        assert False, "Not implemented yet."
 
     async def learn_docs(self, docs):
         assert False, "Not implemented yet."
@@ -37,3 +34,15 @@ class AsyncSupermassiveIntelligence:
 
     async def learn_code(self, vcs):
         assert False, "Not implemented yet."
+
+    async def list_models(self):
+        return await self.engine.list_models()
+
+    async def get_training_job(self, job_dir):
+        return await self.engine.get_training_job(job_dir=job_dir)
+
+    async def health(self):
+        return await self.engine.health()
+
+    async def get_results(self, request_ids):
+        return await self.engine.get_results(request_ids)

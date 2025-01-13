@@ -25,7 +25,10 @@ ROOT_DIRECTORY=$LOCAL_DIRECTORY/..
 
 declare -a docker_command_parts
 
-docker_command_parts=("docker" "run" "--rm" "-v" "$ROOT_DIRECTORY:/app/cray/data" "--network" "host")
+# Make sure the data directory exists
+mkdir -p $ROOT_DIRECTORY/data
+
+docker_command_parts=("docker" "run" "--rm" "-v" "$ROOT_DIRECTORY/data:/app/cray/data" "--network" "host")
 
 docker_command_parts+=("cray:latest" "sh" "-c" "'$plot_command'")
 

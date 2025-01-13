@@ -1,14 +1,8 @@
 from cray_megatron.megatron.dataset.data_loader import DataLoader
 
-from cray_megatron.megatron.tokenformer.load_tokenformer_model import (
-    load_tokenformer_model,
-)
-from cray_megatron.megatron.tokenformer.any_checkpoint_exists import (
-    any_checkpoint_exists,
-)
-from cray_megatron.megatron.tokenformer.get_latest_checkpoint_path import (
-    get_latest_checkpoint_path,
-)
+from cray_megatron.models.get_model_manager import get_model_manager
+from cray_megatron.models.does_any_checkpoint_exist import does_any_checkpoint_exist
+from cray_megatron.models.get_latest_checkpoint_path import get_latest_checkpoint_path
 
 from cray_infra.training.training_job_status import TrainingJobStatus
 from cray_infra.training.training_harness import TrainingHarness
@@ -25,7 +19,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-class TokenformerTrainer:
+class TrainingLoop:
     def __init__(self, training_harness: TrainingHarness):
         self.training_harness = training_harness
 
@@ -34,7 +28,9 @@ class TokenformerTrainer:
         self.training_state = TrainingState()
 
     def train(self):
-        self.training_state.model_info = load_tokenformer_model()
+        self.model_manager = get_model_manager()
+
+        self.training_state.model_info = self.model_manager.load_model()
 
         self.training_loop()
 
@@ -54,7 +50,7 @@ class TokenformerTrainer:
             self.training_state.optimizer, max_steps
         )
 
-        if any_checkpoint_exists():
+        if does_any_checkpoint_exist():
             self.resume_from_checkpoint()
 
         data_loader = DataLoader(
@@ -98,6 +94,8 @@ class TokenformerTrainer:
         self.training_state.scheduler.load_state_dict(
             checkpoint["scheduler_state_dict"]
         )
+
+        self.training_state.history = self.training_harness.get_status()["history"]
 
     def training_step(self, batch):
 
