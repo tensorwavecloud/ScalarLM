@@ -37,6 +37,9 @@ class TrainingHarness:
 
         logger.info(f"Model saved to {saved_model_path}")
 
+    def get_status(self):
+        return get_status()
+
 
 def get_status():
     try:

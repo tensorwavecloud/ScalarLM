@@ -11,9 +11,6 @@ class TrainResponse(BaseModel):
 
 
 class TrainJobStatusResponse(BaseModel):
-    job_id: str
-    status: str
-    history: list
+    job_status: dict
+    job_config: dict
     model_name: str
-    message: str
-    job_directory: str

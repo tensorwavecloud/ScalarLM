@@ -29,13 +29,15 @@ def main():
 
 def run_server_with_autoreload():
 
+    os.chdir("/app/cray/infra")
+
     server_config = uvicorn.Config(
         "cray_infra.one_server.main:run_all_servers",
         host="0.0.0.0",
         port=8000,
         log_level="info",
         reload_dirs=["/app/cray/infra/cray_infra"],
-        reload_excludes=["**/jobs/**/*.yaml"],
+        reload_excludes=["**/jobs/**"],
         reload=True,
         reload_includes=["**/*.py", "**/*.yaml"],
     )
@@ -53,6 +55,7 @@ def run_all_servers(sockets):
 
 async def run_all_servers_async():
     server_status = await start_cray_server(server_list=["all"])
+    #server_status = await start_cray_server(server_list=["api"])
 
     done, pending = await asyncio.wait(
         server_status.tasks,

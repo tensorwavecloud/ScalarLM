@@ -1,4 +1,6 @@
 from cray_megatron.huggingface.download_model import download_model
+from cray_megatron.megatron.distribution.apply_distribution_strategy import apply_distribution_strategy
+
 from tokenformer.llama_tokenformer_model import create_llama_tokenformer_model
 
 from cray_infra.util.get_job_config import get_job_config
@@ -21,9 +23,7 @@ def load_tokenformer_model():
 
     model_info = apply_tokenformer_adapter(model_info)
 
-    distribution_strategy = load_distribution_strategy()
-
-    model_info = apply_distribution_strategy(model_info, distribution_strategy)
+    model_info = apply_distribution_strategy(model_info)
 
     model_info = materialize_model(model_info)
 
@@ -51,26 +51,6 @@ def load_model_config():
 
 
 def apply_tokenformer_adapter(model_info):
-    return model_info
-
-
-def load_distribution_strategy():
-    device = get_device()
-
-    return {
-        "device": device,
-    }
-
-
-def get_device():
-    if torch.cuda.is_available():
-        return torch.cuda.current_device()
-    else:
-        return torch.device("cpu")
-
-
-def apply_distribution_strategy(model_info, distribution_strategy):
-    model_info["distribution_strategy"] = distribution_strategy
     return model_info
 
 

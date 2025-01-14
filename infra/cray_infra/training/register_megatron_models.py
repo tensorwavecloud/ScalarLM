@@ -33,10 +33,15 @@ async def register_megatron_models():
 async def get_models():
     config = get_config()
     logger.info(f"Getting models from {config['training_job_directory']}")
-    for root, dirs, files in os.walk(config["training_job_directory"]):
+
+    if not os.path.exists(config["training_job_directory"]):
+        return
+
+    for path in os.listdir(config["training_job_directory"]):
+        root = os.path.join(config["training_job_directory"], path)
         logger.info(f"Checking {root}")
-        if "config.json" in files:
-            yield os.path.basename(os.path.split(root)[0])
+        if os.path.exists(os.path.join(root, "config.json")):
+            yield path
 
 
 async def is_vllm_ready():
