@@ -8,7 +8,11 @@ declare -a docker_platform
 # If target is cpu, build the image with the cpu base image
 if [ "$target" == "cpu" ]; then
     vllm_target_device=("cpu")
-    docker_platform=("linux/arm64/v8")
+    if [ "$(uname -m)" == "x86_64" ]; then
+        docker_platform=("linux/amd64")
+    else
+        docker_platform=("linux/arm64/v8")
+    fi
 elif [ "$target" == "amd" ]; then
     vllm_target_device=("rocm")
     docker_platform=("linux/amd64")
