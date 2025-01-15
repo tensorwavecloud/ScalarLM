@@ -19,7 +19,7 @@ from vllm.lora.models import (
     create_lora_manager,
 )
 
-from infra.cray_infra.vllm.tokenformer.tokenformer_model_manager import (
+from cray_infra.vllm.tokenformer.tokenformer_model_manager import (
     TokenformerModelManager,
     TokenformerModel,
 )
@@ -238,14 +238,14 @@ class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
         return loaded
 
 class WorkerTokenformerManager(AbstractWorkerManager):
-    
+
     """WorkerTokenformerManager that manages tokenformer models on the worker side.
 
     Every request, the requested tokenformer model will be loaded (unless it is already
     loaded)"""
 
     _manager_cls: Type[TokenformerModelManager] = TokenformerModelManager
-    
+
     def __init__(
         self,
         device: torch.device,
@@ -255,7 +255,7 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         super().__init__(device)
         # Lazily initialized by create_tokenformer_manager.
         self._adapter_manager: TokenformerModelManager
-    
+
     @property
     def is_enabled(self) -> bool:
         pass
@@ -265,10 +265,10 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         pass
 
     def add_adapter(self, adapter_request: Any) -> bool:
-        return add_adapter_worker(adapter_request, 
-                                  self.list_adapters, 
-                                  self._load_adapter, 
-                                  self._adapter_manager.add_adapter, 
+        return add_adapter_worker(adapter_request,
+                                  self.list_adapters,
+                                  self._load_adapter,
+                                  self._adapter_manager.add_adapter,
                                   self._adapter_manager.activate_adapter)
 
     def remove_adapter(self, adapter_id: int) -> bool:
@@ -279,18 +279,18 @@ class WorkerTokenformerManager(AbstractWorkerManager):
 
     def list_adapters(self) -> Set[int]:
         return list_adapters_worker(self._adapter_manager.list_adapters)
-    
+
     def create_tokenformer_manager(
         self,
         model: torch.nn.Module,
     ) -> Any:
-        
+
         tokenformer_manager = self._manager_cls(
             model=model)
-        
+
         self._adapter_manager = tokenformer_manager
         return tokenformer_manager.model
-    
+
     def _load_adapter(self, lora_request: LoRARequest) -> TokenformerModel:
         try:
             lora_path = get_adapter_absolute_path(lora_request.lora_path)

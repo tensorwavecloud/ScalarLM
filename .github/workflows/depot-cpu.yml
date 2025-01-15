@@ -28,6 +28,6 @@ jobs:
           # if no depot.json file is at the root of your repo, you must specify the project id
           project: 39xfdrxfqt
           push: true
-          tags: gdiamos/masint-cpu:latest
+          tags: gdiamos/cray-cpu:latest
 
 

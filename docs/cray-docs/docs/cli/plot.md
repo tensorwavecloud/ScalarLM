@@ -1,4 +1,4 @@
-# List Models
+# Plot
 
 ```console
 ./cray llm plot

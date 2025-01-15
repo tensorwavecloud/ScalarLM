@@ -1,5 +1,5 @@
 from cray_infra.one_server.start_cray_server import start_cray_server
-from cray_infra.one_server.wait_for_vllm import get_health, wait_for_vllm
+from cray_infra.one_server.wait_for_vllm import get_vllm_health, wait_for_vllm
 
 import unittest
 
@@ -22,7 +22,7 @@ class TestVLLMHealth(unittest.IsolatedAsyncioTestCase):
 
         await wait_for_vllm()
 
-        health_status = await get_health()
+        health_status = await get_vllm_health()
 
         self.assertEqual(health_status, 200)
 
