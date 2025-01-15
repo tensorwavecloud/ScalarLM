@@ -15,7 +15,7 @@ from vllm.utils import find_process_using_port
 logger = init_logger(__name__)
 
 
-async def serve_http(app: FastAPI, **uvicorn_kwargs: Any):
+async def serve_http(app: FastAPI, running_status, **uvicorn_kwargs: Any):
     logger.info("Available routes are:")
     for route in app.routes:
         methods = getattr(route, "methods", None)
@@ -28,6 +28,7 @@ async def serve_http(app: FastAPI, **uvicorn_kwargs: Any):
 
     config = uvicorn.Config(app, **uvicorn_kwargs)
     server = uvicorn.Server(config)
+    running_status.servers.append(server)
     _add_shutdown_handlers(app, server)
 
     loop = asyncio.get_running_loop()

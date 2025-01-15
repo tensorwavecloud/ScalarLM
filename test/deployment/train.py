@@ -1,5 +1,6 @@
 import masint
 
+#masint.api_url = "https://app.smasint.com"
 #masint.api_url = "https://greg1232--cray-cpu-llama-3-2-1b-instruct-fastapi-app.modal.run"
 #masint.api_url = "https://greg1232--cray-nvidia-llama-3-2-3b-instruct-fastapi-app.modal.run"
 
@@ -7,7 +8,7 @@ import masint
 def get_dataset():
     dataset = []
 
-    count = 1
+    count = 2
 
     for i in range(count):
         dataset.append(
@@ -21,6 +22,6 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-status = llm.train(dataset, train_args={"max_steps": 200, "learning_rate": 3e-3})
+status = llm.train(dataset, train_args={"max_steps": 21, "learning_rate": 3e-3})
 
 print(status)

@@ -30,4 +30,4 @@ def get_start_time(path):
     with open(os.path.join(path, "status.json")) as f:
         status = json.load(f)
 
-    return status["start_time"]
+    return status.get("start_time", 0)

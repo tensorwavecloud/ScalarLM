@@ -14,7 +14,11 @@ async def finish_work(requests : FinishWorkRequests):
 
         result = inference_work_queue.get_id(id=request.request_id)
 
-        result["response"] = request.response
+        if request.response is not None:
+            result["response"] = request.response
+
+        if request.error is not None:
+            result["error"] = request.error
 
         inference_work_queue.update(id=request.request_id, item=result)
 

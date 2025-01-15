@@ -46,7 +46,11 @@ async def poll_for_responses(request_ids):
 
             responses_so_far.add(request_id)
             responses.results.append(
-                Result(request_id=request_id, response=response["response"])
+                Result(
+                    request_id=request_id,
+                    response=response.get("response", None),
+                    error=response.get("error", None),
+                )
             )
 
         await asyncio.sleep(0.1)

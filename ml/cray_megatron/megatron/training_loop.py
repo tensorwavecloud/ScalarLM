@@ -111,7 +111,7 @@ class TrainingLoop:
         logger.info(
             f"Training step {self.training_state.current_step} "
             f"- epoch {self.training_state.epoch} "
-            f"- loss {loss.item()}"
+            f"- loss {loss.item()} "
             f"- learning rate {self.training_state.scheduler.get_last_lr()[0]}"
         )
 
@@ -151,7 +151,9 @@ class TrainingLoop:
 
     def checkpoint(self):
         checkpoint = {
-            "model_state_dict": self.training_state.model_info["model"].state_dict(),
+            "model_state_dict": filter_checkpoint(
+                self.training_state.model_info["model"].state_dict()
+            ),
             "optimizer_state_dict": self.training_state.optimizer.state_dict(),
             "scheduler_state_dict": self.training_state.scheduler.state_dict(),
             "step": self.training_state.current_step,
@@ -277,3 +279,8 @@ def remove_closest_entry(history, max_length):
         history.pop(min_index)
 
     return history
+
+
+def filter_checkpoint(state_dict):
+    # Remove the layers without gradients
+    return {k: v for k, v in state_dict.items() if v.requires_grad}
