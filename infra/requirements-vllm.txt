@@ -1,4 +1,4 @@
-transformers >= 4.45.0  # Required for Llama 3.2.
+transformers == 4.48.0  # Required for Llama 3.2.
 peft
 psutil
 typing_extensions >= 4.10

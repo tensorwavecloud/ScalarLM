@@ -3,20 +3,21 @@ from torch import nn
 from safetensors.torch import safe_open
 from pathlib import Path
 from typing import Optional, Any, Dict, List
-from infra.cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 import os
-from ml.tokenformer.tokenformer_surgeon import TokenformerSurgeon, TokenformerAttentionAdapter
+from tokenformer.tokenformer_surgeon import TokenformerSurgeon, TokenformerAttentionAdapter
 from vllm.model_executor.models import SupportsLoRA
-from infra.cray_infra.vllm.attention import AttentionMetadata, AttentionType
 from vllm.lora.models import get_lora_id
 from vllm.logger import init_logger
+
+from cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
+from cray_infra.vllm.attention import AttentionMetadata, AttentionType
 
 logger = init_logger(__name__)
 
 class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
     def __init__(self, layer, hidden_size):
         super().__init__(layer, hidden_size)
-        
+
     def forward(
         self,
         query,
@@ -26,23 +27,23 @@ class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
         attn_metadata: AttentionMetadata,
         attn_type: AttentionType = AttentionType.DECODER,
     ) -> torch.Tensor:
-        
-        base_layer_results = self.layer(query=query, 
-                                        key=key, 
-                                        value=value, 
-                                        kv_cache=kv_cache, 
-                                        attn_metadata=attn_metadata, 
+
+        base_layer_results = self.layer(query=query,
+                                        key=key,
+                                        value=value,
+                                        kv_cache=kv_cache,
+                                        attn_metadata=attn_metadata,
                                         attn_type=attn_type)
-        
+
         seq_len = query.shape[0]
         new_shape = [-1, self.layer.num_heads, seq_len, self.layer.head_dim]
         reshaped_query = torch.reshape(query, new_shape)
         reshaped_base_layer_results = torch.reshape(base_layer_results, new_shape)
         result = super().forward(reshaped_query, reshaped_base_layer_results)
         return torch.reshape(result, [-1, self.layer.num_heads * self.layer.head_dim])
-    
+
 class vLLMTokenformerSurgeon(TokenformerSurgeon):
-    
+
     def __init__(
         self,
         model: nn.Module,
@@ -67,20 +68,22 @@ class TokenformerModel(AdapterModel):
 
     @classmethod
     def from_local_checkpoint(cls, model_dir: str) -> "TokenformerModel":
-        tokenformer_tensor_path = Path(model_dir) / "model.safetensors"
-        
-        if not tokenformer_tensor_path.is_file():
-            raise FileNotFoundError(f"Tokenformer tensor file not found: {tokenformer_tensor_path}")
+        # Find all files that match the pattern Path(model_dir) / "model.*.safetensors"
+        files = list(Path(model_dir).glob("*.safetensors"))
 
-        with safe_open(tokenformer_tensor_path, framework="pt") as f:
-            tokenformers = {
-                module: f.get_tensor(module)
-                for module in f.keys()
-                if any(key in module for key in ("tokenformer", "lm_head"))
-            }
+        if len(files) == 0:
+            raise FileNotFoundError(f"Tokenformer tensor file not found: {model_dir}")
+
+
+        for tokenformer_tensor_path in files:
+            tokenformers = {}
+            with safe_open(tokenformer_tensor_path, framework="pt") as f:
+                for module in f.keys():
+                    if any(key in module for key in ("tokenformer", "lm_head")):
+                        tokenformers[module] = f.get_tensor(module)
 
         return cls(tokenformers)
-    
+
 class TokenformerModelManager(AdapterModelManager):
     """A manager that manages tokenformer models."""
 
@@ -92,7 +95,7 @@ class TokenformerModelManager(AdapterModelManager):
         self._registered_adapters: Dict[int, Any] = {}
         self._active_adapters: List[int] = []
         self.tokenformer_model_cls = TokenformerModel
-    
+
     @property
     def capacity(self) -> int:
         pass
@@ -105,15 +108,15 @@ class TokenformerModelManager(AdapterModelManager):
     def activate_adapter(self, adapter_id: int) -> bool:
         if adapter_id in self._active_adapters:
             return False
-    
+
         logger.info("Activating Tokenformer - adapter id: %d", adapter_id)
-        
+
         model_state_dict = self.model.state_dict()
         for id, adapter in self._registered_adapters.items():
             tokenformers = adapter.tokenformers
             for key, value in tokenformers.items():
                 model_state_dict[key] = value
-        
+
         self.model.load_state_dict(model_state_dict)
         self._active_adapters.append(adapter_id)
         return True

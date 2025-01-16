@@ -5,7 +5,8 @@ from typing import Optional
 
 class FinishWorkRequest(BaseModel):
     request_id: int
-    response: str
+    response: Optional[str] = None
+    error: Optional[str] = None
 
 
 class FinishWorkRequests(BaseModel):

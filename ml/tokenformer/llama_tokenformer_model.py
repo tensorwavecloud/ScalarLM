@@ -19,18 +19,18 @@ def log_param_gradients(model, logger=logging.getLogger(__name__)):
 def create_llama_tokenformer_model(model):
     model = replace_layers(model, LlamaTokenformerDecoderLayer)
     tokenformer_model = TransformersTokenformerSurgeon(model).insert_adapter_modules()
-    
+
     # Freeze all parameters
     for param in tokenformer_model.parameters():
         param.requires_grad = False
-    
+
     # Unfreeze tokenformer and lm_head parameters
     for name, param in tokenformer_model.named_parameters():
         if any(module_name in name for module_name in ["tokenformer", "lm_head"]):
             param.requires_grad = True
-    
+
     # Log parameter gradients
     log_param_gradients(tokenformer_model)
-    
+
     return tokenformer_model
 

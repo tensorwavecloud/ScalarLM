@@ -29,4 +29,4 @@ async def create_vllm(port, running_status):
 
     logger.info(f"Running vLLM with args: {args}")
 
-    await run_server(args)
+    await run_server(args, running_status)

@@ -40,7 +40,8 @@ async def get_models():
     for path in os.listdir(config["training_job_directory"]):
         root = os.path.join(config["training_job_directory"], path)
         logger.info(f"Checking {root}")
-        if os.path.exists(os.path.join(root, "config.json")):
+        if os.path.exists(os.path.join(root, "saved_model")):
+            logger.info(f"Found model {path}")
             yield path
 
 
@@ -66,6 +67,7 @@ async def register_model(model):
     session = get_global_session()
     config = get_config()
     path = os.path.join(config["training_job_directory"], model, "saved_model")
+    logger.info(f"Registering model {model} at {path}")
     async with session.post(
         config["vllm_api_url"] + "/v1/load_lora_adapter",
         json={"lora_name": model, "lora_path": path},

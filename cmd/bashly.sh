@@ -9,8 +9,13 @@ set -Eeuoxa pipefail
 # Get the directory of this script
 LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 
+TTY=-t
+if test -t 0; then
+  TTY=-it
+fi
+
 # Run the docker container
-docker run --rm -it --user $(id -u):$(id -g) \
+docker run --rm $TTY --user $(id -u):$(id -g) \
     --volume "$LOCAL_DIRECTORY:/app/cmd" \
     --volume "$LOCAL_DIRECTORY/../scripts:/app/scripts" \
     --volume "$LOCAL_DIRECTORY/bashly-settings.yml:/app/bashly-settings.yml" \

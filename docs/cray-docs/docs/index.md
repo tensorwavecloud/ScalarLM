@@ -1,6 +1,6 @@
 # Welcome to Cray-LM
 
-Cray-LM is a fully open source, Apache 2 Licensed, integrated LLM inference and training platform.
+Cray-LM is a fully open source, CC-0 Licensed, integrated LLM inference and training platform.
 
 Cray builds on top of the vLLM inference engine, the Megatron-LM training framework, and the HuggingFace model hub. It unifies the capabilities of these tools into a single platform, enabling users to easily perform LLM inference and training, and build higher lever applications such as Agents.
 

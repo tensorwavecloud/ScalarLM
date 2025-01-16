@@ -23,7 +23,7 @@ except modal.exception.NotFoundError:
 
 cray_image = (
     modal.Image.from_registry(
-        "gdiamos/masint-cpu:latest",
+        "gdiamos/cray-cpu:latest",
         secret=modal.Secret.from_name("dockerhub-credentials"),
         force_build=True,
     )
@@ -66,7 +66,7 @@ def fastapi_app():
 @app.function(
     image=cray_image,
     allow_concurrent_inputs=32,
-    memory=4 * 1024,
+    memory=16 * 1024,
     secrets=[modal.Secret.from_name("huggingface-credentials")],
     volumes={"/root/.cache/huggingface": volume, "/app/cray/jobs": jobs_volume},
 )

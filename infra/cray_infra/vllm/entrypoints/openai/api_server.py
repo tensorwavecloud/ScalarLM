@@ -10,6 +10,7 @@ import tempfile
 import traceback
 import typing
 import json
+import sys
 from argparse import Namespace
 from contextlib import asynccontextmanager
 from functools import partial
@@ -35,6 +36,7 @@ from vllm.engine.protocol import EngineClient
 from vllm.entrypoints.launcher import serve_http
 from vllm.entrypoints.logger import RequestLogger
 from vllm.entrypoints.openai.cli_args import make_arg_parser, validate_parsed_serve_args
+from vllm.engine.async_llm_engine import AsyncEngineDeadError
 
 # yapf conflicts with isort for this block
 # yapf: disable
@@ -115,6 +117,11 @@ async def get_work(app: FastAPI):
     while True:
         try:
             await get_work_step(app)
+        except AsyncEngineDeadError:
+            logger.error("Engine is dead, restarting")
+            # Kill the container so it can be restarted
+            sys.exit(1)
+
         except Exception as e:
             logger.error("Error in get_work_step: %s", e)
             logger.error(traceback.format_exc())
@@ -188,10 +195,16 @@ async def async_completion_task(request, app):
 
     logger.info("Got response: %s", response_data)
 
-    return {
+    response = {
         "request_id": request["request_id"],
-        "response": response_data["choices"][0]["text"],
     }
+
+    if "choices" in response_data:
+        response["response"] = response_data["choices"][0]["text"]
+    elif "error" in response_data:
+        response["error"] = response_data["error"]
+
+    return response
 
 
 @asynccontextmanager
@@ -611,7 +624,7 @@ def init_app_state(
     )
 
 
-async def run_server(args, **uvicorn_kwargs) -> None:
+async def run_server(args, running_status, **uvicorn_kwargs) -> None:
 
     logger.info("vLLM API server version %s", VLLM_VERSION)
     logger.info("args: %s", args)
@@ -631,11 +644,11 @@ async def run_server(args, **uvicorn_kwargs) -> None:
     # see https://github.com/vllm-project/vllm/issues/8204
 
     # make sure the socket is not already bound
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.bind(("", args.port))
-    except OSError as e:
-        logger.error(f"Port {args.port} is already in use: {e}")
+    #try:
+    #    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    #    sock.bind(("", args.port))
+    #except OSError as e:
+    #    logger.error(f"Port {args.port} is already in use: {e}")
 
     def signal_handler(*_) -> None:
         # Interrupt server on sigterm while initializing
@@ -659,7 +672,8 @@ async def run_server(args, **uvicorn_kwargs) -> None:
             ssl_certfile=args.ssl_certfile,
             ssl_ca_certs=args.ssl_ca_certs,
             ssl_cert_reqs=args.ssl_cert_reqs,
-            fd=sock.fileno(),
+            #fd=sock.fileno(),
+            running_status=running_status,
             **uvicorn_kwargs,
         )
 
