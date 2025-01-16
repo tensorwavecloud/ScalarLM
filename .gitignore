@@ -1,6 +1,6 @@
 **/*.swp
 **/*.so
-models
+models/*
 infra/slurm_configs/slurm.conf
 
 *.DS_Store
