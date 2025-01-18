@@ -9,8 +9,6 @@ from transformers import AutoConfig
 from transformers import AutoTokenizer
 from transformers import AutoModelForCausalLM
 
-from peft import LoraConfig, get_peft_model
-
 import torch
 
 import logging
@@ -61,6 +59,7 @@ def materialize_model(model_info):
 
     model_info["model"] = create_llama_tokenformer_model(model_info["model"])
 
+    model_info["model"] = model_info["model"].to(torch.bfloat16)
     logger.info(f"Model: {model_info['model']}")
 
     model_info["model"].to(model_info["distribution_strategy"]["device"])
