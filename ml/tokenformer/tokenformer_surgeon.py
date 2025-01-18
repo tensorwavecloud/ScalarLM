@@ -7,13 +7,13 @@ logger = logging.getLogger(__name__)
 
 
 class TokenformerMLPAdapter(nn.Module):
-    def __init__(self, layer, hidden_size):
+    def __init__(self, layer, hidden_size, device):
         super().__init__()
         self.layer = layer
         self.hidden_size = hidden_size
 
-        self.tokenformer_k = nn.Parameter(torch.zeros(hidden_size, hidden_size))
-        self.tokenformer_v = nn.Parameter(torch.zeros(hidden_size, hidden_size))
+        self.tokenformer_k = nn.Parameter(torch.zeros(hidden_size, hidden_size, device=device))
+        self.tokenformer_v = nn.Parameter(torch.zeros(hidden_size, hidden_size, device=device))
 
         self.reset_parameters()
 
@@ -40,16 +40,16 @@ class TokenformerMLPAdapter(nn.Module):
 
 
 class TokenformerAttentionAdapter(nn.Module):
-    def __init__(self, layer, hidden_size):
+    def __init__(self, layer, hidden_size, device):
         super().__init__()
         self.layer = layer
         self.hidden_size = hidden_size
 
         self.tokenformer_k = nn.Parameter(
-            torch.zeros(self.hidden_size, self.hidden_size)
+            torch.zeros(self.hidden_size, self.hidden_size, device=device)
         )
         self.tokenformer_v = nn.Parameter(
-            torch.zeros(self.hidden_size, self.hidden_size)
+            torch.zeros(self.hidden_size, self.hidden_size, device=device)
         )
 
         self.reset_parameters()
@@ -76,8 +76,9 @@ class TokenformerAttentionAdapter(nn.Module):
 
 class TokenformerSurgeon(ABC):
 
-    def __init__(self, model: nn.Module):
+    def __init__(self, model: nn.Module, device: torch.device):
         self.model = model
+        self.device = device
 
     def _is_attn_layer(self, layer_name):
         return layer_name.split(".")[-1] == "attn"
@@ -103,7 +104,7 @@ class TokenformerSurgeon(ABC):
         self._recursive_setattr(
             self.model,
             name,
-            TokenformerMLPAdapter(layer, self.model.config.hidden_size),
+            TokenformerMLPAdapter(layer, self.model.config.hidden_size, device=self.device),
         )
 
     @abstractmethod

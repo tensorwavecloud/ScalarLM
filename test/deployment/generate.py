@@ -23,7 +23,7 @@ dataset = get_dataset()
 
 results = llm.generate(prompts=dataset,
     # generate with default model
-    model_name="64192c4967586d250f4bd852e035eae2e79a392db1a22cb2b09bfa04bd44721a"
+    # model_name="64192c4967586d250f4bd852e035eae2e79a392db1a22cb2b09bfa04bd44721a"
 )
 
 print(results)

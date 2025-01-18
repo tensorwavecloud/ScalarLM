@@ -15,8 +15,8 @@ from cray_infra.vllm.attention import AttentionMetadata, AttentionType
 logger = init_logger(__name__)
 
 class vLLMTokenformerAttentionAdapter(TokenformerAttentionAdapter):
-    def __init__(self, layer, hidden_size):
-        super().__init__(layer, hidden_size)
+    def __init__(self, layer, hidden_size, device):
+        super().__init__(layer, hidden_size, device)
 
     def forward(
         self,
@@ -47,8 +47,9 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
     def __init__(
         self,
         model: nn.Module,
+        device: torch.device,
     ):
-        super().__init__(model)
+        super().__init__(model, device)
 
 
     def update_attn(self, name, layer):
@@ -57,7 +58,7 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
             return
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, layer.head_dim))
+        self._recursive_setattr(self.model, name, vLLMTokenformerAttentionAdapter(layer, layer.head_dim, self.device))
 
 class TokenformerModel(AdapterModel):
     """A tokenformer pre-trained model."""
@@ -67,7 +68,7 @@ class TokenformerModel(AdapterModel):
         self.tokenformers = tokenformers
 
     @classmethod
-    def from_local_checkpoint(cls, model_dir: str) -> "TokenformerModel":
+    def from_local_checkpoint(cls, model_dir: str, device: torch.device) -> "TokenformerModel":
         # Find all files that match the pattern Path(model_dir) / "model.*.safetensors"
         files = list(Path(model_dir).glob("*.safetensors"))
 
@@ -80,7 +81,7 @@ class TokenformerModel(AdapterModel):
             with safe_open(tokenformer_tensor_path, framework="pt") as f:
                 for module in f.keys():
                     if any(key in module for key in ("tokenformer", "lm_head")):
-                        tokenformers[module] = f.get_tensor(module)
+                        tokenformers[module] = f.get_tensor(module).to(device)
 
         return cls(tokenformers)
 
@@ -90,8 +91,9 @@ class TokenformerModelManager(AdapterModelManager):
     def __init__(
         self,
         model: SupportsLoRA,
+        device: torch.device,
     ):
-        self.model = vLLMTokenformerSurgeon(model).insert_adapter_modules()
+        self.model = vLLMTokenformerSurgeon(model, device).insert_adapter_modules()
         self._registered_adapters: Dict[int, Any] = {}
         self._active_adapters: List[int] = []
         self.tokenformer_model_cls = TokenformerModel

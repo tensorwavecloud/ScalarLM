@@ -16,9 +16,9 @@ def log_param_gradients(model, logger=logging.getLogger(__name__)):
         logger.debug(f"Parameter: {name}, Requires Grad: {param.requires_grad}")
 
 
-def create_llama_tokenformer_model(model):
+def create_llama_tokenformer_model(model, device):
     model = replace_layers(model, LlamaTokenformerDecoderLayer)
-    tokenformer_model = TransformersTokenformerSurgeon(model).insert_adapter_modules()
+    tokenformer_model = TransformersTokenformerSurgeon(model, device).insert_adapter_modules()
 
     # Freeze all parameters
     for param in tokenformer_model.parameters():

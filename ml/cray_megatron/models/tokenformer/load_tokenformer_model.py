@@ -1,5 +1,7 @@
 from cray_megatron.huggingface.download_model import download_model
-from cray_megatron.megatron.distribution.apply_distribution_strategy import apply_distribution_strategy
+from cray_megatron.megatron.distribution.apply_distribution_strategy import (
+    apply_distribution_strategy,
+)
 
 from tokenformer.llama_tokenformer_model import create_llama_tokenformer_model
 
@@ -57,7 +59,9 @@ def materialize_model(model_info):
 
     model_info["model"] = AutoModelForCausalLM.from_pretrained(model_info["model_name"])
 
-    model_info["model"] = create_llama_tokenformer_model(model_info["model"])
+    model_info["model"] = create_llama_tokenformer_model(
+        model_info["model"], model_info["distribution_strategy"]["device"]
+    )
 
     model_info["model"] = model_info["model"].to(torch.bfloat16)
     logger.info(f"Model: {model_info['model']}")
