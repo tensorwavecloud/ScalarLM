@@ -8,16 +8,16 @@ logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.DEBUG)
 
 TINY_BASE_MODEL = "masint/tiny-random-llama"
-TEST_QUESTION = "What is 14 times 14?"
+TEST_QUESTION = "What is 0 + 0"
 
 def create_training_set():
     dataset = []
-    count = 2
+    count = 1
     for i in range(count):
         dataset.append(
             {
-                "input": f"What is {i} times {i}?",
-                "output": str(i*i),
+                "input": f"What is {i} + {i}",
+                "output": "The answer is " + str(i+i),
             }
         )
 
@@ -39,7 +39,7 @@ def run_test():
 
     dataset = get_dataset()
 
-    # 1. call generate on base model
+    # 1. Call generate on base model
     base_model_generate_results = llm.generate(
         prompts=dataset,
         model_name=TINY_BASE_MODEL
@@ -48,8 +48,8 @@ def run_test():
         f"Base model on prompt {dataset} returned {base_model_generate_results}"
         )
 
-    # 2. train a base model with small dataset
-    training_response = llm.train(create_training_set(), train_args={"max_steps": 10, "learning_rate": 3e-3})
+    # 2. Train a base model with small dataset
+    training_response = llm.train(create_training_set(), train_args={"max_steps": 100})
     logger.info(training_response)
     
     job_hash = os.path.basename(training_response["job_status"]["job_directory"])
@@ -73,16 +73,21 @@ def run_test():
     training_response = llm.get_training_job(job_hash)
     logger.info(f"Training status {training_response}.")
 
-    # 4. Generate response on trained model
-    tuned_model_generate_results = llm.generate(
+    # 4. Wait ~30 seconds to allow the registration of the new pretrained model
+    time.sleep(30)	
+
+    # 4. Generate response on pretrained model
+    pretrained_model_generate_results = llm.generate(
         prompts=dataset, model_name=tuned_model_name
     )
-    logger.debug(
-        f"Trained model on prompt {dataset} returned {tuned_model_generate_results}"
+    logger.info(
+        f"Trained model on prompt {dataset} returned {pretrained_model_generate_results}"
     )
-    # 5. Compare and make sure based model and trained model have different responses
-    assert base_model_generate_results != tuned_model_generate_results
-    
+    # 5. Compare and make sure based model and pretrained model have different responses
+    assert base_model_generate_results != pretrained_model_generate_results
+    # 6. Make sure pretrained model gives the expected answer
+    assert pretrained_model_generate_results == ['The answer is 0']    
+
 def main():
     run_test()
     
