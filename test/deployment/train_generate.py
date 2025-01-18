@@ -49,7 +49,7 @@ def run_test():
         )
 
     # 2. Train a base model with small dataset
-    training_response = llm.train(create_training_set(), train_args={"max_steps": 100})
+    training_response = llm.train(create_training_set(), train_args={"max_steps": 50, "learning_rate": 3e-3})
     logger.info(training_response)
     
     job_hash = os.path.basename(training_response["job_status"]["job_directory"])
@@ -73,7 +73,7 @@ def run_test():
     training_response = llm.get_training_job(job_hash)
     logger.info(f"Training status {training_response}.")
 
-    # 4. Wait ~30 seconds to allow the registration of the new pretrained model
+    # 4. Wait ~30 seconds to allow for auto-registration of the new pretrained model
     time.sleep(30)	
 
     # 4. Generate response on pretrained model
