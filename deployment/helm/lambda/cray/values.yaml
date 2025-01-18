@@ -1,0 +1,19 @@
+# Default values for cray-chart.
+# This is a YAML-formatted file.
+# Declare variables to be passed into your templates.
+
+replicaCount: 1
+
+image:
+  repository: gdiamos/cray-nvidia
+  tag: latest
+  pullPolicy: IfNotPresent
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  externalIP: 104.171.203.79
+
+model: meta-llama/Llama-3.2-1B-Instruct
+

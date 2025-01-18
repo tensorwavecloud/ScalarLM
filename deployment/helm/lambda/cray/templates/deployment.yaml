@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cray.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cray.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cray.labels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/cray/scripts/start_one_server.sh"]
+          ports:
+            - name: http
+              containerPort: 8000
+              hostPort: 8000
+              protocol: TCP
+            - name: http2
+              containerPort: 8001
+              hostPort: 8001
+              protocol: TCP
+          volumeMounts:
+          {{- range .Values.volumes }}
+            - name: {{ .name }}
+              mountPath: {{ .path }}
+          {{- end }}
+            - name: cray-config
+              mountPath: /app/cray/cray-config.yaml
+              subPath: cray-config.yaml
+          resources:
+            limits:
+              nvidia.com/gpu: 1
+      volumes:
+        - name: cray-config
+          configMap:
+            name: {{ .Release.Name }}-configmap
+      {{- range .Values.volumes }}
+        - name: {{ .name }}
+          hostPath:
+            path: {{ .hostPath }}
+      {{- end }}
