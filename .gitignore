@@ -2,6 +2,7 @@
 **/*.so
 models/*
 infra/slurm_configs/slurm.conf
+scripts/cray
 
 *.DS_Store
 **/__pycache__/

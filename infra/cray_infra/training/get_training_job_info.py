@@ -1,5 +1,5 @@
 from cray_infra.api.fastapi.routers.request_types.train_request import (
-    TrainJobStatusResponse,
+    TrainResponse
 )
 
 from cray_infra.training.get_latest_model import get_latest_model
@@ -60,8 +60,8 @@ async def get_training_job_info(job_hash: str):
                 detail=f"Training job config was not found at {job_directory_path}",
             )
 
-        return TrainJobStatusResponse(
-            job_status=job_status, job_config=job_config, model_name=job_hash
+        return TrainResponse(
+            job_status=job_status, job_config=job_config
         )
     except Exception as e:
         logger.exception(
