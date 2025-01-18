@@ -1,6 +1,5 @@
 from cray_infra.api.fastapi.routers.request_types.train_request import (
     TrainResponse,
-    TrainJobStatusResponse,
 )
 
 from cray_infra.training.launch_training_job import launch_training_job
@@ -16,7 +15,7 @@ from fastapi.responses import StreamingResponse, JSONResponse
 import os
 
 import traceback
-
+import yaml
 import logging
 
 logger = logging.getLogger(__name__)
@@ -30,9 +29,9 @@ async def train(request: Request):
     training_data_path, params = await upload_training_data(request)
 
     try:
-        train_args = params
+        job_config = params
 
-        logger.info(f"Training args: {train_args}")
+        logger.info(f"Training args: {job_config}")
     except Exception as e:
         logger.exception(e)
         raise HTTPException(
@@ -40,15 +39,11 @@ async def train(request: Request):
             detail="Invalid request body",
         )
 
-    job_info = await launch_training_job(train_args)
+    job_status = await launch_training_job(job_config)
 
     return TrainResponse(
-        job_id=job_info["job_id"],
-        status=job_info["status"],
-        message="Training job launched",
-        dataset_id=os.path.basename(training_data_path).split(".")[0],
-        job_directory=job_info["job_directory"],
-        model_name=job_info["model_name"],
+        job_status=job_status,
+        job_config=job_config
     )
 
 
