@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: gdiamos/cray-nvidia
+  repository: gdiamos/cray-cpu
   tag: latest
   pullPolicy: IfNotPresent
 
