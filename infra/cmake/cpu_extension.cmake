@@ -46,7 +46,7 @@ endfunction()
 is_avx512_disabled(AVX512_DISABLED)
 
 find_isa(${CPUINFO} "avx2" AVX2_FOUND)
-find_isa(${CPUINFO} "avx512f" AVX512_FOUND)
+#find_isa(${CPUINFO} "avx512f" AVX512_FOUND)
 find_isa(${CPUINFO} "POWER10" POWER10_FOUND)
 find_isa(${CPUINFO} "POWER9" POWER9_FOUND)
 find_isa(${CPUINFO} "asimd" ASIMD_FOUND) # Check for ARM NEON support

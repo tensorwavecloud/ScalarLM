@@ -1,0 +1,111 @@
+- name: Install Kubernetes
+  hosts: localhost
+  become: yes
+
+  vars:
+    kubernetes_version: "v1.32"
+
+  tasks:
+  - name: Update package index
+    apt:
+      update_cache: yes
+
+  - name: install required docker packages
+    apt:
+      state: present
+      install_recommends: false
+      pkg:
+        - bridge-utils
+        - ca-certificates
+        - curl
+        - gnupg
+      update_cache: true
+
+  - name: Install Docker
+    apt:
+      name:
+        - docker-ce
+        - docker-ce-cli
+        - containerd.io
+        - docker-buildx-plugin
+        - docker-compose-plugin
+      state: present
+      update_cache: yes
+
+  - name: Start and enable Docker
+    service:
+      name: docker
+      state: started
+      enabled: yes
+
+  - name: Add user to docker group
+    ansible.builtin.user:
+      name: ubuntu
+      groups: docker
+      append: true
+
+  - name: Install helm if not exists
+    unarchive:
+      src: https://get.helm.sh/helm-v3.11.0-linux-amd64.tar.gz
+      dest: /usr/local/bin
+      extra_opts: "--strip-components=1"
+      owner: root
+      group: root
+      mode: 0755
+      remote_src: true
+    args:
+      creates: /usr/local/bin/helm
+
+  - name: Add Kubernetes apt-key
+    get_url:
+      url: "https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/Release.key"
+      dest: /etc/apt/keyrings/kubernetes-apt-keyring.asc
+      mode: "0644"
+      force: true
+
+  - name: Add Kubernetes APT repository
+    apt_repository:
+      repo: "deb [signed-by=/etc/apt/keyrings/kubernetes-apt-keyring.asc] https://pkgs.k8s.io/core:/stable:/{{ kubernetes_version }}/deb/ /"
+      state: present
+      update_cache: yes
+
+  - name: Install containerd
+    apt:
+      name: containerd.io
+      state: present
+
+  - name: Enable the containerd service and start service
+    systemd:
+      name: containerd
+      state: restarted
+      enabled: yes
+      daemon-reload: yes
+
+  - name: Install Kubelet
+    apt:
+      name: kubelet
+      state: present
+
+  - name: Enable the Kubelet service
+    service:
+      name: kubelet
+      enabled: yes
+
+  - name: Install Kubernetes
+    apt:
+      name: kubeadm
+      state: present
+
+  - name: Initialize Kubernetes
+    shell: |
+      "kubeadm init --pod-network-cidr=192.168.0.0/16"
+    args:
+      creates: /etc/kubernetes/admin.conf
+
+  - name: Create admin user
+    shell: |
+      mkdir -p $HOME/.kube
+      sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+      sudo chown $(id -u):$(id -g) $HOME/.kube/config
+    args:
+      creates: $HOME/.kube/config

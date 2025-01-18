@@ -20,7 +20,9 @@ async def create_vllm(port, running_status):
         description="vLLM OpenAI-Compatible RESTful API server."
     )
     parser = make_arg_parser(parser)
-    args = parser.parse_args(args=["--enable-lora"])
+    args = parser.parse_args(args=[
+        "--enable-lora"
+    ])
 
     config = get_config()
 
