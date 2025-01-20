@@ -118,7 +118,7 @@ cray_up_usage() {
   printf "cray up - Start the container\n\n"
 
   printf "%s\n" "Usage:"
-  printf "  cray up\n"
+  printf "  cray up [TARGET]\n"
   printf "  cray up --help | -h\n"
   echo
 
@@ -129,6 +129,16 @@ cray_up_usage() {
     # :command.usage_fixed_flags
     printf "  %s\n" "--help, -h"
     printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "TARGET"
+    printf "\n"
+    printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Default: cpu"
     echo
 
   fi
@@ -603,9 +613,21 @@ cray_depot_build_command() {
 cray_up_command() {
 
   # cmd/up_command.sh
-  #inspect_args
+  inspect_args
 
-  docker compose -f docker-compose.yaml up --build
+  target=${args[target]}
+
+  declare -a vllm_target_device
+
+  if [ "$target" == "cpu" ]; then
+      vllm_target_device=("cpu")
+  elif [ "$target" == "amd" ]; then
+      vllm_target_device=("rocm")
+  else
+      vllm_target_device=("cuda")
+  fi
+
+  BASE_NAME=${target} VLLM_TARGET_DEVICE=${vllm_target_device} docker compose -f docker-compose.yaml up --build
 
 }
 
@@ -1235,13 +1257,28 @@ cray_up_parse_requirements() {
       *)
         # :command.parse_requirements_case
         # :command.parse_requirements_case_simple
-        printf "invalid argument: %s\n" "$key" >&2
-        exit 1
+        # :argument.case
+        if [[ -z ${args['target']+x} ]]; then
+          args['target']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
 
         ;;
 
     esac
   done
+
+  # :command.default_assignments
+  [[ -n ${args['target']:-} ]] || args['target']="cpu"
+
+  # :command.whitelist_filter
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia" >&2
+    exit 1
+  fi
 
 }
 
