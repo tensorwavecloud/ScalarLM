@@ -4,12 +4,6 @@
 
   vars:
     kubernetes_version: "v1.32"
-    kubernetes_image: "k8s.gcr.io/kube-apiserver:v${kubernetes_version}"
-    kubernetes_image2: "k8s.gcr.io/kube-controller-manager:v${kubernetes_version}"
-    kubernetes_image3: "k8s.gcr.io/kube-scheduler:v${kubernetes_version}"
-    kubernetes_image4: "k8s.gcr.io/kube-proxy:v${kubernetes_version}"
-    kubernetes_image5: "k8s.gcr.io/pause:v${kubernetes_version}"
-    kubernetes_image6: "k8s.gcr.io/etcd:v${kubernetes_version}"
 
   tasks:
   - name: Update package index
@@ -104,7 +98,7 @@
 
   - name: Initialize Kubernetes
     shell: |
-      "kubeadm init "
+      "kubeadm init --pod-network-cidr=192.168.0.0/16"
     args:
       creates: /etc/kubernetes/admin.conf
 
@@ -131,7 +125,7 @@
       dest: /tmp/tigera-operator.yaml
       mode: '0664'
 
-  - name: Install Calico CNI
+  - name: Install Tiaga Operator for Calico CNI
     kubernetes.core.k8s:
       state: present
       src: /tmp/tigera-operator.yaml
