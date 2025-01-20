@@ -5,6 +5,9 @@ services:
         build:
             context: .
             dockerfile: Dockerfile
+            args:
+                - BASE_NAME=${BASE_NAME}
+                - VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
         ports:
             - "8000:8000"
             - "8001:8001"

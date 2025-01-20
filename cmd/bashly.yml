@@ -21,6 +21,10 @@ commands:
 
 - name: up
   help: Start the container
+  args:
+    - name: target
+      allowed: ["cpu", "nvidia"]
+      default: "cpu"
 
 - name: test
   help: Run tests in the container
