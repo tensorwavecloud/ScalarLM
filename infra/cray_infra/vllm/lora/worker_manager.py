@@ -286,7 +286,7 @@ class WorkerTokenformerManager(AbstractWorkerManager):
     ) -> Any:
 
         tokenformer_manager = self._manager_cls(
-            model=model)
+            model=model, device=self.device)
 
         self._adapter_manager = tokenformer_manager
         return tokenformer_manager.model
@@ -294,7 +294,7 @@ class WorkerTokenformerManager(AbstractWorkerManager):
     def _load_adapter(self, lora_request: LoRARequest) -> TokenformerModel:
         try:
             lora_path = get_adapter_absolute_path(lora_request.lora_path)
-            tokenformer = self._tokenformer_model_cls.from_local_checkpoint(lora_path)
+            tokenformer = self._tokenformer_model_cls.from_local_checkpoint(lora_path, device=self.device)
         except Exception as e:
             raise RuntimeError(f"Loading tokenformer {lora_path} failed") from e
         return tokenformer

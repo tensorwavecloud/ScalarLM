@@ -4,8 +4,8 @@ from typing import Optional, Tuple
 from tokenformer.tokenformer_surgeon import TokenformerAttentionAdapter, TokenformerSurgeon
 
 class TransformersTokenformerAttentionAdapter(TokenformerAttentionAdapter):
-    def __init__(self, layer, hidden_size):
-        super().__init__(layer, hidden_size)
+    def __init__(self, layer, hidden_size, device: torch.device):
+        super().__init__(layer, hidden_size, device)
 
     def forward(self,
         query: torch.Tensor,
@@ -31,8 +31,9 @@ class TransformersTokenformerSurgeon(TokenformerSurgeon):
     def __init__(
         self,
         model: nn.Module,
+        device: torch.device,
     ):
-        super().__init__(model)
+        super().__init__(model, device)
 
 
     def update_attn(self, name, layer):
@@ -41,5 +42,5 @@ class TransformersTokenformerSurgeon(TokenformerSurgeon):
             return
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, TransformersTokenformerAttentionAdapter(layer, layer.head_dim))
+        self._recursive_setattr(self.model, name, TransformersTokenformerAttentionAdapter(layer, layer.head_dim, self.device))
 
