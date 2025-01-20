@@ -4,6 +4,12 @@
 
   vars:
     kubernetes_version: "v1.32"
+    kubernetes_image: "k8s.gcr.io/kube-apiserver:v${kubernetes_version}"
+    kubernetes_image2: "k8s.gcr.io/kube-controller-manager:v${kubernetes_version}"
+    kubernetes_image3: "k8s.gcr.io/kube-scheduler:v${kubernetes_version}"
+    kubernetes_image4: "k8s.gcr.io/kube-proxy:v${kubernetes_version}"
+    kubernetes_image5: "k8s.gcr.io/pause:v${kubernetes_version}"
+    kubernetes_image6: "k8s.gcr.io/etcd:v${kubernetes_version}"
 
   tasks:
   - name: Update package index
@@ -98,7 +104,7 @@
 
   - name: Initialize Kubernetes
     shell: |
-      "kubeadm init --pod-network-cidr=192.168.0.0/16"
+      "kubeadm init "
     args:
       creates: /etc/kubernetes/admin.conf
 
@@ -106,6 +112,51 @@
     shell: |
       mkdir -p $HOME/.kube
       sudo cp -i /etc/kubernetes/admin.conf $HOME/.kube/config
+      sudo cp -i /etc/kubernetes/admin.conf /root/.kube/config
       sudo chown $(id -u):$(id -g) $HOME/.kube/config
     args:
-      creates: $HOME/.kube/config
+      creates:
+        - $HOME/.kube/config
+        - /root/.kube/config
+
+  - name: install pre-requisites
+    pip:
+      name:
+        - pyyaml
+        - kubernetes
+
+  - name: Download Tiaga Operator for Calico CNI manifest
+    ansible.builtin.get_url:
+      url: https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/tigera-operator.yaml
+      dest: /tmp/tigera-operator.yaml
+      mode: '0664'
+
+  - name: Install Calico CNI
+    kubernetes.core.k8s:
+      state: present
+      src: /tmp/tigera-operator.yaml
+
+  - name: Download Calico CNI manifest
+    ansible.builtin.get_url:
+      url: https://raw.githubusercontent.com/projectcalico/calico/v3.29.1/manifests/custom-resources.yaml
+      dest: /tmp/calico.yaml
+      mode: '0664'
+
+  - name: Install Calico CNI
+    kubernetes.core.k8s:
+      state: present
+      src: /tmp/calico.yaml
+
+  - name: Add the NVIDIA Helm repository
+    kubernetes.core.helm_repository:
+      name: nvidia
+      repo_url: "https://helm.ngc.nvidia.com/nvidia"
+
+  - name: Add the NVIDIA Helm repository
+    kubernetes.core.helm:
+      name: gpu-operator
+      release_namespace: gpu-operator
+      create_namespace: true
+      chart_ref:  nvidia/gpu-operator
+      chart_version: v24.9.1
+
