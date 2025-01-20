@@ -18,3 +18,4 @@ nav:
         - Laptop: deployment/laptop.md
         - Kubernetes: deployment/kubernetes.md
         - Modal: deployment/modal.md
+        - Modal Details: deployment/modal-details.md
