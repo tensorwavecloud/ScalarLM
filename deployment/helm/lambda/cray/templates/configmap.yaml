@@ -6,4 +6,7 @@ metadata:
 data:
   cray-config.yaml: |
     model: {{ .Values.model }}
+    max_model_length: {{ .Values.max_model_length }}
+    gpu_memory_utilization: {{ .Values.gpu_memory_utilization }}
+
 
