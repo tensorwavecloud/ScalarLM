@@ -16,15 +16,19 @@ async def create_vllm(port, running_status):
 
     os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
+    config = get_config()
+
     parser = FlexibleArgumentParser(
         description="vLLM OpenAI-Compatible RESTful API server."
     )
     parser = make_arg_parser(parser)
     args = parser.parse_args(args=[
+        "--dtype=half",
+        f"--max-model-len={config['max_model_length']}",
+        f"--max-seq-len-to-capture={config['max_model_length']}",
         "--enable-lora"
     ])
 
-    config = get_config()
 
     args.port = port
     args.model = config["model"]
