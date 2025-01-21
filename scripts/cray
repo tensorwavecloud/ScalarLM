@@ -789,7 +789,7 @@ cray_llm_plot_command() {
 
   declare -a plot_command_parts
   plot_command_parts=(
-        "python" "/app/cray/sdk/cli/main.py" "plot" "--model" "$model"
+        "python" "/app/cray/masint/sdk/cli/main.py" "plot" "--model" "$model"
   )
 
   plot_command="${plot_command_parts[*]}"
@@ -836,7 +836,7 @@ cray_llm_logs_command() {
 
   declare -a log_command_parts
   log_command_parts=(
-        "python" "/app/cray/sdk/cli/main.py" "logs" "--model" "$model" "--lines" "$lines"
+        "python" "/app/cray/sdk/masint/cli/main.py" "logs" "--model" "$model" "--lines" "$lines"
   )
 
   echo $tail
@@ -877,7 +877,7 @@ cray_llm_ls_command() {
 
   declare -a ls_command_parts
   ls_command_parts=(
-        "python" "/app/cray/sdk/cli/main.py" "ls"
+        "python" "/app/cray/masint/sdk/cli/main.py" "ls"
   )
 
   ls_command="${ls_command_parts[*]}"
@@ -915,7 +915,7 @@ cray_llm_squeue_command() {
 
   declare -a squeue_command_parts
   squeue_command_parts=(
-        "python" "/app/cray/sdk/cli/main.py" "squeue"
+        "python" "/app/cray/masint/sdk/cli/main.py" "squeue"
   )
 
   squeue_command="${squeue_command_parts[*]}"
