@@ -1,7 +1,7 @@
-from cli.view_logs import view_logs
-from cli.plot import plot
-from cli.ls import ls
-from cli.squeue import squeue
+from masint.cli.view_logs import view_logs
+from masint.cli.plot import plot
+from masint.cli.ls import ls
+from masint.cli.squeue import squeue
 
 from argparse import ArgumentParser
 
@@ -13,7 +13,7 @@ logger = logging.getLogger(__name__)
 def main():
     setup_logging()
 
-    argumments = parse_arguments()
+    argumments, parser = parse_arguments()
 
     if argumments.command == "logs":
         view_logs(
@@ -39,7 +39,7 @@ def main():
 
 
 def setup_logging():
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(level=logging.WARNING)
 
     logging.getLogger("matplotlib").setLevel(logging.WARNING)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
@@ -58,12 +58,12 @@ def parse_arguments():
 
     args = parser.parse_args()
 
-    return args
+    return args, parser
 
 
 def add_logs_parser(subparsers):
     logs_parser = subparsers.add_parser("logs", help="View logs")
-    logs_parser.add_argument("--model", help="The model to view logs for")
+    logs_parser.add_argument("--model", help="The model to view logs for", default="latest")
     logs_parser.add_argument(
         "--tail",
         help="Whether to tail the logs",
@@ -72,6 +72,7 @@ def add_logs_parser(subparsers):
     )
     logs_parser.add_argument(
         "--follow",
+        "-f",
         help="Whether to follow the logs",
         default=False,
         action="store_true",
@@ -85,7 +86,7 @@ def add_logs_parser(subparsers):
 def add_plot_parser(subparsers):
     plot_parser = subparsers.add_parser("plot", help="Plot the results of a model")
 
-    plot_parser.add_argument("--model", help="The model to plot results for")
+    plot_parser.add_argument("--model", help="The model to plot results for", default="latest")
 
 
 def add_ls_parser(subparsers):
@@ -96,4 +97,5 @@ def add_squeue_parser(subparsers):
     squeue_parser = subparsers.add_parser("squeue", help="View the squeue")
 
 
-main()
+if __name__ == "__main__":
+    main()

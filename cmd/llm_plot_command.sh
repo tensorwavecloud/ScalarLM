@@ -10,7 +10,7 @@ fi
 
 declare -a plot_command_parts
 plot_command_parts=(
-      "python" "/app/cray/sdk/cli/main.py" "plot" "--model" "$model"
+      "python" "/app/cray/masint/sdk/cli/main.py" "plot" "--model" "$model"
 )
 
 plot_command="${plot_command_parts[*]}"

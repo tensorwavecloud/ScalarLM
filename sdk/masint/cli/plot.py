@@ -2,8 +2,11 @@ from masint.util.make_api_url import make_api_url
 
 import matplotlib.pyplot as plt
 
+import os
 import aiohttp
 import asyncio
+
+import traceback
 
 import logging
 
@@ -18,13 +21,14 @@ def plot(model_name):
     except Exception as e:
         logger.error(f"Failed to plot model {model_name}")
         logger.error(e)
+        logger.error(traceback.format_exc())
 
 
 async def plot_async(model_name):
     status = await get_status(model_name)
 
     history = status["job_status"]["history"]
-    model_name = clip_model_name(status["model_name"])
+    model_name = clip_model_name(os.path.basename(status["job_config"]["job_directory"]))
 
     # Plot loss against step
     plot_loss(history, model_name)
@@ -40,7 +44,12 @@ def plot_loss(history, model_name):
     plt.title("Training loss for model " + model_name)
     plt.grid(True)
 
-    path = f"/app/cray/data/loss_plot_{model_name}.pdf"
+    base_path = "/app/cray/data"
+
+    if os.path.isdir(base_path):
+        path = f"{base_path}/loss_plot_{model_name}.pdf"
+    else:
+        path = f"loss_plot_{model_name}.pdf"
 
     logger.info(f"Saving plot to {path}")
 
@@ -64,4 +73,4 @@ async def get_status(model_name):
 
 
 def clip_model_name(model_name):
-    return model_name[:10]
+    return model_name[-10:]

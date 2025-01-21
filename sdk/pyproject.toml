@@ -3,12 +3,12 @@ requires = ["setuptools>=65.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "masint"
-version = "0.0.1"
+name = "cray-lm"
+version = "0.5.0"
 authors = [
   { name="Greg Diamos", email="gregory.diamos@gmail.com" },
 ]
-description = "Supermassive Intellgence"
+description = "Cray-LM is an integrated LLM inference and training platform"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -18,13 +18,23 @@ classifiers = [
 ]
 dependencies = [
     "aiohttp",
+    "aiofiles",
+    "jsonlines",
+    "matplotlib",
 ]
 
 [tool.setuptools]
 packages = [
     "masint",
     "masint.api",
+    "masint.cli",
+    "masint.util",
+    "masint.engines",
+    "masint.engines.cray",
 ]
+
+[project.scripts]
+cray-lm = "masint.cli.main:main"
 
 [tool.autopep8]
 max_line_length = 120

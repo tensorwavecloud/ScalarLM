@@ -4,7 +4,7 @@ inspect_args
 
 declare -a ls_command_parts
 ls_command_parts=(
-      "python" "/app/cray/sdk/cli/main.py" "ls"
+      "python" "/app/cray/masint/sdk/cli/main.py" "ls"
 )
 
 ls_command="${ls_command_parts[*]}"

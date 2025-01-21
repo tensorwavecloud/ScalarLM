@@ -1,7 +1,7 @@
 import masint
 
 
-masint.api_url = "https://llama8b.cray-lm.com"
+masint.api_url = "https://meta-llama--llama-3-2-3b-instruct.cray-lm.com"
 #masint.api_url = "https://greg1232--cray-cpu-llama-3-2-1b-instruct-fastapi-app.modal.run"
 #masint.api_url = "https://greg1232--cray-nvidia-llama-3-2-3b-instruct-fastapi-app.modal.run"
 
@@ -23,7 +23,7 @@ dataset = get_dataset()
 
 results = llm.generate(prompts=dataset,
     # generate with default model
-    # model_name="64192c4967586d250f4bd852e035eae2e79a392db1a22cb2b09bfa04bd44721a"
+    # model_name="c7c3ed39e0005e0e73145d49510c94d7b5e4f6552cd35c4a7a8b37d0b41f318e"
 )
 
 print(results)

@@ -15,7 +15,10 @@ def training_logs_generator(model_name: str, starting_line_number: int):
     config = get_config()
 
     if model_name == "latest":
-        model_name = get_latest_model()
+        latest_model_name = get_latest_model()
+        if latest_model_name is None:
+            raise FileNotFoundError("Could not find any models")
+        model_name = latest_model_name
 
     job_directory = os.path.join(config["training_job_directory"], model_name)
 
