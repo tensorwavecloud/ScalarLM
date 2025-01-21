@@ -4,15 +4,15 @@
 ## OpenAI Compatible Server
 
 ```console
-$ curl http://localhost:8000/v1/chat/completions \
-$     -H "Content-Type: application/json" \
-$     -d '{
-$         "model": "meta-llama/Llama-3.3-70B-Instruct",
-$         "messages": [
-$             {"role": "system", "content": "You are a helpful assistant."},
-$             {"role": "user", "content": "Who won the world series in 2020?"}
-$         ]
-$     }'
+curl https://meta-llama--llama-3-2-3b-instruct.cray-lm.com/v1/chat/completions \
+    -H "Content-Type: application/json" \
+    -d '{
+        "model": "meta-llama/Llama-3.2-3B-Instruct",
+        "messages": [
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Who won the world series in 2020?"}
+        ]
+    }'
 ```
 
 ## Using the Python client

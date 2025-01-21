@@ -2,9 +2,6 @@ from masint.util.make_api_url import make_api_url
 
 import masint
 
-#masint.api_url = "https://greg1232--cray-cpu-llama-3-2-1b-instruct-fastapi-app.modal.run"
-#masint.api_url = "https://app.smasint.com"
-
 import aiohttp
 import asyncio
 import json

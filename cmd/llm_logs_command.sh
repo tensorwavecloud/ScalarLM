@@ -13,7 +13,7 @@ fi
 
 declare -a log_command_parts
 log_command_parts=(
-      "python" "/app/cray/sdk/cli/main.py" "logs" "--model" "$model" "--lines" "$lines"
+      "python" "/app/cray/sdk/masint/cli/main.py" "logs" "--model" "$model" "--lines" "$lines"
 )
 
 echo $tail
