@@ -11,7 +11,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN python -m venv $VIRTUAL_ENV
 RUN . $VIRTUAL_ENV/bin/activate
 
-ENV MAX_JOBS=8
+ARG MAX_JOBS=8
 
 # Put HPC-X MPI in the PATH, i.e. mpirun
 ENV PATH=/opt/hpcx/ompi/bin:$PATH
@@ -36,7 +36,7 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 RUN python3 -m venv $VIRTUAL_ENV
 RUN . $VIRTUAL_ENV/bin/activate
 
-ENV MAX_JOBS=4
+ARG MAX_JOBS=4
 ENV DNNL_DEFAULT_FPMATH_MODE=F32
 
 ARG TORCH_VERSION="2.4.0"
@@ -51,7 +51,7 @@ FROM rocm/pytorch@sha256:402c9b4f1a6b5a81c634a1932b56cbe01abb699cfcc7463d2262769
 ENV PATH="/opt/conda/envs/py_3.10/bin:$PATH"
 ENV CONDA_PREFIX=/opt/conda/envs/py_3.10
 
-ENV MAX_JOBS=4
+ARG MAX_JOBS=4
 
 RUN pip install uv
 
@@ -89,11 +89,13 @@ COPY ./infra/requirements-vllm.txt ${INSTALL_ROOT}/infra/cray_infra/requirements
 WORKDIR ${INSTALL_ROOT}/infra/cray_infra
 
 ARG VLLM_TARGET_DEVICE=cpu
+ARG TORCH_CUDA_ARCH_LIST="8.6"
 
 # Build vllm python package
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/ccache \
-    MAX_JOBS=${MAX_JOBS} TORCH_CUDA_ARCH_LIST="8.6" VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
+    MAX_JOBS=${MAX_JOBS} TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
+    VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
     python ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
     pip install ${INSTALL_ROOT}/infra/cray_infra/dist/*.whl && \
     rm -rf ${INSTALL_ROOT}/infra/cray_infra/dist

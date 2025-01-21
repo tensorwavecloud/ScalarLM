@@ -1,4 +1,4 @@
-name: Build CPU image using depot
+name: Build AMD image using depot
 
 on:
   workflow_dispatch:
@@ -28,11 +28,12 @@ jobs:
           # if no depot.json file is at the root of your repo, you must specify the project id
           project: 39xfdrxfqt
           push: true
-          tags: gdiamos/cray-cpu:latest
+          tags: gdiamos/cray-amd:latest
           build-args: |
-            BASE_NAME=cpu
-            VLLM_TARGET_DEVICE=cpu
-            TORCH_CUDA_ARCH_LIST=""
+            BASE_NAME=amd
+            VLLM_TARGET_DEVICE=rocm
+            TORCH_CUDA_ARCH_LIST="gfx906 gfx908 gfx90a gfx940 gfx941 gfx942 gfx1030 gfx1100"
             MAX_JOBS=8
+
 
 
