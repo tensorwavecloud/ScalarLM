@@ -32,7 +32,7 @@ jobs:
           build-args: |
             BASE_NAME=nvidia
             VLLM_TARGET_DEVICE=cuda
-            TORCH_CUDA_ARCH_LIST="7.0 8.6"
+            TORCH_CUDA_ARCH_LIST=7.0 7.5 8.0 8.6 8.9 9.0
             MAX_JOBS=8
 
 
