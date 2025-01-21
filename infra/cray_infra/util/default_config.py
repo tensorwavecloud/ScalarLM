@@ -29,3 +29,5 @@ class Config(BaseModel):
 
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
 
+    max_model_length: int = 16384
+
