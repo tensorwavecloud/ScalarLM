@@ -29,5 +29,7 @@ class Config(BaseModel):
 
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
 
+    gpu_memory_utilization: float = 0.3
     max_model_length: int = 16384
+    dtype: str = "half"
 

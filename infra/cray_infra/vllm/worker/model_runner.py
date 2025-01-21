@@ -1571,7 +1571,7 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
                                 is_prefill=False,
                             )
                         )
-                        self.set_active_loras(set(), lora_mapping)
+                        #self.set_active_loras(set(), lora_mapping)
 
                     if self.prompt_adapter_config:
                         prompt_adapter_mapping = PromptAdapterMapping(

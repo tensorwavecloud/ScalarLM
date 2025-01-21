@@ -23,9 +23,11 @@ async def create_vllm(port, running_status):
     )
     parser = make_arg_parser(parser)
     args = parser.parse_args(args=[
-        "--dtype=half",
+        f"--dtype={config['dtype']}",
         f"--max-model-len={config['max_model_length']}",
+        f"--max-num-batched-tokens={config['generate_batch_size'] * config['max_model_length']}",
         f"--max-seq-len-to-capture={config['max_model_length']}",
+        f"--gpu-memory-utilization={config['gpu_memory_utilization']}",
         "--enable-lora"
     ])
 
