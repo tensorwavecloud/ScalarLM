@@ -8,7 +8,7 @@ masint.api_url = "https://meta-llama--llama-3-2-3b-instruct.cray-lm.com"
 def get_dataset():
     dataset = []
 
-    count = 2
+    count = 128
 
     for i in range(count):
         dataset.append(
@@ -22,6 +22,6 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-status = llm.train(dataset, train_args={"max_steps": 21, "learning_rate": 3e-3})
+status = llm.train(dataset, train_args={"max_steps": 100, "learning_rate": 3e-3})
 
 print(status)

@@ -4,7 +4,7 @@
 ## OpenAI Compatible Server
 
 ```console
-curl https://meta-llama--llama-3-2-3b-instruct.cray-lm.com/v1/chat/completions \
+curl https://meta-llama--llama-3-2-3b-instruct.cray-lm.com/v1/openai/chat/completions \
     -H "Content-Type: application/json" \
     -d '{
         "model": "meta-llama/Llama-3.2-3B-Instruct",
@@ -23,7 +23,7 @@ You can also use the Python client to interact with the Cray server.
 
 import masint
 
-masint.api_url = "http://localhost:8000"
+masint.api_url = "https://meta-llama--llama-3-2-3b-instruct.cray-lm.com"
 
 def get_dataset():
     dataset = []

@@ -19,3 +19,4 @@ nav:
         - Kubernetes: deployment/kubernetes.md
         - Modal: deployment/modal.md
         - Modal Details: deployment/modal-details.md
+        - Docker: deployment/docker.md
