@@ -32,7 +32,7 @@ jobs:
           build-args: |
             BASE_NAME=amd
             VLLM_TARGET_DEVICE=rocm
-            TORCH_CUDA_ARCH_LIST="gfx906 gfx908 gfx90a gfx940 gfx941 gfx942 gfx1030 gfx1100"
+            TORCH_CUDA_ARCH_LIST=gfx906 gfx908 gfx90a gfx940 gfx941 gfx942 gfx1030 gfx1100
             MAX_JOBS=8
 
 
