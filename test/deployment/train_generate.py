@@ -2,22 +2,26 @@ import masint
 import logging
 import os
 import time
+import random
 
 logger = logging.getLogger(__name__)
 
 logging.basicConfig(level=logging.DEBUG)
 
+count = 3
+selected = random.randint(1, count)
+
 TINY_BASE_MODEL = "masint/tiny-random-llama"
-TEST_QUESTION = "What is 0 + 0"
+TEST_QUESTION = f"What is {selected} + {selected}?"
+TEST_ANSWER = f"The answer is {selected + selected}."
 
 def create_training_set():
     dataset = []
-    count = 1
-    for i in range(count):
+    for i in range(1, count + 1):
         dataset.append(
             {
-                "input": f"What is {i} + {i}",
-                "output": "The answer is " + str(i+i),
+                "input": f"What is {i} + {i}?",
+                "output": "The answer is " + str(i+i) + ".",
             }
         )
 
@@ -49,7 +53,7 @@ def run_test():
         )
 
     # 2. Train a base model with small dataset
-    training_response = llm.train(create_training_set(), train_args={"max_steps": 50, "learning_rate": 3e-3})
+    training_response = llm.train(create_training_set(), train_args={"max_steps": (count * 50), "learning_rate": 3e-3})
     logger.info(training_response)
     
     job_hash = os.path.basename(training_response["job_status"]["job_directory"])
@@ -86,7 +90,7 @@ def run_test():
     # 5. Compare and make sure based model and pretrained model have different responses
     assert base_model_generate_results != pretrained_model_generate_results
     # 6. Make sure pretrained model gives the expected answer
-    assert pretrained_model_generate_results == ['The answer is 0']    
+    assert pretrained_model_generate_results == [TEST_ANSWER]    
 
 def main():
     run_test()
