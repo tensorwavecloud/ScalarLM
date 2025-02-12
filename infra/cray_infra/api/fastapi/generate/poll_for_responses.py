@@ -9,6 +9,7 @@ from cray_infra.util.get_config import get_config
 
 import time
 import asyncio
+import copy
 
 import logging
 
@@ -42,7 +43,8 @@ async def poll_for_responses(request_ids):
             if response is None:
                 continue
 
-            logger.info(f"Received response for request_id: {request_id} - {response}")
+            logger.info("Received response for request_id: "
+                f"{request_id} - {truncate_fields(response)}")
 
             responses_so_far.add(request_id)
             responses.results.append(
@@ -58,6 +60,14 @@ async def poll_for_responses(request_ids):
     # set the response to None for any requests that did not finish
     for request_id in request_ids:
         if request_id not in responses_so_far:
+            logger.info(f"Request {request_id} did not finish in time")
             responses.results.append(Result(request_id=request_id, response=None))
 
     return responses
+
+def truncate_fields(response):
+    # Limit the length of the prompt and error fields to 100 characters
+    response = copy.deepcopy(response)
+    response["prompt"] = response.get("prompt", "")[:100]
+    response["error"] = response.get("error", "")[:100]
+    return response

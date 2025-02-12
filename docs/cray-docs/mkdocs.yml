@@ -1,4 +1,4 @@
-site_name: Cray-LM Docs
+site_name: Craylm Docs
 nav:
     - Getting Started:
         - Introduction: index.md

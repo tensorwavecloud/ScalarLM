@@ -1,16 +1,16 @@
-Let's start by submitting your first request to Cray.
+Let's start by submitting your first request to Craylm.
 
 ## Setup
 
-Clone the [Cray-LM repository](https://github.com/cray-lm/cray-lm) and start the server.
+Clone the [Craylm repository](https://github.com/cray-lm/cray-lm) and start the server.
 
-```console
+```
 git clone git@github.com:cray-lm/cray-lm.git
 cd cray-lm
 ./cray up
 ```
 
-This will bring up the Cray-LM development server on `localhost:8000`, which includes an OpenAI compatible API.
+This will bring up the Craylm development server on `localhost:8000`, which includes an OpenAI compatible API.
 
 ## Your first request
 
@@ -28,13 +28,13 @@ curl http://localhost:8000/v1/openai/chat/completions \
 
 ## Using the Python client
 
-You can also use the Python client to interact with the local Cray server.
+You can also use the Python client to interact with the local Craylm server.
 
 ```python
 
 import masint
 
-# Make sure to set the API URL to the local Cray server
+# Make sure to set the API URL to the local Craylm server
 masint.api_url = "http://localhost:8000"
 
 def get_dataset():

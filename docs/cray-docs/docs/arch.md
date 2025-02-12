@@ -1,12 +1,12 @@
-# Cray
+# Craylm
 
-Cray has three high level APIs:
+Craylm has three high level APIs:
 
 * **completions** provides OpenAI client compatibility
 * **generate** provides a simple interface for generating text
 * **train** provides a simple interface for submitting training jobs
 
-![Cray overview](assets/cray-arch.png)
+![Craylm overview](assets/cray-arch.png)
 
 
 Inference is performed by vLLM workers that are orchestrated by pulling requests from a queue.

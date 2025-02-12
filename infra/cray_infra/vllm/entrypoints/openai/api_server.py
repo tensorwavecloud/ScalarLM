@@ -11,6 +11,7 @@ import traceback
 import typing
 import json
 import sys
+import copy
 from argparse import Namespace
 from contextlib import asynccontextmanager
 from functools import partial
@@ -152,7 +153,7 @@ async def get_work_step(app: FastAPI):
         logger.info("No work to do")
         return
 
-    logger.info("Got work: %s", data)
+    logger.info("Got work: %s", truncate_fields(data))
 
     completion_tasks = [
         async_completion_task(request, app) for request in data["requests"]
@@ -171,6 +172,18 @@ async def get_work_step(app: FastAPI):
         json=params,
     ) as resp:
         assert resp.status == 200
+
+def truncate_fields(data):
+    # Limit the length of the data to 100 characters
+    # Data is a dict with a field called requests which is a list of dicts
+
+    data = copy.deepcopy(data)
+
+    for request in data["requests"]:
+        for key, value in request.items():
+            if isinstance(value, str) and len(value) > 100:
+                request[key] = value[:100] + "..."
+    return data
 
 async def pass_receive() -> typing.NoReturn:
     return {"type": "http.request"}
@@ -201,8 +214,8 @@ async def async_completion_task(request, app):
 
     if "choices" in response_data:
         response["response"] = response_data["choices"][0]["text"]
-    elif "error" in response_data:
-        response["error"] = response_data["error"]
+    elif response_data["object"] == "error":
+        response["error"] = response_data["message"]
 
     return response
 

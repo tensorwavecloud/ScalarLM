@@ -6,6 +6,7 @@ class Config(BaseModel):
     #model: str = "diffusion_forcing"
     model: str = "masint/tiny-random-llama"
     #model: str = "meta-llama/Llama-3.2-1B-Instruct"
+    #model: str = "HuggingFaceTB/SmolLM-135M"
 
     # 10GB using 1024 for KB, 1024 for MB, 1024 for GB
     max_upload_file_size: int = 1024 * 1024 * 1024 * 10
@@ -30,6 +31,8 @@ class Config(BaseModel):
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
 
     gpu_memory_utilization: float = 0.3
-    max_model_length: int = 2048
+    max_model_length: int = 32768
     dtype: str = "half"
+
+    max_log_length: int = 100
 

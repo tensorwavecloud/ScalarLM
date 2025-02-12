@@ -2,9 +2,11 @@
 
 ## Training jobs
 
-You can also use the Python client to submit training jobs to the Cray server.
+You can also use the Python client to submit training jobs to the Craylm server.
 
 ```python
+
+import masint
 
 def get_dataset():
     dataset = []

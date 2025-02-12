@@ -61,10 +61,21 @@ async def poll_for_responses(result):
     api_url = make_api_url("v1/generate/get_results")
 
     async with aiohttp.ClientSession() as session:
-        while any(response["response"] is None for response in result["results"]):
+        while not is_finished(result):
             request_ids = [response["request_id"] for response in result["results"]]
             async with session.post(api_url, json={"request_ids": request_ids}) as resp:
                 assert resp.status == 200
                 result = await resp.json()
 
     return result
+
+
+def is_finished(result):
+    for response in result["results"]:
+        if response["error"] is not None:
+            raise Exception(response["error"])
+
+        if response["response"] is None:
+            return False
+
+    return True
