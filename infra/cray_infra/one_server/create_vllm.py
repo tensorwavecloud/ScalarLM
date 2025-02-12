@@ -28,6 +28,7 @@ async def create_vllm(port, running_status):
         f"--max-num-batched-tokens={config['generate_batch_size'] * config['max_model_length']}",
         f"--max-seq-len-to-capture={config['max_model_length']}",
         f"--gpu-memory-utilization={config['gpu_memory_utilization']}",
+        f"--max-log-len={config['max_log_length']}",
         "--enable-lora"
     ])
 

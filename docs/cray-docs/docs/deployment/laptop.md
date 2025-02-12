@@ -1,13 +1,13 @@
 # Laptop
 
-Cray can be run on your laptop for development purposes. It requires Docker.
+Craylm can be run on your laptop for development purposes. It requires Docker.
 
-Clone the [Cray repository]() and start the server.
+Clone the [Craylm repository](https://github.com/cray-lm/cray-lm) and start the server.
 
-```console
-$ git clone ....
-$ cd cray
-$ ./cray up
+```
+git clone git@github.com:cray-lm/cray-lm.git
+cd cray-lm
+./cray up
 ```
 
 You should see the server come up.

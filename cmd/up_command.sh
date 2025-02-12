@@ -12,4 +12,4 @@ else
     vllm_target_device=("cuda")
 fi
 
-BASE_NAME=${target} VLLM_TARGET_DEVICE=${vllm_target_device} docker compose -f docker-compose.yaml up --build
+BASE_NAME=${target} VLLM_TARGET_DEVICE=${vllm_target_device} docker compose -f docker-compose.yaml up --build --force-recreate
