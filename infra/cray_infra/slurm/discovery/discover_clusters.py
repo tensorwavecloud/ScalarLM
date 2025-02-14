@@ -134,7 +134,9 @@ def write_gres_config(cluster_info):
         gres_config = ""
         for index in range(node["gpu_count"]):
             gres_config += (
-                f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
+                # TODO: conditional based on which GPU
+                # f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
+                f"NodeName={node['hostname']} Name=gpu File=/dev/dri/card{index}\n"
             )
 
         with open(gres_config_path, "a") as f:

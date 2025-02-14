@@ -104,7 +104,7 @@ RUN git clone https://github.com/ROCm/hipBLASLt \
     && make package -j$(nproc) \
     && echo "Searching for build and .deb files:" \
     && find . -type d -name "build" \
-    && find . -name "*.deb" 
+    && find . -name "*.deb"
 
 RUN cp /app/hipBLASLt/build/release/*.deb /app/hipBLAS-common/build/*.deb /app/install
 
@@ -120,7 +120,7 @@ ARG TRITON_BRANCH="e5be006"
 ARG TRITON_REPO="https://github.com/triton-lang/triton.git"
 
 
-RUN mkdir -p /app/install 
+RUN mkdir -p /app/install
 
 RUN git clone ${TRITON_REPO}
 RUN cd triton \
@@ -252,4 +252,3 @@ COPY ./test ${INSTALL_ROOT}/test
 COPY ./cray ${INSTALL_ROOT}/cray
 COPY ./ml ${INSTALL_ROOT}/ml
 COPY ./scripts ${INSTALL_ROOT}/scripts
-
