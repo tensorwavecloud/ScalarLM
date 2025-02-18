@@ -15,17 +15,19 @@ TINY_BASE_MODEL = "masint/tiny-random-llama"
 TEST_QUESTION = f"What is {selected} + {selected}?"
 TEST_ANSWER = f"The answer is {selected + selected}."
 
+
 def create_training_set():
     dataset = []
     for i in range(1, count + 1):
         dataset.append(
             {
                 "input": f"What is {i} + {i}?",
-                "output": "The answer is " + str(i+i) + ".",
+                "output": "The answer is " + str(i + i) + ".",
             }
         )
 
     return dataset
+
 
 def get_dataset():
     dataset = []
@@ -45,20 +47,22 @@ def run_test():
 
     # 1. Call generate on base model
     base_model_generate_results = llm.generate(
-        prompts=dataset,
-        model_name=TINY_BASE_MODEL
-       )
+        prompts=dataset, model_name=TINY_BASE_MODEL
+    )
     logger.info(
         f"Base model on prompt {dataset} returned {base_model_generate_results}"
-        )
+    )
 
     # 2. Train a base model with small dataset
-    training_response = llm.train(create_training_set(), train_args={"max_steps": (count * 50), "learning_rate": 3e-3})
+    training_response = llm.train(
+        create_training_set(),
+        train_args={"max_steps": (count * 50), "learning_rate": 3e-3},
+    )
     logger.info(training_response)
-    
+
     job_hash = os.path.basename(training_response["job_status"]["job_directory"])
     logger.debug(f"Created a training job: {job_hash}")
-    
+
     training_status = training_response["job_status"]["status"]
     tuned_model_name = training_response["job_status"]["model_name"]
     logger.debug(f"Created a trained model: {tuned_model_name}")
@@ -72,13 +76,13 @@ def run_test():
         if training_status == "COMPLETED":
             break
 
-        time.sleep(1)
+        time.sleep(10)
 
     training_response = llm.get_training_job(job_hash)
-    logger.info(f"Training status {training_response}.")
+    # logger.info(f"Training status {training_response}.")
 
     # 4. Wait ~30 seconds to allow for auto-registration of the new pretrained model
-    time.sleep(30)	
+    time.sleep(30)
 
     # 4. Generate response on pretrained model
     pretrained_model_generate_results = llm.generate(
@@ -90,11 +94,12 @@ def run_test():
     # 5. Compare and make sure based model and pretrained model have different responses
     assert base_model_generate_results != pretrained_model_generate_results
     # 6. Make sure pretrained model gives the expected answer
-    assert pretrained_model_generate_results == [TEST_ANSWER]    
+    assert pretrained_model_generate_results == [TEST_ANSWER]
+
 
 def main():
     run_test()
-    
+
 
 # Ensure the main function is only executed when the script is run directly
 if __name__ == "__main__":
