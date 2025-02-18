@@ -62,6 +62,8 @@ class TrainingLoop:
 
         starting_step = self.training_state.current_step
 
+        self.print_device_info()
+
         for step in range(starting_step, max_steps):
             self.training_state.current_step = step
             self.training_state.epoch = data_loader.epoch
@@ -191,6 +193,13 @@ class TrainingLoop:
             status=TrainingJobStatus.TRAINING,
             metadata={"history": self.training_state.history},
         )
+
+    def print_device_info(self):
+        device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        idx = self.training_state.model_info["distribution_strategy"]["device"]
+        if device == "cuda":
+            idx = torch.cuda.current_device()
+        logger.info(f"Using device {device}:{idx}")
 
 
 def get_callbacks(trainer):
