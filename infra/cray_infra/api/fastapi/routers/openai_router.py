@@ -111,3 +111,12 @@ async def create_completion(request: CompletionRequest, raw_request: Request):
         return StreamingResponse(content=generator(), media_type="text/event-stream")
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
+
+@openai_router.get("/endpoints")
+async def list_routes():
+    routes = [
+        f"Path: {route.path}, Methods: {', '.join(route.methods)}"
+        for route in openai_router.routes
+    ]
+    return JSONResponse(content={"endpoints": routes}, media_type="application/json")

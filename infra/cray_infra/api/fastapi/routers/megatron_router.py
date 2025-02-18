@@ -12,10 +12,8 @@ from cray_infra.training.squeue import squeue
 from fastapi import APIRouter, Request, HTTPException, status
 from fastapi.responses import StreamingResponse, JSONResponse
 
-import os
-
 import traceback
-import yaml
+
 import logging
 
 logger = logging.getLogger(__name__)
@@ -41,10 +39,7 @@ async def train(request: Request):
 
     job_status = await launch_training_job(job_config)
 
-    return TrainResponse(
-        job_status=job_status,
-        job_config=job_config
-    )
+    return TrainResponse(job_status=job_status, job_config=job_config)
 
 
 @megatron_router.get("/train/{job_hash}")
@@ -69,6 +64,16 @@ async def get_training_logs(model_name: str, starting_line_number: int = 0):
 async def models():
     return await list_models()
 
+
 @megatron_router.get("/squeue")
 async def get_squeue():
     return await squeue()
+
+
+@megatron_router.get("/endpoints")
+async def list_routes():
+    routes = [
+        f"Path: {route.path}, Methods: {', '.join(route.methods)}"
+        for route in megatron_router.routes
+    ]
+    return JSONResponse(content={"endpoints": routes}, media_type="application/json")
