@@ -129,6 +129,13 @@ class SingleStepOutputProcessor(SequenceGroupOutputProcessor):
         self, seq_group: SequenceGroup, outputs: SequenceGroupOutput, is_async: bool
     ) -> None:
         sampling_params = seq_group.sampling_params
+
+        if sampling_params is None:
+            seq = seq_group.seqs[0]
+            for scheduler in self.scheduler:
+                scheduler.free_seq(seq)
+            return
+
         if sampling_params.best_of == 1:
             # only have one output sample
             sample = outputs.samples[0]

@@ -156,6 +156,7 @@ class CPUExecutor(ExecutorBase):
             kv_cache_dtype=self.cache_config.cache_dtype,
             prompt_adapter_config=self.prompt_adapter_config,
             is_driver_worker=rank == 0,
+            tokenizer = self.tokenizer,
         )
         wrapper.init_worker(**kwargs)
 

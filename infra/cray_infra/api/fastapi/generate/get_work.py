@@ -31,7 +31,8 @@ async def get_work(request: GetWorkRequest):
                 prompt=first_request["prompt"],
                 request_id=request_id,
                 model=first_request["model"],
-                max_tokens=first_request["max_tokens"],
+                request_type=first_request["request_type"],
+                max_tokens=first_request.get("max_tokens", None),
             )
         )
 
@@ -47,7 +48,8 @@ async def get_work(request: GetWorkRequest):
                     prompt=request["prompt"],
                     request_id=request_id,
                     model=request["model"],
-                    max_tokens=request["max_tokens"],
+                    request_type=request["request_type"],
+                    max_tokens=request.get("max_tokens", None),
                 )
             )
 

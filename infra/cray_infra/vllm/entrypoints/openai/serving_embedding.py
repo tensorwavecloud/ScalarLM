@@ -211,8 +211,10 @@ class OpenAIServingEmbedding(OpenAIServing):
         return response
 
     def _check_embedding_mode(self, embedding_mode: bool) -> bool:
-        if not embedding_mode:
-            logger.warning("embedding_mode is False. Embedding API will not work.")
-        else:
-            logger.info("Activating the server engine with embedding enabled.")
-        return embedding_mode
+        #if not embedding_mode:
+        #    logger.warning("embedding_mode is False. Embedding API will not work.")
+        #else:
+        #    logger.info("Activating the server engine with embedding enabled.")
+        #return embedding_mode
+        logger.info("Activating the server engine with embedding enabled.")
+        return True

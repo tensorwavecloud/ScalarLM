@@ -23,6 +23,9 @@ class SupermassiveIntelligence:
             )
         )
 
+    def embed(self, prompts, model_name=None):
+        return asyncio.run(self.async_api.embed(prompts=prompts, model_name=model_name))
+
     ## Alignment API methods
 
     def learn_classes(self, classes):
@@ -47,4 +50,3 @@ class SupermassiveIntelligence:
 
     def health(self):
         return asyncio.run(self.async_api.health())
-
