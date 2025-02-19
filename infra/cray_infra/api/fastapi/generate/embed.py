@@ -1,5 +1,5 @@
-from cray_infra.api.fastapi.routers.request_types.generate_request import (
-    GenerateRequest,
+from cray_infra.api.fastapi.routers.request_types.embed_request import (
+    EmbedRequest,
 )
 from cray_infra.api.fastapi.routers.request_types.generate_response import (
     GenerateResponse,
@@ -21,15 +21,14 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def generate(request: GenerateRequest):
+async def embed(request: EmbedRequest):
 
     prompts = request.prompts
     model = request.model
-    max_tokens = request.max_tokens
 
     logger.info(
-        f"Received generate request: prompts={truncate_list(prompts)}, "
-        f"model={model}, max_tokens={max_tokens}"
+        f"Received embed request: prompts={truncate_list(prompts)}, "
+        f"model={model}"
     )
 
     config = get_config()
@@ -45,27 +44,22 @@ async def generate(request: GenerateRequest):
     try:
         for prompt in prompts:
             request_id = inference_work_queue.put(
-                {
-                    "prompt": prompt,
-                    "model": model,
-                    "max_tokens": max_tokens,
-                    "request_type": "generate",
-                }
+                {"prompt": prompt, "model": model, "request_type": "embed"}
             )
 
             request_ids.append(request_id)
 
     except Exception as e:
-        logger.error(f"Error generating responses: {e}")
+        logger.error(f"Error generating embedding responses: {e}")
         logger.error(traceback.format_exc())
-        raise HTTPException(status_code=500, detail=f"Error generating responses: {e}")
+        raise HTTPException(status_code=500, detail=f"Error generating embedding responses: {e}")
 
     logger.info(f"Generated request_ids: {request_ids}")
 
     try:
         responses = await poll_for_responses(request_ids)
     except Exception as e:
-        logger.error(f"Error generating responses: {e}")
+        logger.error(f"Error generating embedding responses: {e}")
         logger.error(traceback.format_exc())
         responses = GenerateResponse(
             results=[
@@ -74,7 +68,7 @@ async def generate(request: GenerateRequest):
             ]
         )
 
-    logger.info(f"Generated responses: {responses}")
+    logger.info(f"Generated embedding responses: {responses}")
     return responses
 
 
@@ -87,3 +81,4 @@ def truncate_string(s):
         return s[:100] + "..."
     else:
         return s
+

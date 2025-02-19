@@ -275,10 +275,15 @@ def _prepare_seq_groups(
         )
         do_sample = seq_group_metadata.do_sample
 
+        seed = None
+
+        if sampling_params is not None:
+            seed = sampling_params.seed
+
         if seq_group_metadata.is_prompt:
-            if sampling_params.seed is not None:
+            if seed is not None:
                 generator = torch.Generator(device=device).manual_seed(
-                    sampling_params.seed
+                    seed
                 )
                 if generators is not None:
                     generators[seq_group_metadata.request_id] = generator
@@ -300,7 +305,7 @@ def _prepare_seq_groups(
             query_len = query_lens[i] if query_lens is not None else 1
             sample_len = len(seq_ids) * query_len if do_sample else 0
 
-            if sampling_params.seed is not None and generators is not None:
+            if seed is not None and generators is not None:
                 generator = generators.get(seq_group_metadata.request_id)
 
         # Update indices to select from the model output.
@@ -312,7 +317,12 @@ def _prepare_seq_groups(
         logits = hidden_states[selected_token_indices]
         """
 
-        if sampling_params.prompt_logprobs is not None:
+        prompt_logprobs = None
+
+        if sampling_params is not None:
+            prompt_logprobs = sampling_params.prompt_logprobs
+
+        if prompt_logprobs is not None:
             selected_token_indices.extend(
                 range(model_output_idx, model_output_idx + prompt_logprob_len)
             )
@@ -336,14 +346,20 @@ def _prepare_seq_groups(
            # sample_indices to find sample indices.
         """
 
-        if sampling_params.prompt_logprobs is not None:
+        if prompt_logprobs is not None:
             prompt_logprob_indices.extend(
                 range(logit_idx, logit_idx + prompt_logprob_len)
             )
             logit_idx += prompt_logprob_len
         if do_sample:
+
+            sampling_type = SamplingType.GREEDY
+
+            if sampling_params is not None:
+                sampling_type = sampling_params.sampling_type
+
             sample_indices.extend(range(logit_idx, logit_idx + sample_len))
-            categorized_sample_indices[sampling_params.sampling_type].extend(
+            categorized_sample_indices[sampling_type].extend(
                 list(range(logit_idx, logit_idx + sample_len))
             )
             logit_idx += sample_len

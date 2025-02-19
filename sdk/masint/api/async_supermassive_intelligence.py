@@ -23,6 +23,9 @@ class AsyncSupermassiveIntelligence:
             prompts=prompts, model_name=model_name, max_tokens=max_tokens
         )
 
+    async def embed(self, prompts, model_name=None):
+        return await self.engine.embed(prompts=prompts, model_name=model_name)
+
     async def learn_classes(self, classes):
         assert False, "Not implemented yet."
 

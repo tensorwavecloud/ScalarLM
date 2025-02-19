@@ -1178,7 +1178,7 @@ class LLMEngine:
                         else:
                             seq_group.metrics.model_execute_time = o.model_execute_time
 
-            if self.model_config.embedding_mode:
+            if hasattr(output[0], "embeddings"):
                 self._process_sequence_group_outputs(seq_group, output)
             else:
                 self.output_processor.process_prompt_logprob(seq_group, output)
