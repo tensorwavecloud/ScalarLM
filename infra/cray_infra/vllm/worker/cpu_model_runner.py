@@ -25,7 +25,12 @@ from vllm.model_executor.layers.rotary_embedding import MRotaryEmbedding
 from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.model_executor.model_loader import get_model
 from vllm.multimodal import MULTIMODAL_REGISTRY, BatchedTensorInputs, MultiModalInputs
-from vllm.sequence import IntermediateTensors, SequenceData, SequenceGroupMetadata
+from vllm.sequence import (
+    IntermediateTensors,
+    SequenceData,
+    SequenceGroupMetadata,
+    EmbeddingSequenceGroupOutput,
+)
 from vllm.utils import make_tensor_with_pad
 from vllm.worker.model_runner_base import (
     ModelRunnerBase,
@@ -36,6 +41,7 @@ from vllm.worker.model_runner_base import (
     _init_attn_metadata_from_tensor_dict,
     _init_sampling_metadata_from_tensor_dict,
 )
+from vllm.transformers_utils.tokenizer_group import BaseTokenizerGroup
 from vllm.lora.worker_manager import WorkerTokenformerManager
 
 if TYPE_CHECKING:
@@ -152,10 +158,10 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
                 multi_modal_kwargs,
                 lora_requests,
             ) = self._prepare_prompt(self.seq_group_metadata_list)
-            
+
         else:
-            (input_tokens, input_positions, attn_metadata, lora_requests) = self._prepare_decode(
-                self.seq_group_metadata_list
+            (input_tokens, input_positions, attn_metadata, lora_requests) = (
+                self._prepare_decode(self.seq_group_metadata_list)
             )
             seq_lens = None
 
@@ -227,9 +233,9 @@ class ModelInputForCPUBuilder(ModelRunnerInputBuilderBase[ModelInputForCPU]):
         multi_modal_inputs_list: List[MultiModalInputs] = []
 
         for seq_group_metadata in seq_group_metadata_list:
-            
+
             lora_requests.add(seq_group_metadata.lora_request)
-            
+
             assert seq_group_metadata.is_prompt
             seq_ids = list(seq_group_metadata.seq_data.keys())
             assert len(seq_ids) == 1
@@ -443,6 +449,7 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         kv_cache_dtype: Optional[str] = "auto",
         prompt_adapter_config: Optional[PromptAdapterConfig] = None,
         is_driver_worker: bool = False,
+        tokenizer: Optional[BaseTokenizerGroup] = None,
         *args,
         **kwargs,
     ):
@@ -457,6 +464,7 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         self.prompt_adapter_config = prompt_adapter_config
         self.load_config = load_config
         self.is_driver_worker = is_driver_worker
+        self.tokenizer = tokenizer
 
         self.device = self.device_config.device
 
@@ -512,11 +520,12 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             ), f"{self.model.__class__.__name__} does not support LoRA yet."
 
             self.tokenformer_manager = WorkerTokenformerManager(
-                    self.device,
-                )
+                self.device,
+            )
             logger.info("Creating Tokenformer model...")
-            self.model = self.tokenformer_manager.create_tokenformer_manager(self.model).to(self.model_config.dtype)
-
+            self.model = self.tokenformer_manager.create_tokenformer_manager(
+                self.model
+            ).to(self.model_config.dtype)
 
     def make_model_input_from_broadcasted_tensor_dict(
         self,
@@ -585,7 +594,7 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
             raise ValueError("CPU worker does not support multi-step execution.")
 
         model_executable = self.model
-        
+
         if self.lora_config:
             assert model_input.lora_requests is not None
             for lora_request in model_input.lora_requests:
@@ -613,9 +622,30 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         if not self.is_driver_worker:
             return []
 
-        # Sample the next token.
-        output = self.model.sample(
-            logits=logits,
-            sampling_metadata=model_input.sampling_metadata,
-        )
-        return [output]
+        if model_input.sampling_metadata.seq_groups[-1].sampling_params is not None:
+
+            # Sample the next token.
+            output = self.model.sample(
+                logits=logits,
+                sampling_metadata=model_input.sampling_metadata,
+            )
+            return [output]
+        else:
+            return [
+                _build_embedding_sampler_output(
+                    self.tokenizer.tokenizer, model_input, hidden_states
+                )
+            ]
+
+
+def _build_embedding_sampler_output(
+    tokenizer: BaseTokenizerGroup,
+    model_input: ModelInputForCPUWithSamplingMetadata,
+    hidden_states: torch.Tensor,
+) -> SamplerOutput:
+    return SamplerOutput(
+        outputs=[
+            EmbeddingSequenceGroupOutput(embeddings=hidden_states.float().numpy().tolist()[index])
+            for index in range(len(model_input.sampling_metadata.seq_groups))
+        ]
+    )

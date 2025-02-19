@@ -1,11 +1,11 @@
 from pydantic import BaseModel
 
-from typing import Optional
+from typing import Optional, Union
 
 
 class FinishWorkRequest(BaseModel):
     request_id: int
-    response: Optional[str] = None
+    response: Optional[Union[str, list[float]]] = None
     error: Optional[str] = None
 
 

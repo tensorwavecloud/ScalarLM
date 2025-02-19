@@ -18,6 +18,8 @@ from vllm.model_executor.layers.sampler import SamplerOutput
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.sequence import ExecuteModelRequest
 
+from vllm.transformers_utils.tokenizer_group import BaseTokenizerGroup
+
 
 class ExecutorBase(ABC):
     """Base class for all executors.
@@ -41,6 +43,7 @@ class ExecutorBase(ABC):
         speculative_config: Optional[SpeculativeConfig],
         prompt_adapter_config: Optional[PromptAdapterConfig],
         observability_config: Optional[ObservabilityConfig],
+        tokenizer: Optional[BaseTokenizerGroup],
     ) -> None:
         self.model_config = model_config
         self.cache_config = cache_config
@@ -52,6 +55,7 @@ class ExecutorBase(ABC):
         self.speculative_config = speculative_config
         self.prompt_adapter_config = prompt_adapter_config
         self.observability_config = observability_config
+        self.tokenizer = tokenizer
         self._init_executor()
 
     @abstractmethod

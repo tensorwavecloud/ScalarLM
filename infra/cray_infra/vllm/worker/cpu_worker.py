@@ -32,6 +32,8 @@ from vllm.worker.worker_base import (
     LoraNotSupportedWorkerBase,
     WorkerInput,
 )
+from vllm.transformers_utils.tokenizer_group import (
+    BaseTokenizerGroup )
 
 logger = init_logger(__name__)
 
@@ -153,6 +155,7 @@ class CPUWorker(LoraNotSupportedWorkerBase, LocalOrDistributedWorkerBase):
         kv_cache_dtype: Optional[str] = "auto",
         prompt_adapter_config: Optional[PromptAdapterConfig] = None,
         is_driver_worker: bool = False,
+        tokenizer: Optional[BaseTokenizerGroup] = None,
     ) -> None:
         self.model_config = model_config
         self.parallel_config = parallel_config
@@ -166,6 +169,7 @@ class CPUWorker(LoraNotSupportedWorkerBase, LocalOrDistributedWorkerBase):
         self.lora_config = lora_config
         self.prompt_adapter_config = prompt_adapter_config
         self.is_driver_worker = is_driver_worker
+        self.tokenizer = tokenizer
         if self.is_driver_worker:
             assert self.rank == 0, "The driver worker must have rank 0."
 
@@ -196,6 +200,7 @@ class CPUWorker(LoraNotSupportedWorkerBase, LocalOrDistributedWorkerBase):
             kv_cache_dtype=kv_cache_dtype,
             prompt_adapter_config=self.prompt_adapter_config,
             is_driver_worker=is_driver_worker,
+            tokenizer=tokenizer,
         )
         # Uninitialized cache engine. Will be initialized by
         # initialize_cache.

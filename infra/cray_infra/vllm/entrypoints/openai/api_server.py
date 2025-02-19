@@ -38,6 +38,7 @@ from vllm.entrypoints.launcher import serve_http
 from vllm.entrypoints.logger import RequestLogger
 from vllm.entrypoints.openai.cli_args import make_arg_parser, validate_parsed_serve_args
 from vllm.engine.async_llm_engine import AsyncEngineDeadError
+from vllm.engine.multiprocessing import MQEngineDeadError
 
 # yapf conflicts with isort for this block
 # yapf: disable
@@ -122,6 +123,10 @@ async def get_work(app: FastAPI):
             logger.error("Engine is dead, restarting")
             # Kill the container so it can be restarted
             sys.exit(1)
+        except MQEngineDeadError:
+            logger.error("Engine is dead, restarting")
+            # Kill the container so it can be restarted
+            sys.exit(1)
 
         except Exception as e:
             logger.error("Error in get_work_step: %s", e)
@@ -156,7 +161,7 @@ async def get_work_step(app: FastAPI):
     logger.info("Got work: %s", truncate_fields(data))
 
     completion_tasks = [
-        async_completion_task(request, app) for request in data["requests"]
+        async_generate_task(request, app) for request in data["requests"]
     ]
 
     results = await asyncio.gather(*completion_tasks)
@@ -173,6 +178,7 @@ async def get_work_step(app: FastAPI):
     ) as resp:
         assert resp.status == 200
 
+
 def truncate_fields(data):
     # Limit the length of the data to 100 characters
     # Data is a dict with a field called requests which is a list of dicts
@@ -185,8 +191,18 @@ def truncate_fields(data):
                 request[key] = value[:100] + "..."
     return data
 
+
 async def pass_receive() -> typing.NoReturn:
     return {"type": "http.request"}
+
+
+async def async_generate_task(request, app):
+    if request["request_type"] == "generate":
+        return await async_completion_task(request, app)
+    elif request["request_type"] == "embed":
+        return await async_embedding_task(request, app)
+    else:
+        raise ValueError(f"Invalid request type: {request['request_type']}")
 
 
 async def async_completion_task(request, app):
@@ -214,6 +230,36 @@ async def async_completion_task(request, app):
 
     if "choices" in response_data:
         response["response"] = response_data["choices"][0]["text"]
+    elif response_data["object"] == "error":
+        response["error"] = response_data["message"]
+
+    return response
+
+
+async def async_embedding_task(request, app):
+    embedding_request = EmbeddingRequest(
+        model=request["model"],
+        input=request["prompt"],
+    )
+
+    raw_request = Request(
+        scope={"app": app, "type": "http", "headers": {}, "path": "/v1/embeddings"},
+        receive=pass_receive,
+    )
+
+    response = await create_embedding(embedding_request, raw_request)
+
+    response_data = json.loads(response.body.decode("utf-8"))
+
+    logger.info("Got response: %s", response_data)
+
+    response = {
+        "request_id": request["request_id"],
+    }
+
+    if "data" in response_data:
+        if "embedding" in response_data["data"][0]:
+            response["response"] = response_data["data"][0]["embedding"]
     elif response_data["object"] == "error":
         response["error"] = response_data["message"]
 
@@ -657,10 +703,10 @@ async def run_server(args, running_status, **uvicorn_kwargs) -> None:
     # see https://github.com/vllm-project/vllm/issues/8204
 
     # make sure the socket is not already bound
-    #try:
+    # try:
     #    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     #    sock.bind(("", args.port))
-    #except OSError as e:
+    # except OSError as e:
     #    logger.error(f"Port {args.port} is already in use: {e}")
 
     def signal_handler(*_) -> None:
@@ -685,7 +731,7 @@ async def run_server(args, running_status, **uvicorn_kwargs) -> None:
             ssl_certfile=args.ssl_certfile,
             ssl_ca_certs=args.ssl_ca_certs,
             ssl_cert_reqs=args.ssl_cert_reqs,
-            #fd=sock.fileno(),
+            # fd=sock.fileno(),
             running_status=running_status,
             **uvicorn_kwargs,
         )
