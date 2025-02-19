@@ -2,7 +2,7 @@
 /*
  * This file is a cgroup plugin for Slurm that can be used inside Docker containers.
  *
- * The plugin is based on the cgroup plugin provided by Slurm, and it is modified to work
+ * The plugin is replaces the cgroup plugin provided by Slurm. It allows running
  * inside Docker containers without privileged mode.
  *
  * The plugin is used to create cgroups for Slurm jobs and tasks, and to set resource limits
