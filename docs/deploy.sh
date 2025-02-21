@@ -16,7 +16,7 @@ LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd
 rm -rf $LOCAL_DIRECTORY/gh-pages-deployment
 
 # Clone the repository
-git clone git@github.com:supermassive-intelligence/supermassive-intelligence.github.io.git $LOCAL_DIRECTORY/gh-pages-deployment
+git clone git@github.com:tensorwavecloud/scalarlm.github.io.git $LOCAL_DIRECTORY/gh-pages-deployment
 
 # Copy the local files from cray-docs to the deployment directory
 mkdir -p $LOCAL_DIRECTORY/gh-pages-deployment
