@@ -1,0 +1,327 @@
+<!DOCTYPE html>
+<html lang="en" data-bs-theme="light">
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        
+        
+        
+        <link rel="shortcut icon" href="../img/favicon.ico">
+        <title>Quick Start - ScalarLM Docs</title>
+        <link href="../css/bootstrap.min.css" rel="stylesheet">
+        <link href="../css/fontawesome.min.css" rel="stylesheet">
+        <link href="../css/brands.min.css" rel="stylesheet">
+        <link href="../css/solid.min.css" rel="stylesheet">
+        <link href="../css/v4-font-face.min.css" rel="stylesheet">
+        <link href="../css/base.css" rel="stylesheet">
+        <link id="hljs-light" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" >
+        <link id="hljs-dark" rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css" disabled>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+        <script>hljs.highlightAll();</script> 
+    </head>
+
+    <body>
+        <div class="navbar fixed-top navbar-expand-lg navbar-dark bg-primary">
+            <div class="container">
+                <a class="navbar-brand" href="..">ScalarLM Docs</a>
+                <!-- Expander button -->
+                <button type="button" class="navbar-toggler" data-bs-toggle="collapse" data-bs-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+
+                <!-- Expanded navigation -->
+                <div id="navbar-collapse" class="navbar-collapse collapse">
+                        <!-- Main navigation -->
+                        <ul class="nav navbar-nav">
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle active" aria-current="page" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Getting Started</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href=".." class="dropdown-item">Introduction</a>
+</li>
+                                    
+<li>
+    <a href="./" class="dropdown-item active" aria-current="page">Quick Start</a>
+</li>
+                                    
+<li>
+    <a href="../arch/" class="dropdown-item">Architecture</a>
+</li>
+                                    
+<li>
+    <a href="../contact/" class="dropdown-item">Contact</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Examples</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../inference/" class="dropdown-item">Inference</a>
+</li>
+                                    
+<li>
+    <a href="../training/" class="dropdown-item">Training</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Command Line</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../cli/cli/" class="dropdown-item">CLI</a>
+</li>
+                                    
+<li>
+    <a href="../cli/list-models/" class="dropdown-item">List Models</a>
+</li>
+                                    
+<li>
+    <a href="../cli/training-logs/" class="dropdown-item">Training Logs</a>
+</li>
+                                    
+<li>
+    <a href="../cli/squeue/" class="dropdown-item">Squeue</a>
+</li>
+                                    
+<li>
+    <a href="../cli/plot/" class="dropdown-item">Plot</a>
+</li>
+                                </ul>
+                            </li>
+                            <li class="nav-item dropdown">
+                                <a href="#" class="nav-link dropdown-toggle" role="button" data-bs-toggle="dropdown"  aria-expanded="false">Deployment</a>
+                                <ul class="dropdown-menu">
+                                    
+<li>
+    <a href="../deployment/laptop/" class="dropdown-item">Laptop</a>
+</li>
+                                    
+<li>
+    <a href="../deployment/kubernetes/" class="dropdown-item">Kubernetes</a>
+</li>
+                                    
+<li>
+    <a href="../deployment/modal/" class="dropdown-item">Modal</a>
+</li>
+                                    
+<li>
+    <a href="../deployment/modal-details/" class="dropdown-item">Modal Details</a>
+</li>
+                                    
+<li>
+    <a href="../deployment/docker/" class="dropdown-item">Docker</a>
+</li>
+                                </ul>
+                            </li>
+                        </ul>
+
+                    <ul class="nav navbar-nav ms-md-auto">
+                        <li class="nav-item">
+                            <a href="#" class="nav-link" data-bs-toggle="modal" data-bs-target="#mkdocs_search_modal">
+                                <i class="fa fa-search"></i> Search
+                            </a>
+                        </li>
+                            <li class="nav-item">
+                                <a rel="prev" href=".." class="nav-link">
+                                    <i class="fa fa-arrow-left"></i> Previous
+                                </a>
+                            </li>
+                            <li class="nav-item">
+                                <a rel="next" href="../arch/" class="nav-link">
+                                    Next <i class="fa fa-arrow-right"></i>
+                                </a>
+                            </li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <div class="container">
+            <div class="row">
+                    <div class="col-md-3"><div class="navbar-expand-md bs-sidebar hidden-print affix" role="complementary">
+    <div class="navbar-header">
+        <button type="button" class="navbar-toggler collapsed" data-bs-toggle="collapse" data-bs-target="#toc-collapse" title="Table of Contents">
+            <span class="fa fa-angle-down"></span>
+        </button>
+    </div>
+
+    
+    <div id="toc-collapse" class="navbar-collapse collapse card bg-body-tertiary">
+        <ul class="nav flex-column">
+            
+            <li class="nav-item" data-bs-level="2"><a href="#setup" class="nav-link">Setup</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            
+            <li class="nav-item" data-bs-level="2"><a href="#your-first-request" class="nav-link">Your first request</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            
+            <li class="nav-item" data-bs-level="2"><a href="#using-the-python-client" class="nav-link">Using the Python client</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            
+            <li class="nav-item" data-bs-level="1"><a href="#loading-a-different-model" class="nav-link">Loading a different model</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+            
+            <li class="nav-item" data-bs-level="1"><a href="#submitting-a-request-to-the-new-model" class="nav-link">Submitting a request to the new model</a>
+              <ul class="nav flex-column">
+              </ul>
+            </li>
+        </ul>
+    </div>
+</div></div>
+                    <div class="col-md-9" role="main">
+
+<p>Let's start by submitting your first request to ScalarLM.</p>
+<h2 id="setup">Setup</h2>
+<p>Clone the <a href="https://github.com/cray-lm/cray-lm">ScalarLM repository</a> and start the server.</p>
+<pre><code>git clone git@github.com:cray-lm/cray-lm.git
+cd cray-lm
+./cray up
+</code></pre>
+<p>This will bring up the ScalarLM development server on <code>localhost:8000</code>, which includes an OpenAI compatible API.</p>
+<h2 id="your-first-request">Your first request</h2>
+<pre><code class="language-console">curl http://localhost:8000/v1/openai/chat/completions \
+    -H &quot;Content-Type: application/json&quot; \
+    -d '{
+        &quot;model&quot;: &quot;masint/tiny-random-llama&quot;,
+        &quot;messages&quot;: [
+            {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;},
+            {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Who won the world series in 2020?&quot;}
+        ]
+    }'
+</code></pre>
+<h2 id="using-the-python-client">Using the Python client</h2>
+<p>You can also use the Python client to interact with the local ScalarLM server.</p>
+<pre><code class="language-python">
+import masint
+
+# Make sure to set the API URL to the local ScalarLM server
+masint.api_url = &quot;http://localhost:8000&quot;
+
+def get_dataset():
+    dataset = []
+
+    count = 4
+
+    for i in range(count):
+        dataset.append(f&quot;What is {i} + {i}?&quot;)
+
+    return dataset
+
+
+llm = masint.SupermassiveIntelligence()
+
+dataset = get_dataset()
+
+results = llm.generate(prompts=dataset)
+
+print(results)
+</code></pre>
+<h1 id="loading-a-different-model">Loading a different model</h1>
+<p>Edit the file cray-lm/infra/cray_infra/util/default_config.py and change the <code>model</code> field to the desired model.</p>
+<pre><code class="language-python">model = &quot;meta-llama/Llama-3.2-1B-Instruct&quot;
+</code></pre>
+<p>Then restart the server.</p>
+<pre><code class="language-console">./cray up
+</code></pre>
+<h1 id="submitting-a-request-to-the-new-model">Submitting a request to the new model</h1>
+<pre><code class="language-console">curl http://localhost:8000/v1/openai/chat/completions \
+    -H &quot;Content-Type: application/json&quot; \
+    -d '{
+        &quot;model&quot;: &quot;meta-llama/Llama-3.2-1B-Instruct&quot;,
+        &quot;messages&quot;: [
+            {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;},
+            {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;Who won the world series in 2020?&quot;}
+        ]
+    }'
+</code></pre></div>
+            </div>
+        </div>
+
+        <footer class="col-md-12">
+            <hr>
+            <p>Documentation built with <a href="https://www.mkdocs.org/">MkDocs</a>.</p>
+        </footer>
+        <script src="../js/bootstrap.bundle.min.js"></script>
+        <script>
+            var base_url = "..",
+                shortcuts = {"help": 191, "next": 78, "previous": 80, "search": 83};
+        </script>
+        <script src="../js/base.js"></script>
+        <script src="../search/main.js"></script>
+
+        <div class="modal" id="mkdocs_search_modal" tabindex="-1" role="dialog" aria-labelledby="searchModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="searchModalLabel">Search</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p>From here you can search these documents. Enter your search terms below.</p>
+                <form>
+                    <div class="form-group">
+                        <input type="search" class="form-control" placeholder="Search..." id="mkdocs-search-query" title="Type search term here">
+                    </div>
+                </form>
+                <div id="mkdocs-search-results" data-no-results-text="No results found"></div>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div><div class="modal" id="mkdocs_keyboard_modal" tabindex="-1" role="dialog" aria-labelledby="keyboardModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title" id="keyboardModalLabel">Keyboard Shortcuts</h4>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+              <table class="table">
+                <thead>
+                  <tr>
+                    <th style="width: 20%;">Keys</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="help shortcut"><kbd>?</kbd></td>
+                    <td>Open this help</td>
+                  </tr>
+                  <tr>
+                    <td class="next shortcut"><kbd>n</kbd></td>
+                    <td>Next page</td>
+                  </tr>
+                  <tr>
+                    <td class="prev shortcut"><kbd>p</kbd></td>
+                    <td>Previous page</td>
+                  </tr>
+                  <tr>
+                    <td class="search shortcut"><kbd>s</kbd></td>
+                    <td>Search</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+            <div class="modal-footer">
+            </div>
+        </div>
+    </div>
+</div>
+
+    </body>
+</html>
