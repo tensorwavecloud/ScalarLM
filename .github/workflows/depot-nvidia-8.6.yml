@@ -28,7 +28,7 @@ jobs:
           # if no depot.json file is at the root of your repo, you must specify the project id
           project: 39xfdrxfqt
           push: true
-          tags: gdiamos/cray-nvidia-8.6:latest
+          tags: tensorwave/scalarlm-nvidia-8.6:latest
           build-args: |
             BASE_NAME=nvidia
             VLLM_TARGET_DEVICE=cuda

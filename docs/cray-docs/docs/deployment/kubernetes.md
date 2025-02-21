@@ -1,6 +1,6 @@
 # Kubernetes Deployment
 
-Craylm can be deployed on Kubernetes. This guide will walk you through the steps to deploy Cray on Kubernetes.
+ScalarLM can be deployed on Kubernetes. This guide will walk you through the steps to deploy Cray on Kubernetes.
 
 ## Prerequisites
 
@@ -27,9 +27,9 @@ It is also possible to run the playbook on a remote server by setting up the SSH
 lambda ansible_host=...
 ```
 
-## Deploy Craylm
+## Deploy ScalarLM
 
-To deploy Craylm on Kubernetes, you need to clone the Cray repository and run the following command:
+To deploy ScalarLM on Kubernetes, you need to clone the Cray repository and run the following command:
 
 ```bash
 git clone git@github.com:cray-lm/cray-lm.git
@@ -41,7 +41,7 @@ Edit the `values.yaml` file:
 - set the `externalIP` address of the Lambda VM, or configure your ingress controller
 - set the `model` to the huggingface model you want to deploy
 
-Then run the following command to deploy Craylm:
+Then run the following command to deploy ScalarLM:
 
 ```bash
 helm install cray cray
@@ -55,7 +55,7 @@ To verify the deployment, you can run the following command:
 kubectl get pods
 ```
 
-You should see the Craylm pod running.
+You should see the ScalarLM pod running.
 
 You can get the logs of the pod by running:
 

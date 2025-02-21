@@ -1,12 +1,12 @@
 # Laptop
 
-Craylm can be run on your laptop for development purposes. It requires Docker.
+ScalarLM can be run on your laptop for development purposes. It requires Docker.
 
-Clone the [Craylm repository](https://github.com/cray-lm/cray-lm) and start the server.
+Clone the [ScalarLM repository](https://github.com/tensorwavecloud/scalarlm) and start the server.
 
 ```
-git clone git@github.com:cray-lm/cray-lm.git
-cd cray-lm
+git clone git@github.com:tensorwavelm/scalarlm.git
+cd scalarlm
 ./cray up
 ```
 

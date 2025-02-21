@@ -17,7 +17,7 @@ curl https://meta-llama--llama-3-2-3b-instruct.cray-lm.com/v1/openai/chat/comple
 
 ## Using the Python client
 
-You can also use the Python client to interact with the Craylm server.
+You can also use the Python client to interact with the ScalarLM server.
 
 ```python
 

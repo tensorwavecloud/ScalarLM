@@ -1,11 +1,11 @@
 # Modal
 
-Craylm can be deployed on Modal for easy access to GPUs.
+ScalarLM can be deployed on Modal for easy access to GPUs.
 
-Clone the [Craylm repository](https://github.com/cray-lm/cray-lm) and start the server.
+Clone the [ScalarLM repository](https://github.com/tensorwavecloud/scalarlm) and start the server.
 
 ```console
-git clone git@github.com:cray-lm/cray-lm.git
+git clone git@github.com:tensorwavecloud/scalarlm.git
 cd cray
 ./cray deploy
 ```

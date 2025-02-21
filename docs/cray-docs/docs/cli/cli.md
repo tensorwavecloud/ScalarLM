@@ -1,9 +1,9 @@
 # Command Line Interface
 
-The Craylm CLI is used to inspect and monitor training jobs, as well as to manage the Cray-LM platform.
+The ScalarLM CLI is used to inspect and monitor training jobs, as well as to manage the Cray-LM platform.
 
 ```console
-cray - Craylm CLI
+cray - ScalarLM CLI
 
 Usage:
   cray COMMAND
@@ -30,7 +30,7 @@ Options:
 
 ## Installation
 
-Clone the Craylm repository and run the `cray` command to try out the CLI.
+Clone the ScalarLM repository and run the `cray` command to try out the CLI.
 
 ```
 git clone git@github.com:cray-lm/cray-lm.git
@@ -40,7 +40,7 @@ cd cray-lm
 
 ## Python package
 
-The Craylm CLI is also available as a Python package. You can install it using pip:
+The ScalarLM CLI is also available as a Python package. You can install it using pip:
 
 ```console
 pip install cray-lm
@@ -65,6 +65,6 @@ options:
   -h, --help            show this help message and exit
 ```
 
-The python package includes is a client for the Craylm platform, and can be
-used to interact with the Craylm server.
+The python package includes is a client for the ScalarLM platform, and can be
+used to interact with the ScalarLM server.
 

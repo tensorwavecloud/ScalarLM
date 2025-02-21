@@ -1,4 +1,4 @@
-site_name: Craylm Docs
+site_name: ScalarLM Docs
 nav:
     - Getting Started:
         - Introduction: index.md

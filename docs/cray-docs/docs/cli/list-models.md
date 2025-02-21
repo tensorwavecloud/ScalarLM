@@ -4,11 +4,11 @@
 ./cray llm ls
 ```
 
-This command lists all of the models that have been trained on the Craylm server.
+This command lists all of the models that have been trained on the ScalarLM server.
 
 ```console
 69118a251a074f9f9d37a2ddc903243e428d30c3c31ad019cbf62ac777e42e6e
 ```
 
-Craylm names models with a unique identifier based on the input data and training parameters.
+ScalarLM names models with a unique identifier based on the input data and training parameters.
 

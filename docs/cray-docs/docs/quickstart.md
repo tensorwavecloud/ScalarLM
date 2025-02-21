@@ -1,8 +1,8 @@
-Let's start by submitting your first request to Craylm.
+Let's start by submitting your first request to ScalarLM.
 
 ## Setup
 
-Clone the [Craylm repository](https://github.com/cray-lm/cray-lm) and start the server.
+Clone the [ScalarLM repository](https://github.com/cray-lm/cray-lm) and start the server.
 
 ```
 git clone git@github.com:cray-lm/cray-lm.git
@@ -10,7 +10,7 @@ cd cray-lm
 ./cray up
 ```
 
-This will bring up the Craylm development server on `localhost:8000`, which includes an OpenAI compatible API.
+This will bring up the ScalarLM development server on `localhost:8000`, which includes an OpenAI compatible API.
 
 ## Your first request
 
@@ -28,13 +28,13 @@ curl http://localhost:8000/v1/openai/chat/completions \
 
 ## Using the Python client
 
-You can also use the Python client to interact with the local Craylm server.
+You can also use the Python client to interact with the local ScalarLM server.
 
 ```python
 
 import masint
 
-# Make sure to set the API URL to the local Craylm server
+# Make sure to set the API URL to the local ScalarLM server
 masint.api_url = "http://localhost:8000"
 
 def get_dataset():

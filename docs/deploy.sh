@@ -16,15 +16,17 @@ LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd
 rm -rf $LOCAL_DIRECTORY/gh-pages-deployment
 
 # Clone the repository
-git clone git@github.com:tensorwavecloud/scalarlm.github.io.git $LOCAL_DIRECTORY/gh-pages-deployment
-
-# Copy the local files from cray-docs to the deployment directory
-mkdir -p $LOCAL_DIRECTORY/gh-pages-deployment
-cp $LOCAL_DIRECTORY/cray-docs/mkdocs.yml $LOCAL_DIRECTORY/gh-pages-deployment
-cp -r $LOCAL_DIRECTORY/cray-docs/docs $LOCAL_DIRECTORY/gh-pages-deployment/docs
+git clone git@github.com:tensorwavecloud/scalarlm $LOCAL_DIRECTORY/gh-pages-deployment
 
 # Change to the deployment directory
 cd $LOCAL_DIRECTORY/gh-pages-deployment
+
+# Change to the git branch
+git checkout gh-pages
+
+# Copy the local files from cray-docs to the deployment directory
+cp $LOCAL_DIRECTORY/cray-docs/mkdocs.yml $LOCAL_DIRECTORY/gh-pages-deployment
+cp -r $LOCAL_DIRECTORY/cray-docs/docs $LOCAL_DIRECTORY/gh-pages-deployment/docs
 
 # Add all the files to the git repository
 #git add .

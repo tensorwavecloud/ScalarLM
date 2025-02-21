@@ -28,7 +28,7 @@ jobs:
           # if no depot.json file is at the root of your repo, you must specify the project id
           project: 39xfdrxfqt
           push: true
-          tags: gdiamos/cray-cpu:latest
+          tags: tensorwave/scalarlm-cpu:latest
           build-args: |
             BASE_NAME=cpu
             VLLM_TARGET_DEVICE=cpu

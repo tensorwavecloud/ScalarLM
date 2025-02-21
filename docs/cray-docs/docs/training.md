@@ -2,7 +2,7 @@
 
 ## Training jobs
 
-You can also use the Python client to submit training jobs to the Craylm server.
+You can also use the Python client to submit training jobs to the ScalarLM server.
 
 ```python
 

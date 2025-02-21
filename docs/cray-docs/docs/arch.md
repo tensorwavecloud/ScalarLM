@@ -1,12 +1,12 @@
-# Craylm
+# ScalarLM
 
-Craylm has three high level APIs:
+ScalarLM has three high level APIs:
 
 * **completions** provides OpenAI client compatibility
 * **generate** provides a simple interface for generating text
 * **train** provides a simple interface for submitting training jobs
 
-![Craylm overview](assets/cray-arch.png)
+![ScalarLM overview](assets/cray-arch.png)
 
 
 Inference is performed by vLLM workers that are orchestrated by pulling requests from a queue.
