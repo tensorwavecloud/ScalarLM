@@ -1180,11 +1180,12 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
                 )
 
             self.tokenformer_manager = WorkerTokenformerManager(
-                    self.device,
-                )
+                self.device,
+            )
             logger.info("Creating Tokenformer model...")
-            self.model = self.tokenformer_manager.create_tokenformer_manager(self.model).to(self.model_config.dtype)
-
+            self.model = self.tokenformer_manager.create_tokenformer_manager(
+                self.model
+            ).to(self.model_config.dtype)
 
         if self.prompt_adapter_config:
             self.prompt_adapter_manager = LRUCacheWorkerPromptAdapterManager(
@@ -1310,7 +1311,7 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
         # passed in, which contains a lora from the lora warmup path.
         dummy_lora_requests: List[LoRARequest] = []
         dummy_lora_requests_per_seq: List[LoRARequest] = []
-        #if self.lora_config:
+        # if self.lora_config:
         #    assert self.lora_manager is not None
         #    with self.lora_manager.dummy_lora_cache():
         #        for idx in range(self.lora_config.max_loras):
@@ -1571,7 +1572,7 @@ class GPUModelRunnerBase(ModelRunnerBase[TModelInputForGPU]):
                                 is_prefill=False,
                             )
                         )
-                        #self.set_active_loras(set(), lora_mapping)
+                        # self.set_active_loras(set(), lora_mapping)
 
                     if self.prompt_adapter_config:
                         prompt_adapter_mapping = PromptAdapterMapping(
@@ -1818,44 +1819,65 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if model_input.async_callback is not None:
             model_input.async_callback()
 
-        # Sample the next token.
-        output: SamplerOutput = self.model.sample(
-            logits=logits,
-            sampling_metadata=model_input.sampling_metadata,
-        )
-        if (
-            self.observability_config is not None
-            and self.observability_config.collect_model_forward_time
-            and output is not None
-        ):
-            model_forward_end.synchronize()
-            model_forward_time = model_forward_start.elapsed_time(model_forward_end)
-            orig_model_forward_time = 0.0
-            if intermediate_tensors is not None:
-                orig_model_forward_time = intermediate_tensors.tensors.get(
-                    "model_forward_time", torch.tensor(0.0)
-                ).item()
-            # If there are multiple workers, we are still tracking the latency
-            # from the start time of the driver worker to the end time of the
-            # driver worker. The model forward time will then end up covering
-            # the communication time as well.
-            output.model_forward_time = orig_model_forward_time + model_forward_time
+        if model_input.sampling_metadata.seq_groups[-1].sampling_params is not None:
 
-        if self.return_hidden_states:
-            # we only need to pass hidden states of most recent token
-            assert model_input.sampling_metadata is not None
-            indices = model_input.sampling_metadata.selected_token_indices
-            if model_input.is_prompt:
-                hidden_states = hidden_or_intermediate_states.index_select(0, indices)
-                output.prefill_hidden_states = hidden_or_intermediate_states
-            elif decode_meta.use_cuda_graph:
-                hidden_states = hidden_or_intermediate_states[: len(indices)]
-            else:
-                hidden_states = hidden_or_intermediate_states
+            # Sample the next token.
+            output: SamplerOutput = self.model.sample(
+                logits=logits,
+                sampling_metadata=model_input.sampling_metadata,
+            )
+            if (
+                self.observability_config is not None
+                and self.observability_config.collect_model_forward_time
+                and output is not None
+            ):
+                model_forward_end.synchronize()
+                model_forward_time = model_forward_start.elapsed_time(model_forward_end)
+                orig_model_forward_time = 0.0
+                if intermediate_tensors is not None:
+                    orig_model_forward_time = intermediate_tensors.tensors.get(
+                        "model_forward_time", torch.tensor(0.0)
+                    ).item()
+                # If there are multiple workers, we are still tracking the latency
+                # from the start time of the driver worker to the end time of the
+                # driver worker. The model forward time will then end up covering
+                # the communication time as well.
+                output.model_forward_time = orig_model_forward_time + model_forward_time
 
-            output.hidden_states = hidden_states
+            if self.return_hidden_states:
+                # we only need to pass hidden states of most recent token
+                assert model_input.sampling_metadata is not None
+                indices = model_input.sampling_metadata.selected_token_indices
+                if model_input.is_prompt:
+                    hidden_states = hidden_or_intermediate_states.index_select(
+                        0, indices
+                    )
+                    output.prefill_hidden_states = hidden_or_intermediate_states
+                elif decode_meta.use_cuda_graph:
+                    hidden_states = hidden_or_intermediate_states[: len(indices)]
+                else:
+                    hidden_states = hidden_or_intermediate_states
+
+                output.hidden_states = hidden_states
+
+        else:
+            output = _build_embedding_sampler_output(
+                model_input, hidden_or_intermediate_states
+            )
 
         return [output]
+
+
+def _build_embedding_sampler_output(
+    model_input: ModelInputForGPUWithSamplingMetadata,
+    hidden_states: torch.Tensor,
+) -> SamplerOutput:
+    return SamplerOutput(
+        outputs=[
+            EmbeddingSequenceGroupOutput(embeddings=hidden_states.float().numpy().tolist()[index])
+            for index in range(len(model_input.sampling_metadata.seq_groups))
+        ]
+    )
 
 
 class CUDAGraphRunner:
