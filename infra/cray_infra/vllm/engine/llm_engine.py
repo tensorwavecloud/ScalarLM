@@ -1308,7 +1308,9 @@ class LLMEngine:
                     seq_group_metadata.token_chunk_size
                 )
 
-            if seq_group_metadata.do_sample:
+            is_embedding = hasattr(sequence_group_outputs, "embeddings")
+
+            if seq_group_metadata.do_sample and not is_embedding:
                 assert len(sequence_group_outputs.samples) == 1, (
                     "Async output processor expects a single sample"
                     " (i.e sampling_params.n == 1 and no "

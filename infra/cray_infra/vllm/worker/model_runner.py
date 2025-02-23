@@ -1737,12 +1737,15 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if num_steps > 1:
             raise ValueError("num_steps > 1 is not supported in ModelRunner")
 
+        is_embedding_request = model_input.sampling_metadata.seq_groups[-1].sampling_params is None
+
         model_executable = self.model
         if self.lora_config:
-            assert model_input.lora_requests is not None
-            for lora_request in model_input.lora_requests:
-                if lora_request is not None:
-                    self.tokenformer_manager.add_adapter(lora_request)
+            if not is_embedding_request:
+                assert model_input.lora_requests is not None
+                for lora_request in model_input.lora_requests:
+                    if lora_request is not None:
+                        self.tokenformer_manager.add_adapter(lora_request)
             model_executable = self.tokenformer_manager._adapter_manager.model
 
         if self.prompt_adapter_config:
@@ -1819,7 +1822,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
         if model_input.async_callback is not None:
             model_input.async_callback()
 
-        if model_input.sampling_metadata.seq_groups[-1].sampling_params is not None:
+        if not is_embedding_request:
 
             # Sample the next token.
             output: SamplerOutput = self.model.sample(
