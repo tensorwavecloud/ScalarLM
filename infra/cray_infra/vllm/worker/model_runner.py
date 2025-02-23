@@ -66,7 +66,7 @@ from vllm.prompt_adapter.layers import PromptAdapterMapping
 from vllm.prompt_adapter.request import PromptAdapterRequest
 from vllm.prompt_adapter.worker_manager import LRUCacheWorkerPromptAdapterManager
 from vllm.sampling_params import SamplingParams
-from vllm.sequence import IntermediateTensors, SequenceGroupMetadata
+from vllm.sequence import IntermediateTensors, SequenceGroupMetadata, EmbeddingSequenceGroupOutput
 from vllm.utils import (
     DeviceMemoryProfiler,
     PyObjectCache,
@@ -1877,7 +1877,7 @@ def _build_embedding_sampler_output(
 ) -> SamplerOutput:
     return SamplerOutput(
         outputs=[
-            EmbeddingSequenceGroupOutput(embeddings=hidden_states.float().numpy().tolist()[index])
+            EmbeddingSequenceGroupOutput(embeddings=hidden_states.float().cpu().numpy().tolist()[index])
             for index in range(len(model_input.sampling_metadata.seq_groups))
         ]
     )
