@@ -1,6 +1,6 @@
 services:
 
-    vllm:
+    cray: &cray
         command: /app/cray/scripts/start_one_server.sh
         build:
             context: .
@@ -26,6 +26,16 @@ services:
               target: /app/cray/ml
         networks:
             - cray-network
+
+
+    cray-nvidia:
+        <<: *cray
+        deploy:
+            resources:
+                reservations:
+                    devices:
+                        - driver: nvidia
+                          capabilities: [gpu]
 
 networks:
   cray-network:
