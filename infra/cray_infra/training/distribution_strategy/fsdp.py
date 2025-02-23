@@ -3,24 +3,20 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-# Initialize MPI environment
-comm = MPI.COMM_WORLD
-rank = comm.Get_rank()
-world_size = comm.Get_size()
-
 class FSDPLayer(nn.Module):
     def __init__(self, layer):
         super().__init__()
         self.layer = layer
-        self.rank = rank
-        self.world_size = world_size
+        self.comm = MPI.COMM_WORLD
+        self.rank = self.comm.Get_rank()
+        self.world_size = self.comm.Get_size()
 
     def all_gather(self, tensor):
         if tensor is None:
             return None
         tensor_numpy = tensor.detach().numpy()
         gathered = np.zeros([self.world_size] + list(tensor_numpy.shape), dtype=tensor_numpy.dtype)
-        comm.Allgather(tensor_numpy, gathered)
+        self.comm.Allgather(tensor_numpy, gathered)
         return torch.from_numpy(gathered).to(tensor.device)
 
     def forward(self, x):
@@ -42,7 +38,7 @@ class FSDPLayer(nn.Module):
                 
                 local_grad = torch.zeros(end - start, dtype=grad.dtype, device=grad.device)
                 
-                comm.Reduce_scatter(grad.view(-1).numpy(), local_grad.numpy(), op=MPI.SUM)
+                self.comm.Reduce_scatter(grad.view(-1).numpy(), local_grad.numpy(), op=MPI.SUM)
                 
                 grad.view(-1)[start:end] = local_grad
                 grad /= self.world_size

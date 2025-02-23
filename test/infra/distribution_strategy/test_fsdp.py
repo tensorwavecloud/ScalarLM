@@ -70,7 +70,7 @@ class PositionalEncoding(nn.Module):
         x = x + self.pe[:x.size(0), :]
         return self.dropout(x)
 
-def test_sequential_model(comm, rank, world_size, device):
+def test_sequential_model(rank, device):
     model = nn.Sequential(
         nn.Linear(10, 20),
         nn.ReLU(),
@@ -176,7 +176,7 @@ if __name__ == "__main__":
     world_size = comm.Get_size()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    test_sequential_model(comm, rank, world_size, device)
+    test_sequential_model(rank, device)
     test_transformer_model(comm, rank, world_size, device)
 
 
