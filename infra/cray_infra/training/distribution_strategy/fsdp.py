@@ -1,73 +1,84 @@
-from mpi4py import MPI
-import numpy as np
 import torch
 import torch.nn as nn
+import numpy as np
+from mpi4py import MPI
 
 class FSDPLayer(nn.Module):
-    def __init__(self, layer):
+    def __init__(self, module):
         super().__init__()
-        self.layer = layer
+        self.module = module
         self.comm = MPI.COMM_WORLD
-        self.rank = self.comm.Get_rank()
         self.world_size = self.comm.Get_size()
+        self.rank = self.comm.Get_rank()
+        self.register_backward_hook(self.synchronize_gradients_hook)
+        self.module.register_forward_pre_hook(self.forward_pre_hook)
 
     def all_gather(self, tensor):
         if tensor is None:
             return None
-        tensor_numpy = tensor.detach().numpy()
+        tensor_numpy = tensor.detach().to(torch.float32).numpy()
         gathered = np.zeros([self.world_size] + list(tensor_numpy.shape), dtype=tensor_numpy.dtype)
         self.comm.Allgather(tensor_numpy, gathered)
-        return torch.from_numpy(gathered).to(tensor.device)
+        return torch.from_numpy(gathered).to(tensor.dtype).to(tensor.device)
 
-    def forward(self, x):
-        if hasattr(self.layer, 'weight'):
-            full_weight = self.all_gather(self.layer.weight)
-            self.layer.weight.data = full_weight[self.rank]
-        if hasattr(self.layer, 'bias'):
-            full_bias = self.all_gather(self.layer.bias)
-            self.layer.bias.data = full_bias[self.rank]
-        return self.layer(x)
+    def forward_pre_hook(self, module, input):
+        if hasattr(module, 'weight'):
+            full_weight = self.all_gather(module.weight)
+            module.weight.data = full_weight[self.rank]
+        if hasattr(module, 'bias') and module.bias is not None:
+            full_bias = self.all_gather(module.bias)
+            module.bias.data = full_bias[self.rank]
+        return input
 
-    def synchronize_gradients(self):
-        def reduce_scatter(param):
-            if param.grad is not None:
-                grad = param.grad.data
-                local_size = grad.numel() // self.world_size
-                start = self.rank * local_size
-                end = start + local_size if self.rank < self.world_size - 1 else grad.numel()
-                
-                local_grad = torch.zeros(end - start, dtype=grad.dtype, device=grad.device)
-                
-                self.comm.Reduce_scatter(grad.view(-1).numpy(), local_grad.numpy(), op=MPI.SUM)
-                
-                grad.view(-1)[start:end] = local_grad
-                grad /= self.world_size
-                param.grad.data = grad
+    def reduce_scatter(self, param):
+        if param.grad is not None:
+            grad = param.grad.data
+            local_size = grad.numel() // self.world_size
+            start = self.rank * local_size
+            end = start + local_size if self.rank < self.world_size - 1 else grad.numel()
+            
+            local_grad = torch.zeros(end - start, dtype=grad.dtype, device=grad.device)
+            
+            self.comm.Reduce_scatter(grad.view(-1).numpy(), local_grad.numpy(), op=MPI.SUM)
+            
+            grad.view(-1)[start:end] = local_grad.to(grad.device)
+            grad /= self.world_size
+            param.grad.data = grad
 
-        if hasattr(self.layer, 'weight'):
-            reduce_scatter(self.layer.weight)
-        if hasattr(self.layer, 'bias'):
-            reduce_scatter(self.layer.bias)
+    def synchronize_gradients_hook(self, module, grad_input, grad_output):
+        if hasattr(module, 'weight'):
+            self.reduce_scatter(module.weight)
+        if hasattr(module, 'bias') and module.bias is not None:
+            self.reduce_scatter(module.bias)
+        return grad_input
+
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
+
+    def forward(self, *args, **kwargs):
+        return self.module(*args, **kwargs)
 
 class SimpleFSDP(nn.Module):
     def __init__(self, model):
         super().__init__()
-        self.layers = nn.ModuleList(self._get_fsdp_layers(model))
+        self.model = model
+        self._wrap_layers(model)
 
-    def _get_fsdp_layers(self, model):
-        return [FSDPLayer(module) for module in model.modules() if self._is_leaf_module(module)]
+    def _wrap_layers(self, module):
+        for name, child in module.named_children():
+            if list(child.children()):
+                self._wrap_layers(child)
+            else:
+                setattr(module, name, FSDPLayer(child))
 
-    @staticmethod
-    def _is_leaf_module(module):
-        return not list(module.children())
+    def forward(self, *args, **kwargs):
+        return self.model(*args, **kwargs)
     
-    def forward(self, x):
-        for layer in self.layers:
-            x = layer(x)
-        return x
-
-    def backward(self, loss):
-        loss.backward()
-        for layer in reversed(self.layers):
-            layer.synchronize_gradients()
-
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.model, name)

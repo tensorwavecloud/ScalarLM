@@ -71,13 +71,19 @@ class PositionalEncoding(nn.Module):
         return self.dropout(x)
 
 def test_sequential_model(rank, device):
-    model = nn.Sequential(
-        nn.Linear(10, 20),
-        nn.ReLU(),
-        nn.Linear(20, 5)
-    ).to(device)
+    class SequentialModel(nn.Module):
+        def __init__(self, input_dim=10, hidden_dim=20, output_dim=5):
+            super(SequentialModel, self).__init__()
+            self.model = nn.Sequential(
+                nn.Linear(input_dim, hidden_dim),
+                nn.ReLU(),
+                nn.Linear(hidden_dim, output_dim)
+            )
+
+        def forward(self, x):
+            return self.model(x)
     
-    fsdp_model = SimpleFSDP(model)
+    fsdp_model = SimpleFSDP(SequentialModel())
     
     optimizer = torch.optim.Adam(fsdp_model.parameters(), lr=0.01)
     
@@ -89,7 +95,7 @@ def test_sequential_model(rank, device):
         loss = nn.functional.mse_loss(output, target)
         
         optimizer.zero_grad()
-        fsdp_model.backward(loss)
+        loss.backward()
         optimizer.step()
         
         if rank == 0:
@@ -144,7 +150,7 @@ def test_transformer_model(comm, rank, world_size, device):
                 output = model(data)
                 loss = criterion(output.view(-1, ntokens), target.view(-1))
 
-                model.backward(loss)
+                loss.backward()
                 optimizer.step()
 
                 epoch_loss += loss.item()
