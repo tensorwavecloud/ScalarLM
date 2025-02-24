@@ -104,12 +104,12 @@ class SimpleFSDP(nn.Module):
                 if hasattr(module.module, 'weight'):
                     full_weight = module.all_gather(module.module.weight)
                     # Remove 'layer.' from the key name
-                    adjusted_name = name.replace('mlp.layer.', 'mlp.')
+                    adjusted_name = name.replace('.layer.', '.')
                     unwrapped_state_dict[f"{adjusted_name}.weight"] = full_weight[0]
                 if hasattr(module.module, 'bias') and module.module.bias is not None:
                     full_bias = module.all_gather(module.module.bias)
                     # Remove 'layer.' from the key name
-                    adjusted_name = name.replace('mlp.layer.', 'mlp.')
+                    adjusted_name = name.replace('.layer.', '.')
                     unwrapped_state_dict[f"{adjusted_name}.bias"] = full_bias[0]
 
         # Load the gathered state dict into the new model
