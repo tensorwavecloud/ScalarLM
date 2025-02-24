@@ -10,8 +10,8 @@ class FSDPLayer(nn.Module):
         self.comm = MPI.COMM_WORLD
         self.world_size = self.comm.Get_size()
         self.rank = self.comm.Get_rank()
-        self.register_backward_hook(self.synchronize_gradients_hook)
-        self.module.register_forward_pre_hook(self.forward_pre_hook)
+        self.backward_handle = self.register_backward_hook(self.synchronize_gradients_hook)
+        self.forward_handle = self.module.register_forward_pre_hook(self.forward_pre_hook)
 
     def all_gather(self, tensor):
         if tensor is None:
@@ -60,6 +60,12 @@ class FSDPLayer(nn.Module):
 
     def forward(self, *args, **kwargs):
         return self.module(*args, **kwargs)
+    
+    def remove_hooks(self):
+        if hasattr(self, 'backward_handle'):
+            self.backward_handle.remove()
+        if hasattr(self, 'forward_handle'):
+            self.forward_handle.remove()
 
 class SimpleFSDP(nn.Module):
     def __init__(self, model):
@@ -77,8 +83,42 @@ class SimpleFSDP(nn.Module):
     def forward(self, *args, **kwargs):
         return self.model(*args, **kwargs)
     
+    def remove_all_hooks(self):
+        for module in self.model.modules():
+            if isinstance(module, FSDPLayer):
+                module.remove_hooks()
+    
     def __getattr__(self, name):
         try:
             return super().__getattr__(name)
         except AttributeError:
             return getattr(self.model, name)
+
+    def unwrap_model(self):
+        config = self.model.config
+        unwrapped_model = type(self.model)(config)
+        unwrapped_state_dict = {}
+
+        for name, module in self.model.named_modules():
+            if isinstance(module, FSDPLayer):
+                if hasattr(module.module, 'weight'):
+                    full_weight = module.all_gather(module.module.weight)
+                    # Remove 'layer.' from the key name
+                    adjusted_name = name.replace('mlp.layer.', 'mlp.')
+                    unwrapped_state_dict[f"{adjusted_name}.weight"] = full_weight[0]
+                if hasattr(module.module, 'bias') and module.module.bias is not None:
+                    full_bias = module.all_gather(module.module.bias)
+                    # Remove 'layer.' from the key name
+                    adjusted_name = name.replace('mlp.layer.', 'mlp.')
+                    unwrapped_state_dict[f"{adjusted_name}.bias"] = full_bias[0]
+
+        # Load the gathered state dict into the new model
+        unwrapped_model.load_state_dict(unwrapped_state_dict, strict=False)
+        
+        # Fix for pad_token_id
+        unwrapped_model.config.pad_token_id = unwrapped_model.config.eos_token_id
+        if hasattr(unwrapped_model, 'generation_config'):
+            unwrapped_model.generation_config.pad_token_id = unwrapped_model.config.eos_token_id
+
+        return unwrapped_model
+    

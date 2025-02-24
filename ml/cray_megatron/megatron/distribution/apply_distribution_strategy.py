@@ -1,10 +1,12 @@
 import torch
+from cray_infra.training.distribution_strategy.fsdp import SimpleFSDP
 
 def load_distribution_strategy():
     device = get_device()
 
     return {
         "device": device,
+        "strategy": SimpleFSDP
     }
 
 

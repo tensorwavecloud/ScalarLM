@@ -12,7 +12,6 @@ from torch.optim import AdamW
 
 import torch
 
-import os
 import time
 import logging
 
@@ -144,6 +143,7 @@ class TrainingLoop:
                 callback.on_step_end(step)
 
     def on_train_end(self):
+        
         logger.info(
             f"Training finished successfully after {time.time() - self.training_state.start_time} seconds"
         )
@@ -152,9 +152,14 @@ class TrainingLoop:
                 callback.on_train_end()
 
     def checkpoint(self):
+        
+        model = self.training_state.model_info["model"]
+        if hasattr(model, 'unwrap_model'):
+            model = self.training_state.model_info["model"].unwrap_model()
+            
         checkpoint = {
             "model_state_dict": filter_checkpoint(
-                self.training_state.model_info["model"].state_dict()
+                model.state_dict()
             ),
             "optimizer_state_dict": self.training_state.optimizer.state_dict(),
             "scheduler_state_dict": self.training_state.scheduler.state_dict(),
@@ -165,7 +170,7 @@ class TrainingLoop:
         checkpoint_name = f"checkpoint_{self.training_state.current_step}.pt"
 
         self.training_harness.checkpoint(
-            model=self.training_state.model_info["model"],
+            model=model,
             checkpoint_state=checkpoint,
             checkpoint_name=checkpoint_name,
         )
