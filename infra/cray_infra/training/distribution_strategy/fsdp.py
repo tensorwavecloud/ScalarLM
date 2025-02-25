@@ -78,7 +78,8 @@ class SimpleFSDP(nn.Module):
             if list(child.children()):
                 self._wrap_layers(child)
             else:
-                setattr(module, name, FSDPLayer(child))
+                wrapped = FSDPLayer(child)
+                setattr(module, name, wrapped)
 
     def forward(self, *args, **kwargs):
         return self.model(*args, **kwargs)
@@ -103,14 +104,10 @@ class SimpleFSDP(nn.Module):
             if isinstance(module, FSDPLayer):
                 if hasattr(module.module, 'weight'):
                     full_weight = module.all_gather(module.module.weight)
-                    # Remove 'layer.' from the key name
-                    adjusted_name = name.replace('.layer.', '.')
-                    unwrapped_state_dict[f"{adjusted_name}.weight"] = full_weight[0]
+                    unwrapped_state_dict[f"{name}.weight"] = full_weight[0]
                 if hasattr(module.module, 'bias') and module.module.bias is not None:
                     full_bias = module.all_gather(module.module.bias)
-                    # Remove 'layer.' from the key name
-                    adjusted_name = name.replace('.layer.', '.')
-                    unwrapped_state_dict[f"{adjusted_name}.bias"] = full_bias[0]
+                    unwrapped_state_dict[f"{name}.bias"] = full_bias[0]
 
         # Load the gathered state dict into the new model
         unwrapped_model.load_state_dict(unwrapped_state_dict, strict=False)
@@ -121,4 +118,3 @@ class SimpleFSDP(nn.Module):
             unwrapped_model.generation_config.pad_token_id = unwrapped_model.config.eos_token_id
 
         return unwrapped_model
-    
