@@ -67,10 +67,9 @@ def materialize_model(model_info):
     logger.info(f"Model: {model_info['model']}")
     model_info["model"].to(model_info["distribution_strategy"]["device"])
     
-    model_info["model"] = model_info["distribution_strategy"]["strategy"](model_info["model"])
+    if "distribution_strategy" in model_info and "strategy" in model_info["distribution_strategy"]:
+        model_info["model"] = model_info["distribution_strategy"]["strategy"](model_info["model"])
     
-    
-
     return model_info
 
 

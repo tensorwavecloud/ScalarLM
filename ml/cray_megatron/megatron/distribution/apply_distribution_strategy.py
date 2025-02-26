@@ -6,7 +6,7 @@ def load_distribution_strategy():
 
     return {
         "device": device,
-        "strategy": SimpleFSDP
+        # "strategy": SimpleFSDP
     }
 
 
