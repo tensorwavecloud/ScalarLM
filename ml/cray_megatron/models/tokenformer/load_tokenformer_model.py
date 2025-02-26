@@ -65,9 +65,11 @@ def materialize_model(model_info):
 
     model_info["model"] = model_info["model"].to(torch.bfloat16)
     logger.info(f"Model: {model_info['model']}")
-
     model_info["model"].to(model_info["distribution_strategy"]["device"])
-
+    
+    if "distribution_strategy" in model_info and "strategy" in model_info["distribution_strategy"]:
+        model_info["model"] = model_info["distribution_strategy"]["strategy"](model_info["model"])
+    
     return model_info
 
 
