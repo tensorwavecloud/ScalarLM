@@ -141,7 +141,9 @@ def get_train_job_entrypoint(train_args: Dict):
 
 def get_tasks_per_node(train_args: Dict):
     requested_gpu_count = train_args.get("gpus", 1)
+    
     max_gpu_count = get_max_gpu_count_from_slurm()
+    
     return min(requested_gpu_count, max_gpu_count)
 
 def get_max_gpu_count_from_slurm():
