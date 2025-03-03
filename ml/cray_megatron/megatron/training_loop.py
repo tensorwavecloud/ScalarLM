@@ -116,8 +116,7 @@ class TrainingLoop:
         global_loss = torch.tensor([local_loss.item()], device=device)
         comm.Allreduce(MPI.IN_PLACE, global_loss, op=MPI.SUM)
         avg_loss = global_loss.item() / comm.Get_size()
-
-        # Scale the original loss to match the average
+        # Scaling adjusts loss while maintaining its connection to the graph, which is needed for loss.backward() to work
         loss = loss * (avg_loss / local_loss.item())
 
         logger.info(
