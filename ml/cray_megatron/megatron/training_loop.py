@@ -14,6 +14,7 @@ import torch
 
 import time
 import logging
+from mpi4py import MPI
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +109,16 @@ class TrainingLoop:
             attention_mask=batch["attention_mask"].to(device),
             labels=batch["labels"].to(device),
         ).loss
+        
+        # Synchronize loss across all ranks
+        comm = MPI.COMM_WORLD
+        local_loss = loss.detach().clone()
+        global_loss = torch.tensor([local_loss.item()], device=device)
+        comm.Allreduce(MPI.IN_PLACE, global_loss, op=MPI.SUM)
+        avg_loss = global_loss.item() / comm.Get_size()
+
+        # Scale the original loss to match the average
+        loss = loss * (avg_loss / local_loss.item())
 
         logger.info(
             f"Training step {self.training_state.current_step} "

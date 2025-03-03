@@ -133,6 +133,12 @@ def get_train_job_entrypoint(train_args: Dict):
         "REPLACE_CONFIG_PATH", os.path.join(job_directory, "config.yaml")
     )
 
+    # Replace the REPLACE_TASKS_PER_NODE with the tasks per node specified in train args
+    tasks_per_node = get_tasks_per_node(train_args)
+    entrypoint_script = entrypoint_script.replace(
+        "REPLACE_TASKS_PER_NODE", str(tasks_per_node)
+    )
+
     with open(train_job_entrypoint, "w") as f:
         f.write(entrypoint_script)
 
