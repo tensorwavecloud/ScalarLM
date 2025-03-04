@@ -16,7 +16,7 @@ class FSDPLayer(nn.Module):
     def all_gather(self, tensor):
         if tensor is None:
             return None
-        tensor_numpy = tensor.detach().to(torch.float32).numpy()
+        tensor_numpy = tensor.detach().to(torch.float32).cpu().numpy()
         gathered = np.zeros([self.world_size] + list(tensor_numpy.shape), dtype=tensor_numpy.dtype)
         self.comm.Allgather(tensor_numpy, gathered)
         return torch.from_numpy(gathered).to(tensor.dtype).to(tensor.device)
