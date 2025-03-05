@@ -11,8 +11,7 @@ logging.basicConfig(level=logging.DEBUG)
 count = 3
 selected = random.randint(1, count)
 
-#TINY_BASE_MODEL = "masint/tiny-random-llama"
-TINY_BASE_MODEL = "meta-llama/Llama-3.2-1B-Instruct"
+TINY_BASE_MODEL = "masint/tiny-random-llama"
 TEST_QUESTION = f"What is {selected} + {selected}?"
 TEST_ANSWER = f"The answer is {selected + selected}."
 

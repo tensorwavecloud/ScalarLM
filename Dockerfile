@@ -1,7 +1,5 @@
 ARG BASE_NAME=cpu
-ARG HIPBLASLT_BRANCH="4d40e36"
-ARG HIPBLAS_COMMON_BRANCH="7c1566b"
-ARG LEGACY_HIPBLASLT_OPTION=
+
 ###############################################################################
 # NVIDIA BASE IMAGE
 FROM nvcr.io/nvidia/pytorch:24.11-py3 AS nvidia
@@ -45,20 +43,31 @@ ARG TORCH_VERSION="2.4.0"
 
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.org/whl/cpu
-#########################
-# TEST ROCM
+
 ###############################################################################
 # AMD BASE IMAGE
-#FROM rocm/pytorch@sha256:402c9b4f1a6b5a81c634a1932b56cbe01abb699cfcc7463d226276997c6cf8ea AS amd
 FROM rocm/dev-ubuntu-22.04:6.3.1-complete AS amd
 ARG PYTORCH_ROCM_ARCH=gfx90a;gfx942
 ENV PYTORCH_ROCM_ARCH=${PYTORCH_ROCM_ARCH}
 ARG PYTHON_VERSION=3.12
+ARG HIPBLASLT_BRANCH="4d40e36"
+ARG HIPBLAS_COMMON_BRANCH="7c1566b"
+ARG LEGACY_HIPBLASLT_OPTION=
+ARG PYTORCH_BRANCH="3a585126"
+ARG PYTORCH_VISION_BRANCH="v0.19.1"
+ARG PYTORCH_REPO="https://github.com/pytorch/pytorch.git"
+ARG PYTORCH_VISION_REPO="https://github.com/pytorch/vision.git"
+ARG FA_BRANCH="b7d29fb"
+ARG FA_REPO="https://github.com/ROCm/flash-attention.git"
+
+ARG TRITON_BRANCH="e5be006"
+ARG TRITON_REPO="https://github.com/triton-lang/triton.git"
+ARG MAX_JOBS=128
+ENV DEBIAN_FRONTEND=noninteractive
 
 RUN mkdir -p /app
 WORKDIR /app
 
-ENV DEBIAN_FRONTEND=noninteractive
 # Install Python and other dependencies
 RUN apt-get update -y \
     && apt-get install -y software-properties-common git curl sudo vim less \
@@ -70,20 +79,11 @@ RUN apt-get update -y \
     && update-alternatives --set python3 /usr/bin/python${PYTHON_VERSION} \
     && ln -sf /usr/bin/python${PYTHON_VERSION}-config /usr/bin/python3-config \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python${PYTHON_VERSION} \
-    && python3 --version && python3 -m pip --version
-
-RUN pip install -U packaging cmake ninja wheel setuptools pybind11 Cython
-
-#ENV PATH="/opt/conda/envs/py_3.10/bin:$PATH"
-#ENV CONDA_PREFIX=/opt/conda/envs/py_3.10
-
-ARG MAX_JOBS=128
-RUN pip install uv
-ARG HIPBLASLT_BRANCH
-ARG HIPBLAS_COMMON_BRANCH
-# Set to "--legacy_hipblas_direct" for ROCm<=6.2
-ARG LEGACY_HIPBLASLT_OPTION
-RUN apt-get update && apt-get install -y git && apt-get install -y cmake  && apt-get install -y python3.10-venv
+    && python3 --version && python3 -m pip --version \
+    && pip install uv \
+    && pip install -U packaging cmake ninja wheel setuptools pybind11 Cython \
+    && apt-get update && apt-get install -y git && apt-get install -y cmake  && apt-get install -y python3.10-venv \
+    && apt-get update && apt-get install -y openmpi-bin libopenmpi-dev
 
 RUN mkdir -p /app/install
 
@@ -107,20 +107,6 @@ RUN git clone https://github.com/ROCm/hipBLASLt \
     && find . -name "*.deb" 
 
 RUN cp /app/hipBLASLt/build/release/*.deb /app/hipBLAS-common/build/*.deb /app/install
-
-
-ARG PYTORCH_BRANCH="3a585126"
-ARG PYTORCH_VISION_BRANCH="v0.19.1"
-ARG PYTORCH_REPO="https://github.com/pytorch/pytorch.git"
-ARG PYTORCH_VISION_REPO="https://github.com/pytorch/vision.git"
-ARG FA_BRANCH="b7d29fb"
-ARG FA_REPO="https://github.com/ROCm/flash-attention.git"
-
-ARG TRITON_BRANCH="e5be006"
-ARG TRITON_REPO="https://github.com/triton-lang/triton.git"
-
-
-RUN mkdir -p /app/install 
 
 RUN git clone ${TRITON_REPO}
 RUN cd triton \
@@ -162,17 +148,18 @@ RUN cp /pytorch/pytorch/dist/*.whl /app/install && \
     cp /pytorch/vision/dist/*.whl /app/install && \
     cp /pytorch/flash-attention/dist/*.whl /app/install
 
-RUN apt-get update && apt-get install -y openmpi-bin libopenmpi-dev
 
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm
 
-RUN --mount=type=bind,from=amd,src=/app/install/,target=/install \
+# Use test command to check if the directory exists
+RUN if [ -d "/install" ]; then \
     dpkg -i /install/*.deb \
     && sed -i 's/, hipblaslt-dev \(.*\), hipcub-dev/, hipcub-dev/g' /var/lib/dpkg/status \
     && sed -i 's/, hipblaslt \(.*\), hipfft/, hipfft/g' /var/lib/dpkg/status \
-    && pip install /install/*.whl
+    && pip install /install/*.whl; \
+    fi
 
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update -y \
@@ -209,13 +196,13 @@ COPY ./infra/requirements-vllm.txt ${INSTALL_ROOT}/infra/cray_infra/requirements
 WORKDIR ${INSTALL_ROOT}/infra/cray_infra
 
 ARG VLLM_TARGET_DEVICE=cpu
+ARG TORCH_CUDA_ARCH_LIST="7.0 8.6"
 
-#RUN . /app/venv/bin/activate
-#
-## Build vllm python package
+# Build vllm python package
 RUN --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/ccache \
-    MAX_JOBS=${MAX_JOBS} TORCH_CUDA_ARCH_LIST=${PYTORCH_ROCM_ARCH} \
+    MAX_JOBS=${MAX_JOBS} \
+    TORCH_CUDA_ARCH_LIST=${PYTORCH_ROCM_ARCH:-${TORCH_CUDA_ARCH_LIST}} \
     VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
     python ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
     pip install ${INSTALL_ROOT}/infra/cray_infra/dist/*.whl && \
@@ -223,8 +210,8 @@ RUN --mount=type=cache,target=/root/.cache/pip \
 
 WORKDIR ${INSTALL_ROOT}
 
-################################################################################
-## MAIN IMAGE
+###############################################################################
+# MAIN IMAGE
 FROM vllm AS infra
 
 RUN apt-get update -y  \

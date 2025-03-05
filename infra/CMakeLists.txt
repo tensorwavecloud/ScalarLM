@@ -38,7 +38,6 @@ set(CUDA_SUPPORTED_ARCHS "7.0;7.5;8.0;8.6;8.9;9.0")
 
 # Supported AMD GPU architectures.
 set(HIP_SUPPORTED_ARCHS "gfx906;gfx908;gfx90a;gfx940;gfx941;gfx942;gfx1030;gfx1100")
-#set(HIP_SUPPORTED_ARCHS "gfx1100")
 
 #
 # Supported/expected torch versions for CUDA/ROCm.
