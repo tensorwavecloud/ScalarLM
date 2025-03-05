@@ -34,6 +34,7 @@ cray_usage() {
   printf "  %s   Serve the cray platform using modal\n" "serve      "
   printf "  %s   Invoke the LLM tool\n" "llm        "
   printf "  %s   Evaluate a diffusion model\n" "diffusion  "
+  printf "  %s   Publish the cray package to pypi\n" "pypi       "
   echo
 
   # :command.long_usage
@@ -425,6 +426,27 @@ cray_diffusion_usage() {
     # :argument.usage
     printf "  %s\n" "MODEL"
     printf "    Model name to evaluate\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_pypi_usage() {
+  printf "cray pypi - Publish the cray package to pypi\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray pypi\n"
+  printf "  cray pypi --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
     echo
 
   fi
@@ -975,6 +997,40 @@ cray_diffusion_command() {
 
 }
 
+# :command.function
+cray_pypi_command() {
+
+  # cmd/pypi_command.sh
+  inspect_args
+
+  # Get the directory of this script
+  LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+  # Set cwd to the project sdk directory
+  ROOT_DIRECTORY=$LOCAL_DIRECTORY/../sdk
+
+  cd $ROOT_DIRECTORY
+
+  # Build sdk wheel from sdk/pyproject.toml
+  wheel_build_command="python -m build --sdist --wheel --outdir dist/ ."
+
+  # Run sdk wheel build
+  echo $(green_bold Building wheel with command: ${wheel_build_command})
+  eval $wheel_build_command
+
+  echo $(green_bold Successfully built wheel)
+
+  # Upload wheel to pypi
+  pypi_upload_command="twine upload dist/*"
+
+  # Run pypi upload command
+  echo $(green_bold Uploading wheel to pypi with command: ${pypi_upload_command})
+  eval $pypi_upload_command
+
+  echo $(green_bold Successfully uploaded wheel to pypi)
+
+}
+
 # :command.parse_requirements
 parse_requirements() {
   # :command.fixed_flags_filter
@@ -1058,6 +1114,13 @@ parse_requirements() {
       action="diffusion"
       shift
       cray_diffusion_parse_requirements "$@"
+      shift $#
+      ;;
+
+    pypi)
+      action="pypi"
+      shift
+      cray_pypi_parse_requirements "$@"
       shift $#
       ;;
 
@@ -1865,6 +1928,51 @@ cray_diffusion_parse_requirements() {
 
 }
 
+# :command.parse_requirements
+cray_pypi_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_pypi_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="pypi"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        printf "invalid argument: %s\n" "$key" >&2
+        exit 1
+
+        ;;
+
+    esac
+  done
+
+}
+
 # :command.initialize
 initialize() {
   declare -g version="0.1.0"
@@ -1897,6 +2005,7 @@ run() {
     "llm ls") cray_llm_ls_command ;;
     "llm squeue") cray_llm_squeue_command ;;
     "diffusion") cray_diffusion_command ;;
+    "pypi") cray_pypi_command ;;
   esac
 }
 
