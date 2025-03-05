@@ -60,7 +60,6 @@ class MQClientClosedError(Exception):
     So, we throw this error such that we can suppress it.
     """
 
-
 class MQLLMEngineClient:
     """A client wrapper for MQLLMEngine that conforms to the
     EngineClient protocol.
@@ -239,6 +238,7 @@ class MQLLMEngineClient:
             response = await self._wait_for_server_rpc(socket)
 
             self.tracing_flag = response.tracing_enabled
+            self.dynamic_batch_size = response.dynamic_batch_size
 
             # Start health_loop.
             self.health_loop = asyncio.create_task(
@@ -338,6 +338,9 @@ class MQLLMEngineClient:
 
     async def is_tracing_enabled(self) -> bool:
         return self.tracing_flag
+
+    async def get_dynamic_batch_size(self) -> int:
+        return self.dynamic_batch_size
 
     async def _wait_for_server_rpc(self, socket: Socket) -> RPCStartupResponse:
         """Wait for the RPCServer to start up."""

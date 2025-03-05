@@ -252,6 +252,9 @@ class CPUExecutor(ExecutorBase):
         # (this will raise otherwise)
         self._wait_for_tasks_completion(parallel_worker_tasks)
 
+    def get_maximum_concurrency(self) -> int:
+        return 131072
+
     def add_lora(self, lora_request: LoRARequest) -> bool:
         return all(self._run_workers("add_lora", lora_request))
 

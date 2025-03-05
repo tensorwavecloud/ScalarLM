@@ -378,7 +378,7 @@ class LLMEngine:
             load_config=load_config,
             prompt_adapter_config=prompt_adapter_config,
             observability_config=self.observability_config,
-            tokenizer = self.tokenizer,
+            tokenizer=self.tokenizer,
         )
 
         if not self.model_config.embedding_mode:
@@ -1179,7 +1179,9 @@ class LLMEngine:
                         else:
                             seq_group.metrics.model_execute_time = o.model_execute_time
 
-            if self.model_config.embedding_mode or not hasattr(output[0], "prompt_logprobs"):
+            if self.model_config.embedding_mode or not hasattr(
+                output[0], "prompt_logprobs"
+            ):
                 self._process_sequence_group_outputs(seq_group, output)
             else:
                 self.output_processor.process_prompt_logprob(seq_group, output)
@@ -1887,6 +1889,9 @@ class LLMEngine:
 
     def is_tracing_enabled(self) -> bool:
         return self.tracer is not None
+
+    def get_maximum_concurrency(self) -> int:
+        return self.model_executor.get_maximum_concurrency()
 
     def do_tracing(self, scheduler_outputs: SchedulerOutputs) -> None:
         if self.tracer is None:

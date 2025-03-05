@@ -23,7 +23,7 @@ class Config(BaseModel):
 
     vllm_api_url: str = "http://localhost:8001"
 
-    generate_batch_size: int = 4
+    generate_batch_size: int = 1024
 
     response_timeout: int = 60 # seconds
     inference_work_queue_timeout: int = 30 # seconds

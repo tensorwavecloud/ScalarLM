@@ -3,6 +3,8 @@ from masint.cli.plot import plot
 from masint.cli.ls import ls
 from masint.cli.squeue import squeue
 
+import masint
+
 from argparse import ArgumentParser
 
 import logging
@@ -46,7 +48,7 @@ def setup_logging():
 
 
 def parse_arguments():
-    parser = ArgumentParser(description="The command line interface for MasInt")
+    parser = ArgumentParser(description="The command line interface for MasInt ScalarLM")
 
     # Add a subparser for the 'logs' command
     subparsers = parser.add_subparsers(dest="command")

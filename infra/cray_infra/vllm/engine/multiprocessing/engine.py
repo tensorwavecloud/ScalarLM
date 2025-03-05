@@ -200,7 +200,10 @@ class MQLLMEngine:
                 # Handle the query from the Client.
                 if request == RPCStartupRequest.IS_SERVER_READY:
                     tracing_enabled = self.engine.is_tracing_enabled()
-                    response = RPCStartupResponse(tracing_enabled=tracing_enabled)
+                    response = RPCStartupResponse(
+                        tracing_enabled=tracing_enabled,
+                        dynamic_batch_size=self.engine.get_maximum_concurrency(),
+                    )
 
             except Exception as e:
                 response = e

@@ -4,7 +4,7 @@ inspect_args
 
 declare -a squeue_command_parts
 squeue_command_parts=(
-      "python" "/app/cray/masint/sdk/cli/main.py" "squeue"
+      "python" "/app/cray/sdk/masint/cli/main.py" "squeue"
 )
 
 squeue_command="${squeue_command_parts[*]}"

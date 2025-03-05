@@ -134,7 +134,7 @@ class GPUExecutor(ExecutorBase):
         logger.info(
             "# GPU blocks: %d, # CPU blocks: %d", num_gpu_blocks, num_cpu_blocks
         )
-        max_concurrency = (
+        self.max_concurrency = (
             num_gpu_blocks
             * self.cache_config.block_size
             / self.model_config.max_model_len
@@ -142,10 +142,13 @@ class GPUExecutor(ExecutorBase):
         logger.info(
             "Maximum concurrency for %s tokens per request: %.2fx",
             self.model_config.max_model_len,
-            max_concurrency,
+            self.max_concurrency,
         )
 
         self.driver_worker.initialize_cache(num_gpu_blocks, num_cpu_blocks)
+
+    def get_maximum_concurrency(self) -> int:
+        return int(self.max_concurrency)
 
     def execute_model(
         self, execute_model_req: ExecuteModelRequest

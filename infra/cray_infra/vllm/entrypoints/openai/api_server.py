@@ -122,11 +122,11 @@ async def get_work(app: FastAPI):
         except AsyncEngineDeadError:
             logger.error("Engine is dead, restarting")
             # Kill the container so it can be restarted
-            sys.exit(1)
+            kill_vllm_container()
         except MQEngineDeadError:
             logger.error("Engine is dead, restarting")
             # Kill the container so it can be restarted
-            sys.exit(1)
+            kill_vllm_container()
 
         except Exception as e:
             logger.error("Error in get_work_step: %s", e)
@@ -134,13 +134,27 @@ async def get_work(app: FastAPI):
             await asyncio.sleep(10)
 
 
+def kill_vllm_container():
+    # Kill instances of pt_thread_main process
+    os.system("pgrep pt_main_thread | xargs kill -9")
+    sys.exit(1)
+
+
 async def get_work_step(app: FastAPI):
+
+    try:
+        await app.state.engine_client.check_health()
+    except Exception as e:
+        logger.error("Error in get_work_step: %s", e)
+        raise AsyncEngineDeadError
+
     config = get_config()
 
-    batch_size = config["generate_batch_size"]
+    batch_size = await app.state.engine_client.get_dynamic_batch_size()
+    max_batch_size = config["generate_batch_size"]
 
     params = {
-        "batch_size": batch_size,
+        "batch_size": min(batch_size, max_batch_size),
     }
 
     logger.info("Getting work with params: %s", params)
@@ -697,17 +711,6 @@ async def run_server(args, running_status, **uvicorn_kwargs) -> None:
             f"invalid tool call parser: {args.tool_call_parser} "
             f"(chose from {{ {','.join(valide_tool_parses)} }})"
         )
-
-    # workaround to make sure that we bind the port before the engine is set up.
-    # This avoids race conditions with ray.
-    # see https://github.com/vllm-project/vllm/issues/8204
-
-    # make sure the socket is not already bound
-    # try:
-    #    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    #    sock.bind(("", args.port))
-    # except OSError as e:
-    #    logger.error(f"Port {args.port} is already in use: {e}")
 
     def signal_handler(*_) -> None:
         # Interrupt server on sigterm while initializing
