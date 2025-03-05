@@ -104,3 +104,6 @@ commands:
     - name: model
       help: Model name to evaluate
 
+- name: pypi
+  help: Publish the cray package to pypi
+
