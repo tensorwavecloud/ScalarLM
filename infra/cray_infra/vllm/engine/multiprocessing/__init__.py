@@ -107,6 +107,7 @@ class RPCStartupRequest(Enum):
 @dataclass
 class RPCStartupResponse:
     tracing_enabled: bool
+    dynamic_batch_size: int
 
 
 class RPCUProfileRequest(Enum):

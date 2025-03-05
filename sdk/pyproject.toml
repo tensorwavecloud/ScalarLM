@@ -8,7 +8,7 @@ version = "0.5.0"
 authors = [
   { name="Greg Diamos", email="gregory.diamos@gmail.com" },
 ]
-description = "Cray-LM is an integrated LLM inference and training platform"
+description = "ScalarLM is an integrated LLM inference and training platform"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
