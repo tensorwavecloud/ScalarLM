@@ -3,12 +3,12 @@ requires = ["setuptools>=65.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "cray-lm"
+name = "scalarlm"
 version = "0.5.1"
 authors = [
   { name="Greg Diamos", email="gregory.diamos@gmail.com" },
 ]
-description = "ScalarLM is an integrated LLM inference and training platform"
+description = "ScalarLM is a unified LLM inference and training platform"
 readme = "README.md"
 requires-python = ">=3.7"
 classifiers = [
@@ -34,11 +34,14 @@ packages = [
 ]
 
 [project.scripts]
-cray-lm = "masint.cli.main:main"
+scalarlm = "masint.cli.main:main"
 
 [tool.autopep8]
 max_line_length = 120
 in-place = true
 recursive = true
 aggressive = 2
+
+[project.urls]
+Homepage = "https://github.com/tensorwavecloud/scalarlm"
 
