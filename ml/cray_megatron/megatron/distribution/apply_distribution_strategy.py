@@ -1,13 +1,19 @@
 import torch
 from cray_infra.training.distribution_strategy.fsdp import SimpleFSDP
 
+from mpi4py import MPI
+
 def load_distribution_strategy():
     device = get_device()
 
-    return {
+    strategy = {
         "device": device,
-        "strategy": SimpleFSDP
     }
+
+    if MPI.COMM_WORLD.Get_size() > 1:
+        strategy["strategy"] = SimpleFSDP
+
+    return strategy
 
 
 def get_device():
