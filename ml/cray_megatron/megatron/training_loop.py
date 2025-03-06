@@ -83,12 +83,14 @@ class TrainingLoop:
 
     def resume_from_checkpoint(self):
         latest_checkpoint_path = get_latest_checkpoint_path()
+        logger.info(f"Resuming from checkpoint {latest_checkpoint_path}")
+
         checkpoint = torch.load(latest_checkpoint_path, weights_only=True)
 
         self.training_state.current_step = checkpoint["step"]
         self.training_state.epoch = checkpoint["epoch"]
         self.training_state.model_info["model"].load_state_dict(
-            checkpoint["model_state_dict"]
+            checkpoint["model_state_dict"], strict=False
         )
         self.training_state.optimizer.load_state_dict(
             checkpoint["optimizer_state_dict"]
@@ -109,7 +111,7 @@ class TrainingLoop:
             attention_mask=batch["attention_mask"].to(device),
             labels=batch["labels"].to(device),
         ).loss
-        
+
         # Synchronize loss across all ranks
         comm = MPI.COMM_WORLD
         local_loss = loss.detach().clone()
@@ -153,7 +155,7 @@ class TrainingLoop:
                 callback.on_step_end(step)
 
     def on_train_end(self):
-        
+
         logger.info(
             f"Training finished successfully after {time.time() - self.training_state.start_time} seconds"
         )
@@ -162,14 +164,14 @@ class TrainingLoop:
                 callback.on_train_end()
 
     def checkpoint(self):
-        
+
         model = self.training_state.model_info["model"]
         if hasattr(model, 'unwrap_model'):
             model = self.training_state.model_info["model"].unwrap_model()
-            
+
         checkpoint = {
             "model_state_dict": filter_checkpoint(
-                model.state_dict()
+                model, model.state_dict()
             ),
             "optimizer_state_dict": self.training_state.optimizer.state_dict(),
             "scheduler_state_dict": self.training_state.scheduler.state_dict(),
@@ -305,6 +307,6 @@ def remove_closest_entry(history, max_length):
     return history
 
 
-def filter_checkpoint(state_dict):
+def filter_checkpoint(model, state_dict):
     # Remove the layers without gradients
-    return {k: v for k, v in state_dict.items() if v.requires_grad}
+    return {k: state_dict[k] for k, v in model.named_parameters() if v.requires_grad}

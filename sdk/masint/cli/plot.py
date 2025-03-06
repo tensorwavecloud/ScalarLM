@@ -13,30 +13,34 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def plot(model_name):
+def plot(model_name, smooth):
     logger.info(f"Plotting model {model_name}")
 
     try:
-        asyncio.run(plot_async(model_name=model_name))
+        asyncio.run(plot_async(model_name=model_name, smooth=smooth))
     except Exception as e:
         logger.error(f"Failed to plot model {model_name}")
         logger.error(e)
         logger.error(traceback.format_exc())
 
 
-async def plot_async(model_name):
+async def plot_async(model_name, smooth):
     status = await get_status(model_name)
 
     history = status["job_status"]["history"]
-    model_name = clip_model_name(os.path.basename(status["job_config"]["job_directory"]))
+    model_name = clip_model_name(
+        os.path.basename(status["job_config"]["job_directory"])
+    )
 
     # Plot loss against step
-    plot_loss(history, model_name)
+    plot_loss(history, model_name, smooth)
 
 
-def plot_loss(history, model_name):
+def plot_loss(history, model_name, smooth):
     steps = [int(entry["step"]) for entry in history]
     losses = [float(entry["loss"]) for entry in history]
+
+    losses = apply_smoothing(losses, smooth)
 
     plt.plot(steps, losses)
     plt.xlabel("Step")
@@ -54,6 +58,21 @@ def plot_loss(history, model_name):
     logger.info(f"Saving plot to {path}")
 
     plt.savefig(path)
+
+
+def apply_smoothing(data, smooth):
+    # Number of steps to smooth over
+    smooth_steps = smooth
+
+    smoothed_data = []
+
+    for i in range(len(data)):
+        if i < smooth_steps:
+            smoothed_data.append(data[i])
+        else:
+            smoothed_data.append(sum(data[i - smooth_steps : i]) / smooth_steps)
+
+    return smoothed_data
 
 
 async def get_status(model_name):

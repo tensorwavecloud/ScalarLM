@@ -26,7 +26,7 @@ def main():
         )
 
     elif argumments.command == "plot":
-        plot(model_name=argumments.model)
+        plot(model_name=argumments.model, smooth=int(argumments.smooth))
 
     elif argumments.command == "ls":
         ls()
@@ -89,6 +89,7 @@ def add_plot_parser(subparsers):
     plot_parser = subparsers.add_parser("plot", help="Plot the results of a model")
 
     plot_parser.add_argument("--model", help="The model to plot results for", default="latest")
+    plot_parser.add_argument("--smooth", help="The number of steps to smooth over", default=1)
 
 
 def add_ls_parser(subparsers):
