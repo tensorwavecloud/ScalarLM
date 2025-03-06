@@ -148,11 +148,6 @@ RUN cp /pytorch/pytorch/dist/*.whl /app/install && \
     cp /pytorch/vision/dist/*.whl /app/install && \
     cp /pytorch/flash-attention/dist/*.whl /app/install
 
-
-###############################################################################
-# VLLM BUILD STAGE
-FROM ${BASE_NAME} AS vllm
-
 # Use test command to check if the directory exists
 RUN if [ -d "/install" ]; then \
     dpkg -i /install/*.deb \
@@ -160,6 +155,15 @@ RUN if [ -d "/install" ]; then \
     && sed -i 's/, hipblaslt \(.*\), hipfft/, hipfft/g' /var/lib/dpkg/status \
     && pip install /install/*.whl; \
     fi
+
+RUN python -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+RUN pip install /app/install/*.whl
+
+###############################################################################
+# VLLM BUILD STAGE
+FROM ${BASE_NAME} AS vllm
 
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update -y \
@@ -172,11 +176,6 @@ ARG INSTALL_ROOT=/app/cray
 COPY ./requirements.txt ${INSTALL_ROOT}/requirements.txt
 COPY ./test/requirements-pytest.txt ${INSTALL_ROOT}/requirements-pytest.txt
 COPY ./infra/requirements-vllm-build.txt ${INSTALL_ROOT}/requirements-vllm-build.txt
-
-RUN python -m venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
-
-RUN pip install /app/install/*.whl
 
 RUN uv pip install --no-compile --no-cache-dir -r ${INSTALL_ROOT}/requirements.txt
 RUN uv pip install --no-compile --no-cache-dir -r ${INSTALL_ROOT}/requirements-vllm-build.txt
