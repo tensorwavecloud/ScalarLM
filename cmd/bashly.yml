@@ -23,7 +23,7 @@ commands:
   help: Start the container
   args:
     - name: target
-      allowed: ["cpu", "nvidia"]
+      allowed: ["cpu", "nvidia", "amd"]
       default: "cpu"
 
 - name: test
