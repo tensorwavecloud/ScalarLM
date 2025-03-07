@@ -47,6 +47,7 @@ RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.
 ###############################################################################
 # AMD BASE IMAGE
 FROM gdiamos/rocm-base AS amd
+ARG MAX_JOBS=8
 
 ###############################################################################
 # VLLM BUILD STAGE
