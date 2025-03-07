@@ -18,8 +18,14 @@ if not current_platform.is_tpu():
     except ImportError as e:
         logger.warning("Failed to import from vllm._C with %r", e)
 
+supports_rocm = False
 if current_platform.is_rocm():
     import vllm._rocm_C  # noqa: F401
+    logger.info("Imported ROCm Successfully")
+    supports_rocm = True
+
+if not supports_rocm and torch.cuda.is_available():
+    logger.warning("Could not load ROCM")
 
 supports_moe_ops = False
 with contextlib.suppress(ImportError):

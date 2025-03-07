@@ -95,7 +95,8 @@ ARG VLLM_TARGET_DEVICE=cpu
 ARG TORCH_CUDA_ARCH_LIST="7.0 8.6"
 
 # Build vllm python package
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN \
+    --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/ccache \
     MAX_JOBS=${MAX_JOBS} \
     TORCH_CUDA_ARCH_LIST=${PYTORCH_ROCM_ARCH:-${TORCH_CUDA_ARCH_LIST}} \
@@ -136,3 +137,4 @@ RUN /app/cray/infra/slurm_src/compile.sh
 
 ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
 
+ENV HIP_FORCE_DEV_KERNARG=1
