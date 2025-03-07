@@ -2,7 +2,7 @@ from cray_megatron.megatron.dataset.data_loader import DataLoader
 
 from cray_megatron.models.get_model_manager import get_model_manager
 from cray_megatron.models.does_any_checkpoint_exist import does_any_checkpoint_exist
-from cray_megatron.models.get_latest_checkpoint_path import get_latest_checkpoint_path
+from cray_megatron.models.get_latest_checkpoint_path import get_latest_checkpoint_path, delete_old_checkpoints
 
 from cray_infra.training.training_job_status import TrainingJobStatus
 from cray_infra.training.training_harness import TrainingHarness
@@ -187,6 +187,8 @@ class TrainingLoop:
             checkpoint_state=checkpoint,
             checkpoint_name=checkpoint_name,
         )
+
+        delete_old_checkpoints()
 
     def update_history(self, loss):
         job_config = get_job_config()

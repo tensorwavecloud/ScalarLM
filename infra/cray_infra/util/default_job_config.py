@@ -28,10 +28,14 @@ class JobConfig(BaseModel):
     #llm_name: str = "masint/tiny-random-llama"
     llm_name: str = "meta-llama/Llama-3.2-1B-Instruct"
 
+    # Training
     max_steps: int = 100
     learning_rate: float = 3e-3
-    steps_per_checkpoint: int = 100
     batch_size: int = 1
+
+    # Checkpointing
+    steps_per_checkpoint: int = 100
+    max_checkpoints_to_keep: int = 3
 
     gpus: int = 1
     nodes: int = 1
@@ -45,3 +49,4 @@ class JobConfig(BaseModel):
     timeout: int = 4 * 60 * 60
 
     training_history_length: int = 1024
+
