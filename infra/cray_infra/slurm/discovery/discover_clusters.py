@@ -133,11 +133,15 @@ def write_gres_config(cluster_info):
     for node in cluster_info["all_nodes"]:
         gres_config = ""
         for index in range(node["gpu_count"]):
-            gres_config += (
-                # TODO: conditional based on which GPU
-                # f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
-                f"NodeName={node['hostname']} Name=gpu File=/dev/dri/card{index}\n"
-            )
+            if torch.version.hip:
+                gres_config += (
+                    f"NodeName={node['hostname']} Name=gpu File=/dev/dri/card{index}\n"
+                )
+            else:
+                gres_config += (
+                    f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
+                )
+            
 
         with open(gres_config_path, "a") as f:
             f.write(gres_config)
