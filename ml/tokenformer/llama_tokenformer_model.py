@@ -16,7 +16,7 @@ def log_param_gradients(model, logger=logging.getLogger(__name__)):
         logger.debug(f"Parameter: {name}, Requires Grad: {param.requires_grad}")
 
 
-def create_llama_tokenformer_model(model, device):
+def create_llama_tokenformer_model(model, device, train_lm_head = True):
     model = replace_layers(model, LlamaTokenformerDecoderLayer)
     tokenformer_model = TransformersTokenformerSurgeon(model, device).insert_adapter_modules()
 
@@ -26,8 +26,14 @@ def create_llama_tokenformer_model(model, device):
 
     # Unfreeze tokenformer and lm_head parameters
     for name, param in tokenformer_model.named_parameters():
-        if any(module_name in name for module_name in ["tokenformer", "lm_head"]):
+        if any(module_name in name for module_name in ["tokenformer"]):
             param.requires_grad = True
+
+    # If lm_head should be included in training, set it as well.
+    # In some models, lm_head is tied to embeddings and not included as a param. 
+    # So it's best to access it directly.
+    if train_lm_head:
+        tokenformer_model.lm_head.weight.requires_grad = True
 
     # Log parameter gradients
     log_param_gradients(tokenformer_model)
