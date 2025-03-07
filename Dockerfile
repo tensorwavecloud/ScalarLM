@@ -62,7 +62,7 @@ ARG FA_REPO="https://github.com/ROCm/flash-attention.git"
 
 ARG TRITON_BRANCH="e5be006"
 ARG TRITON_REPO="https://github.com/triton-lang/triton.git"
-ARG MAX_JOBS=128
+ARG MAX_JOBS=16
 ENV DEBIAN_FRONTEND=noninteractive
 
 RUN mkdir -p /app
@@ -104,7 +104,7 @@ RUN git clone https://github.com/ROCm/hipBLASLt \
     && make package -j$(nproc) \
     && echo "Searching for build and .deb files:" \
     && find . -type d -name "build" \
-    && find . -name "*.deb" 
+    && find . -name "*.deb"
 
 RUN cp /app/hipBLASLt/build/release/*.deb /app/hipBLAS-common/build/*.deb /app/install
 
