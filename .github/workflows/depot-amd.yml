@@ -6,7 +6,7 @@ on:
 
 jobs:
   docker-image:
-    runs-on: depot-ubuntu-22.04-8
+    runs-on: depot-ubuntu-22.04-16
     steps:
       - name: Checkout repo
         uses: actions/checkout@v3
@@ -33,7 +33,7 @@ jobs:
             BASE_NAME=amd
             VLLM_TARGET_DEVICE=rocm
             PYTORCH_ROCM_ARCH=gfx90a;gfx942
-            MAX_JOBS=8
+            MAX_JOBS=16
 
 
 
