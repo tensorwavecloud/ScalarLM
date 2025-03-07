@@ -22,6 +22,8 @@ ARG TORCH_VERSION="2.4.0"
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION}
 
+ENV BASE_NAME=nvidia
+
 ###############################################################################
 # CPU BASE IMAGE
 FROM ubuntu:24.04 AS cpu
@@ -44,10 +46,14 @@ ARG TORCH_VERSION="2.4.0"
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.org/whl/cpu
 
+ENV BASE_NAME=cpu
+
 ###############################################################################
 # AMD BASE IMAGE
 FROM gdiamos/rocm-base AS amd
 ARG MAX_JOBS=8
+
+ENV BASE_NAME=amd
 
 ###############################################################################
 # VLLM BUILD STAGE
@@ -107,23 +113,23 @@ RUN apt-get update -y  \
     less curl wget net-tools vim iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
-# Build SLURM
-COPY ./infra/slurm_src ${INSTALL_ROOT}/infra/slurm_src
-RUN /app/cray/infra/slurm_src/compile.sh
-
-# Copy slurm config templates
+# Setup python path
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/infra"
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/sdk"
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/ml"
 
-ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
-
 RUN mkdir -p ${INSTALL_ROOT}/jobs
 
+# Copy the rest of the platform code
 COPY ./infra ${INSTALL_ROOT}/infra
 COPY ./sdk ${INSTALL_ROOT}/sdk
 COPY ./test ${INSTALL_ROOT}/test
 COPY ./cray ${INSTALL_ROOT}/cray
 COPY ./ml ${INSTALL_ROOT}/ml
 COPY ./scripts ${INSTALL_ROOT}/scripts
+
+# Build SLURM plugin
+RUN /app/cray/infra/slurm_src/compile.sh
+
+ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
 
