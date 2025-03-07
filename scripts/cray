@@ -138,7 +138,7 @@ cray_up_usage() {
     # :argument.usage
     printf "  %s\n" "TARGET"
     printf "\n"
-    printf "    %s\n" "Allowed: cpu, nvidia"
+    printf "    %s\n" "Allowed: cpu, nvidia, amd"
     printf "    %s\n" "Default: cpu"
     echo
 
@@ -1333,8 +1333,8 @@ cray_up_parse_requirements() {
   [[ -n ${args['target']:-} ]] || args['target']="cpu"
 
   # :command.whitelist_filter
-  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia)$ ]]; then
-    printf "%s\n" "target must be one of: cpu, nvidia" >&2
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia|amd)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia, amd" >&2
     exit 1
   fi
 

@@ -37,6 +37,15 @@ services:
                         - driver: nvidia
                           capabilities: [gpu]
 
+    cray-amd:
+        <<: *cray
+        devices:
+          - /dev/kfd
+          - /dev/dri
+        security_opt:
+          - seccomp:unconfined
+
+
 networks:
   cray-network:
     name: cray_network
