@@ -21,6 +21,7 @@ ARG TORCH_VERSION="2.4.0"
 
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION}
+RUN uv pip install xformers==0.0.27.post2
 
 ENV BASE_NAME=nvidia
 
@@ -54,6 +55,8 @@ FROM gdiamos/rocm-base AS amd
 ARG MAX_JOBS=8
 
 ENV BASE_NAME=amd
+
+RUN pip install amdsmi
 
 ###############################################################################
 # VLLM BUILD STAGE
