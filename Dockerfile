@@ -21,6 +21,9 @@ ARG TORCH_VERSION="2.4.0"
 
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION}
+RUN uv pip install xformers==0.0.27.post2
+
+ENV BASE_NAME=nvidia
 
 ###############################################################################
 # CPU BASE IMAGE
@@ -44,16 +47,16 @@ ARG TORCH_VERSION="2.4.0"
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.org/whl/cpu
 
+ENV BASE_NAME=cpu
+
 ###############################################################################
 # AMD BASE IMAGE
-FROM rocm/pytorch@sha256:402c9b4f1a6b5a81c634a1932b56cbe01abb699cfcc7463d226276997c6cf8ea AS amd
+FROM gdiamos/rocm-base AS amd
+ARG MAX_JOBS=8
 
-ENV PATH="/opt/conda/envs/py_3.10/bin:$PATH"
-ENV CONDA_PREFIX=/opt/conda/envs/py_3.10
+ENV BASE_NAME=amd
 
-ARG MAX_JOBS=4
-
-RUN pip install uv
+RUN pip install amdsmi
 
 ###############################################################################
 # VLLM BUILD STAGE
@@ -92,9 +95,11 @@ ARG VLLM_TARGET_DEVICE=cpu
 ARG TORCH_CUDA_ARCH_LIST="7.0 8.6"
 
 # Build vllm python package
-RUN --mount=type=cache,target=/root/.cache/pip \
+RUN \
+    --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/ccache \
-    MAX_JOBS=${MAX_JOBS} TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
+    MAX_JOBS=${MAX_JOBS} \
+    TORCH_CUDA_ARCH_LIST=${PYTORCH_ROCM_ARCH:-${TORCH_CUDA_ARCH_LIST}} \
     VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
     python ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
     pip install ${INSTALL_ROOT}/infra/cray_infra/dist/*.whl && \
@@ -112,19 +117,14 @@ RUN apt-get update -y  \
     less curl wget net-tools vim iputils-ping \
     && rm -rf /var/lib/apt/lists/*
 
-# Build SLURM
-COPY ./infra/slurm_src ${INSTALL_ROOT}/infra/slurm_src
-RUN /app/cray/infra/slurm_src/compile.sh
-
-# Copy slurm config templates
+# Setup python path
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/infra"
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/sdk"
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/ml"
 
-ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
-
 RUN mkdir -p ${INSTALL_ROOT}/jobs
 
+# Copy the rest of the platform code
 COPY ./infra ${INSTALL_ROOT}/infra
 COPY ./sdk ${INSTALL_ROOT}/sdk
 COPY ./test ${INSTALL_ROOT}/test
@@ -132,3 +132,9 @@ COPY ./cray ${INSTALL_ROOT}/cray
 COPY ./ml ${INSTALL_ROOT}/ml
 COPY ./scripts ${INSTALL_ROOT}/scripts
 
+# Build SLURM plugin
+RUN /app/cray/infra/slurm_src/compile.sh
+
+ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
+
+ENV HIP_FORCE_DEV_KERNARG=1
