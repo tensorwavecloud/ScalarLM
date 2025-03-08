@@ -3,7 +3,8 @@ from torch import nn
 from safetensors.torch import safe_open
 from pathlib import Path
 from typing import Optional, Any, Dict, List
-import os
+from collections import OrderedDict
+import copy
 from tokenformer.tokenformer_surgeon import TokenformerSurgeon, TokenformerAttentionAdapter
 from vllm.model_executor.models import SupportsLoRA
 from vllm.lora.models import get_lora_id
@@ -11,6 +12,13 @@ from vllm.logger import init_logger
 
 from cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 from cray_infra.vllm.attention import AttentionMetadata, AttentionType
+
+from vllm.adapter_commons.utils import (
+    get_adapter,
+    list_adapters,
+    remove_adapter,
+    deactivate_adapter,
+)
 
 logger = init_logger(__name__)
 
@@ -95,41 +103,47 @@ class TokenformerModelManager(AdapterModelManager):
     ):
         self.model = vLLMTokenformerSurgeon(model, device).insert_adapter_modules()
         self._registered_adapters: Dict[int, Any] = {}
-        self._active_adapters: List[int] = []
+        self._active_adapters: Dict[int, Any] = {}
         self.tokenformer_model_cls = TokenformerModel
-
-    @property
-    def capacity(self) -> int:
-        pass
-
-    @property
-    def adapter_slots(self) -> int:
-        pass
-
+        self.dtype = next(self.model.parameters()).dtype
+        self.orig_lm_head = copy.deepcopy({k: v.to(self.dtype) for k, v in self.model.state_dict().items() if 'lm_head' in k})
+        
 
     def activate_adapter(self, adapter_id: int) -> bool:
-        if adapter_id in self._active_adapters:
+        if adapter_id not in self._registered_adapters or adapter_id in self._active_adapters:
             return False
 
-        logger.info("Activating Tokenformer - adapter id: %d", adapter_id)
-
+        logger.info(f"Activating Tokenformer - {adapter_id}")
+        
         model_state_dict = self.model.state_dict()
-        for id, adapter in self._registered_adapters.items():
-            tokenformers = adapter.tokenformers
-            for key, value in tokenformers.items():
-                model_state_dict[key] = value
+        tokenformers = self._registered_adapters[adapter_id].tokenformers
+        
+        for key, value in tokenformers.items():
+            model_state_dict[key] = value
 
-        self.model.load_state_dict(model_state_dict)
-        self._active_adapters.append(adapter_id)
+        self.model.load_state_dict(model_state_dict, strict=False)
+        self._active_adapters[adapter_id] = tokenformers
         return True
-
+    
     def deactivate_adapter(self, adapter_id: int) -> bool:
-        if adapter_id not in self._active_adapters:
-            return False
+        return deactivate_adapter(
+            adapter_id, self._active_adapters, self._deactivate_adapter
+        )
+        
+    def _deactivate_adapter(self, adapter_id: int):
+        model_state_dict = self.model.state_dict()
+        tokenformers = self._registered_adapters[adapter_id].tokenformers
+        
+        for key in tokenformers:
+            if "tokenformer_k" in key:
+                nn.init.kaiming_uniform_(model_state_dict[key])
+            elif "tokenformer_v" in key:
+                nn.init.zeros_(model_state_dict[key])
+            elif "lm_head" in key:
+                model_state_dict[key] = self.orig_lm_head[key]
 
-        self._active_adapters.remove(adapter_id)
-        return True
-
+        self.model.load_state_dict(model_state_dict, strict=False)
+        
     def add_adapter(self, adapter: TokenformerModel) -> bool:
         self._registered_adapters[adapter.id] = adapter
 
@@ -137,16 +151,30 @@ class TokenformerModelManager(AdapterModelManager):
         pass
 
     def remove_adapter(self, adapter_id: int) -> bool:
-        pass
+        return remove_adapter(
+            adapter_id, self._registered_adapters, self.deactivate_adapter
+        )
 
     def remove_all_adapters(self) -> None:
-        pass
+        logger.info(f"Resetting Tokenformer")
+        for id in self._registered_adapters:
+            self.deactivate_adapter(id)
+        self._registered_adapters.clear()
+        self._active_adapters.clear()
 
     def get_adapter(self, adapter_id: int) -> Optional[Any]:
-        pass
+        get_adapter(adapter_id, self._registered_adapters)
 
     def list_adapters(self) -> Dict[int, Any]:
-        return self._registered_adapters
+        return list_adapters(self._registered_adapters)
 
     def pin_adapter(self, adapter_id: int) -> bool:
+        pass
+
+    @property
+    def capacity(self) -> int:
+        pass
+
+    @property
+    def adapter_slots(self) -> int:
         pass

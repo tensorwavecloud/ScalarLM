@@ -1739,14 +1739,7 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
 
         is_embedding_request = model_input.sampling_metadata.seq_groups[-1].sampling_params is None
 
-        model_executable = self.model
-        if self.lora_config:
-            if not is_embedding_request:
-                assert model_input.lora_requests is not None
-                for lora_request in model_input.lora_requests:
-                    if lora_request is not None:
-                        self.tokenformer_manager.add_adapter(lora_request)
-            model_executable = self.tokenformer_manager._adapter_manager.model
+        model_executable = self.manage_tokenformer_adapters(model_input, is_embedding_request)
 
         if self.prompt_adapter_config:
             assert model_input.prompt_adapter_requests is not None
@@ -1867,8 +1860,20 @@ class ModelRunner(GPUModelRunnerBase[ModelInputForGPUWithSamplingMetadata]):
             output = _build_embedding_sampler_output(
                 model_input, hidden_or_intermediate_states
             )
-
+        
         return [output]
+
+    def manage_tokenformer_adapters(self, model_input, is_embedding_request):
+        if self.lora_config:
+            if not is_embedding_request:
+                assert model_input.lora_requests is not None
+                for lora_request in model_input.lora_requests:
+                    if lora_request is not None:
+                        self.tokenformer_manager.add_adapter(lora_request)
+                    else:
+                        self.tokenformer_manager.remove_all_adapters()
+        return self.tokenformer_manager._adapter_manager.model
+    
 
 
 def _build_embedding_sampler_output(

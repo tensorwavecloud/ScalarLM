@@ -7,7 +7,7 @@ def deactivate_adapter(
 ) -> bool:
     if adapter_id in active_adapters:
         deactivate_func(adapter_id)
-        active_adapters.pop(adapter_id)
+        active_adapters.pop(adapter_id, None)
         return True
     return False
 
