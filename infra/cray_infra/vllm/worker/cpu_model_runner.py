@@ -593,14 +593,7 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
         if num_steps > 1:
             raise ValueError("CPU worker does not support multi-step execution.")
 
-        model_executable = self.model
-
-        if self.lora_config:
-            assert model_input.lora_requests is not None
-            for lora_request in model_input.lora_requests:
-                if lora_request is not None:
-                    self.tokenformer_manager.add_adapter(lora_request)
-            model_executable = self.tokenformer_manager._adapter_manager.model
+        model_executable = self.manage_tokenformer_adapters(model_input)
 
         execute_model_kwargs = {
             "input_ids": model_input.input_tokens,
@@ -636,6 +629,16 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
                     self.tokenizer.tokenizer, model_input, hidden_states
                 )
             ]
+
+    def manage_tokenformer_adapters(self, model_input):
+        if self.lora_config:
+            assert model_input.lora_requests is not None
+            for lora_request in model_input.lora_requests:
+                if lora_request is not None:
+                    self.tokenformer_manager.add_adapter(lora_request)
+                else:
+                    self.tokenformer_manager.remove_all_adapters()
+        return self.tokenformer_manager._adapter_manager.model
 
 
 def _build_embedding_sampler_output(

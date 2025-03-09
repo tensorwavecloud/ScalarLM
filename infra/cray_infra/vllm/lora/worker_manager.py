@@ -272,10 +272,10 @@ class WorkerTokenformerManager(AbstractWorkerManager):
                                   self._adapter_manager.activate_adapter)
 
     def remove_adapter(self, adapter_id: int) -> bool:
-        pass
+        return self._adapter_manager.remove_adapter(adapter_id)
 
-    def remove_all_adapters(self) -> None:
-        pass
+    def remove_all_adapters(self):
+        self._adapter_manager.remove_all_adapters()
 
     def list_adapters(self) -> Set[int]:
         return list_adapters_worker(self._adapter_manager.list_adapters)
