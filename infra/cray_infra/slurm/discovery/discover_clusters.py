@@ -130,9 +130,12 @@ def write_gres_config(cluster_info):
     """
     NodeName=41ad10a2cba0 Name=gpu File=/dev/nvidia0
     """
+    # Clear the file
+    open(gres_config_path, "w").close()
+
     for node in cluster_info["all_nodes"]:
         gres_config = ""
-        for index in range(node["gpu_count"]):
+        for index in get_gpu_indexes():
             if torch.version.hip:
                 gres_config += (
                     f"NodeName={node['hostname']} Name=gpu File=/dev/dri/card{index}\n"
@@ -141,10 +144,31 @@ def write_gres_config(cluster_info):
                 gres_config += (
                     f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
                 )
-            
+
 
         with open(gres_config_path, "a") as f:
             f.write(gres_config)
+
+def get_gpu_indexes():
+    # handle the case where the card is an arbtirary number
+    if torch.version.hip:
+        prefix = "/dev/dri"
+        card_name = "card"
+    else:
+        prefix = "/dev"
+        card_name = "nvidia"
+
+    indexes = []
+
+    for file in os.listdir(prefix):
+        if file.startswith(card_name):
+            print(file[len(card_name):])
+            index_as_int = int(file[len(card_name):])
+
+            indexes.append(index_as_int)
+
+    return indexes
+
 
 
 discover_clusters()
