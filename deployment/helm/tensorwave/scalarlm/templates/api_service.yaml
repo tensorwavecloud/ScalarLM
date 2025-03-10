@@ -9,10 +9,6 @@ spec:
       targetPort: {{ .Values.service.targetPort }}
       protocol: TCP
       name: http
-    - port: 8001
-      targetPort: 8001
-      protocol: TCP
-      name: http2
   externalIPs:
     - {{ .Values.service.externalIP }}
   selector:
