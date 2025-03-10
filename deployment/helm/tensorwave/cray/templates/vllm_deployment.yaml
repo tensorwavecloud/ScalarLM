@@ -20,7 +20,7 @@ spec:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
-          command: ["/app/cray/scripts/start_vllm_server.sh"]
+          command: ["/app/cray/scripts/start_one_server.sh"]
           ports:
             - name: http
               containerPort: 8000
@@ -31,16 +31,16 @@ spec:
             - name: {{ .name }}
               mountPath: {{ .path }}
           {{- end }}
-            - name: cray-config
+            - name: scalarlm-config
               mountPath: /app/cray/cray-config.yaml
               subPath: cray-config.yaml
           resources:
             limits:
               amd.com/gpu: 1
       volumes:
-        - name: cray-config
+        - name: scalarlm-config
           configMap:
-            name: {{ .Release.Name }}-configmap
+            name: {{ .Release.Name }}-vllm-configmap
       {{- range .Values.volumes }}
         - name: {{ .name }}
           hostPath:

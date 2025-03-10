@@ -1,13 +1,14 @@
-# templates/configmap.yaml
+# templates/api_configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
-  name: {{ .Release.Name }}-configmap
+  name: {{ .Release.Name }}-api-configmap
 data:
   cray-config.yaml: |
     model: {{ .Values.model }}
     max_model_length: {{ .Values.max_model_length }}
     gpu_memory_utilization: {{ .Values.gpu_memory_utilization }}
     vllm_api_url: http://{{ .Values.service.externalIP }}:8001
+    server_list: api
 
 

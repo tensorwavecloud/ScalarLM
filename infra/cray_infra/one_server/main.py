@@ -1,9 +1,10 @@
-
 import os
+
 os.environ["VLLM_LOGGING_LEVEL"] = "DEBUG"
 os.environ["VLLM_ALLOW_RUNTIME_LORA_UPDATING"] = "true"
 
 from cray_infra.one_server.start_cray_server import start_cray_server
+from cray_infra.util.get_config import get_config
 
 from uvicorn.supervisors import ChangeReload
 import uvicorn
@@ -54,8 +55,9 @@ def run_all_servers(sockets):
 
 
 async def run_all_servers_async():
-    server_status = await start_cray_server(server_list=["all"])
-    #server_status = await start_cray_server(server_list=["api"])
+    config = get_config()
+
+    server_status = await start_cray_server(server_list=[config["server_list"]])
 
     done, pending = await asyncio.wait(
         server_status.tasks,

@@ -37,3 +37,5 @@ class Config(BaseModel):
 
     max_log_length: int = 100
 
+    server_list: str = "all"
+
