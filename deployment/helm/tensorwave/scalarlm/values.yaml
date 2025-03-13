@@ -21,8 +21,7 @@ model: meta-llama/Llama-3.1-70B-Instruct
 max_model_length: 4096
 gpu_memory_utilization: 0.95
 
-training_gpus: 2
-inference_gpus: 6
+training_gpus: 4
+inference_gpus: 1
 
 max_train_time: 86400
-
