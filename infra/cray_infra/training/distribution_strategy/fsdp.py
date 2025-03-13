@@ -1,9 +1,11 @@
 import torch
 import torch.nn as nn
-import numpy as np
-from mpi4py import MPI
 from torch.utils.checkpoint import checkpoint
 
+import numpy as np
+from mpi4py import MPI
+
+import gc
 import time
 
 import logging
@@ -12,10 +14,17 @@ logger = logging.getLogger(__name__)
 
 
 class FSDPLayer(nn.Module):
-    def __init__(self, module):
+    def __init__(self, module, should_checkpoint=False):
         super().__init__()
         self.module = module
         self.shard_parameters()
+
+        self.module.register_full_backward_hook(self._full_backward_hook)
+
+        self.should_checkpoint = should_checkpoint
+
+    def _full_backward_hook(self, module, grad_input, grad_output):
+        self.free_params()
 
     def shard_parameters(self):
         self.sharded_parameter_metadata = {}
@@ -44,11 +53,18 @@ class FSDPLayer(nn.Module):
         )
 
     def forward(self, *args, **kwargs):
-        return checkpoint(self.forward_op, *args, use_reentrant=False, **kwargs)
+        if self.should_checkpoint:
+            return checkpoint(self.forward_op, *args, use_reentrant=True, **kwargs)
+        else:
+            return self.forward_op(*args, **kwargs)
 
     def forward_op(self, *args, **kwargs):
         self.gather_all_parameters()
-        return self.module(*args, **kwargs)
+        result = self.module(*args, **kwargs)
+
+        self.free_params()
+
+        return result
 
     def gather_all_parameters(self):
         logger.info(f"Rank {rank}: Gathering parameters for {self.module}")
@@ -81,6 +97,25 @@ class FSDPLayer(nn.Module):
         except AttributeError:
             return getattr(self.module, name)
 
+    def free_params(self):
+        for name, param in self.module.named_parameters(recurse=False):
+
+            if not name.startswith("shard_"):
+                logger.info(f" Rank {rank}: Skipping parameter {name}")
+                continue
+
+            # Remove _shard_ prefix
+            name = name[6:]
+
+            if hasattr(self.module, name):
+                if getattr(self.module, name).data_ptr() != param.data.data_ptr():
+                    delattr(self.module, name)
+
+            setattr(self.module, name, param.data)
+
+        gc.collect()
+        torch.cuda.empty_cache()
+
 
 class SimpleFSDP(nn.Module):
     def __init__(self, model):
@@ -92,13 +127,17 @@ class SimpleFSDP(nn.Module):
         for name, child in module.named_children():
             params = list(child.parameters(recurse=False))
 
-            if len(params) > 0:
-                wrapped = FSDPLayer(child)
-                setattr(module, name, wrapped)
-
             grand_children = list(child.children())
 
+            has_grand_children = False
             if len(grand_children) > 0:
+                has_grand_children = True
+
+            if len(params) > 0:
+                wrapped = FSDPLayer(child, should_checkpoint=has_grand_children)
+                setattr(module, name, wrapped)
+
+            if has_grand_children:
                 self._wrap_layers(child)
 
     def forward(self, *args, **kwargs):
@@ -133,12 +172,12 @@ def shard_tensor(tensor):
             [tensor.view(-1), torch.zeros(padding, device=tensor.device)]
         )
     else:
-        tensor_padded = tensor.view(-1).clone()
+        tensor_padded = tensor.view(-1)
 
     # Split into equal shards
     shard_size = padded_numel // world_size
     start = rank * shard_size
-    shard = tensor_padded[start : start + shard_size]
+    shard = tensor_padded[start : start + shard_size].clone()
 
     # Gather metadata from all ranks
     local_metadata = (original_numel, original_shape, shard_size, padding)

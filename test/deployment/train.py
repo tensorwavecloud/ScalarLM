@@ -22,6 +22,6 @@ llm = masint.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
-status = llm.train(dataset, train_args={"max_steps": 100, "learning_rate": 3e-3, "gpus": 2, "max_gpus" : 2})
+status = llm.train(dataset, train_args={"max_steps": 100, "learning_rate": 3e-3, "gpus": 4, "max_gpus" : 4})
 
 print(status)
