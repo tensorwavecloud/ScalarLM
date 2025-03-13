@@ -228,7 +228,9 @@ def get_train_time_limit(train_args: Dict):
     max_train_time = config.get("max_train_time", 14400)
 
     if train_time is None:
-        return format_timedelta(datetime.timedelta(seconds=max_train_time + extra_training_seconds))
+        return format_timedelta(
+            datetime.timedelta(seconds=max_train_time + extra_training_seconds)
+        )
     else:
         train_time = min(train_time, max_train_time)
 
@@ -242,7 +244,7 @@ def format_timedelta(delta):
     days = delta.days
     hours, remaining_seconds = divmod(delta.seconds, 3600)
     minutes, seconds = divmod(remaining_seconds, 60)
-    return f"{days:02}:{hours:02}:{minutes:02}:{seconds:02}"
+    return f"{days}-{hours:02}:{minutes:02}:{seconds:02}"
 
 
 def run_sbatch(run_command, train_args):
