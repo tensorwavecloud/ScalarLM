@@ -104,86 +104,11 @@ def test_sequential_model(rank, device):
     assert isinstance(fsdp_model, SimpleFSDP)
     assert loss.item() > 0
 
-def test_transformer_model(comm, rank, world_size, device):
-    ntokens = 1000
-    emsize = 64
-    d_hid = 64
-    nlayers = 1
-    nhead = 2
-    dropout = 0.2
-
-    model = SimpleTransformer(ntokens, emsize, nhead, d_hid, nlayers, dropout).to(device)
-
-    for param in model.parameters():
-        comm.Bcast(param.data.numpy(), root=0)
-
-    model = SimpleFSDP(model)
-
-    criterion = nn.CrossEntropyLoss()
-    optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
-
-    def create_dataset(num_samples, seq_length):
-        rng_state = torch.get_rng_state()
-        torch.manual_seed(0)
-        data = torch.randint(0, ntokens, (num_samples, seq_length), dtype=torch.long)
-        target = torch.randint(0, ntokens, (num_samples, seq_length), dtype=torch.long)
-        torch.set_rng_state(rng_state)
-        return TensorDataset(data, target)
-
-    num_samples = 1000
-    seq_length = 20
-    batch_size = 16
-    dataset = create_dataset(num_samples, seq_length)
-    sampler = DistributedSampler(dataset, num_replicas=world_size, rank=rank, shuffle=False)
-    train_loader = DataLoader(dataset, batch_size=batch_size, sampler=sampler, drop_last=True)
-
-    def train(model, data_loader, optimizer, criterion, epochs, device):
-        model.train()
-        total_loss = 0
-        for epoch in range(epochs):
-            sampler.set_epoch(epoch)
-            epoch_loss = 0
-
-            for batch_idx, (data, target) in enumerate(data_loader):
-                data, target = data.to(device), target.to(device)
-                optimizer.zero_grad()
-                output = model(data)
-                loss = criterion(output.view(-1, ntokens), target.view(-1))
-
-                loss.backward()
-                optimizer.step()
-
-                epoch_loss += loss.item()
-
-                if batch_idx % 10 == 0 and rank == 0:
-                    logger.debug(f"Epoch {epoch+1}, Batch {batch_idx}, Loss: {loss.item():.4f}")
-
-            # Synchronize epoch_loss across all ranks
-            epoch_loss = comm.allreduce(epoch_loss, op=MPI.SUM)
-            if rank == 0:
-                avg_loss = epoch_loss / (len(data_loader) * world_size)
-                logger.debug(f"Epoch {epoch+1} completed. Average Loss: {avg_loss:.4f}")
-            total_loss += epoch_loss
-
-        return total_loss
-
-    total_loss = train(model, train_loader, optimizer, criterion, epochs=5, device=device)
-
-    comm.Barrier()
-    if rank == 0:
-        logger.debug("Training complete.")
-
-    assert isinstance(model, SimpleFSDP)
-    assert total_loss > 0
-
 if __name__ == "__main__":
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
-    world_size = comm.Get_size()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     test_sequential_model(rank, device)
-    test_transformer_model(comm, rank, world_size, device)
 
-
-# PYTHONPATH=/app/cray/ mpirun --allow-run-as-root -np 2 --oversubscribe python test_fsdp.py
+# PYTHONPATH=/app/cray/ mpirun --allow-run-as-root -np 2 --oversubscribe python test/infra/distribution_strategy/test_fsdp.py

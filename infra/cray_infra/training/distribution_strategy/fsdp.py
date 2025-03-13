@@ -74,6 +74,12 @@ class FSDPLayer(nn.Module):
 
             # Copy the full tensor back to the original parameter
             setattr(self.module, name, full_tensor)
+    
+    def __getattr__(self, name):
+        try:
+            return super().__getattr__(name)
+        except AttributeError:
+            return getattr(self.module, name)
 
 
 class SimpleFSDP(nn.Module):
@@ -135,7 +141,7 @@ def shard_tensor(tensor):
     shard = tensor_padded[start : start + shard_size]
 
     # Gather metadata from all ranks
-    local_metadata = (original_numel, original_shape)
+    local_metadata = (original_numel, original_shape, shard_size, padding)
     all_metadata = comm.allgather(local_metadata)  # Gather metadata from all ranks
 
     # Create a dictionary of metadata keyed by rank
@@ -143,6 +149,37 @@ def shard_tensor(tensor):
 
     return shard, metadata_dict
 
+
+def trim_padding(all_tensors, rank, world_size, metadata_dict):
+    
+    original_numel, _, shard_size, padding = metadata_dict[rank]
+    
+    if padding == 0:
+        return all_tensors
+    
+    # all_tensors is a list of tensors that have been collected
+    if padding > shard_size:
+        # Calculate the number of fully padded tensors
+        fully_padded_tensors = padding // shard_size
+        
+        # Remove fully padded tensors
+        all_tensors = all_tensors[:-fully_padded_tensors]
+        
+        # Calculate the remaining padding in the last tensor
+        remaining_padding = padding % shard_size
+        
+        # Trim the remaining padding from the last tensor
+        if remaining_padding > 0 and len(all_tensors) > 0:
+            last_tensor = all_tensors[-1]
+            all_tensors[-1] = last_tensor[:-remaining_padding]
+    else:
+        # trim padding for last rank
+        if rank == world_size - 1:
+            valid_elements = original_numel - (world_size - 1) * shard_size
+            all_tensors[-1] = all_tensors[-1][:valid_elements]
+        
+    
+    return all_tensors
 
 def collectives_all_gather(shard, metadata_dict):
     """Gather shards and reconstruct the full tensor using metadata."""
@@ -157,13 +194,14 @@ def collectives_all_gather(shard, metadata_dict):
     all_tensors = []
     offset = 0
     for rank in range(world_size):
-        rank_original_numel, rank_original_shape = metadata_dict[rank]
-        shard_size = gathered.size // world_size  # All shards are evenly sized
+        shard_size = metadata_dict[rank][2]
         rank_shard_flattened = gathered[
-            offset : offset + rank_original_numel // world_size
+            offset : offset + shard_size
         ]
         all_tensors.append(rank_shard_flattened)
         offset += shard_size
+
+    all_tensors = trim_padding(all_tensors, rank, world_size, metadata_dict)
 
     concatenated_numpy = np.concatenate(all_tensors)
 
@@ -178,21 +216,21 @@ def collectives_all_gather(shard, metadata_dict):
 
 def collectives_reduce_scatter(tensor, metadata_dict):
     """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
-    assert tensor.numel() % world_size == 0, "Input tensor must be padded first"
+    
+    _, _, shard_size, padding = metadata_dict[rank]
 
-    tensor_numpy = tensor.detach().float().cpu().numpy()
-    shard_size = tensor.numel() // world_size
+    # Pad tensor if needed
+    tensor_padded = tensor.view(-1).clone()
+    if padding > 0:
+        tensor_padded = torch.cat(
+            [tensor.view(-1), torch.zeros(padding, device=tensor.device)]
+        )
+        
+    tensor_numpy = tensor_padded.detach().float().cpu().numpy()
     local_shard = np.zeros(shard_size, dtype=tensor_numpy.dtype)
 
     # Collective operation
     comm.Reduce_scatter(tensor_numpy, local_shard, op=MPI.SUM)
-
-    # Trim padding on last rank using its original size from metadata_dict
-    rank_original_numel, original_shape = metadata_dict[rank]
-
-    if rank == world_size - 1:
-        valid_elements = rank_original_numel - (world_size - 1) * shard_size
-        local_shard = local_shard[:valid_elements]
 
     return (
         torch.from_numpy(local_shard)
