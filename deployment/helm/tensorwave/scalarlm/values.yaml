@@ -24,3 +24,5 @@ gpu_memory_utilization: 0.95
 training_gpus: 2
 inference_gpus: 6
 
+max_train_time: 86400
+

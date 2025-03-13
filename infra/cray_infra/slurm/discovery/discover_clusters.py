@@ -2,6 +2,8 @@ import socket
 import os
 import torch
 
+from cray_infra.util.get_config import get_config
+
 slurm_config_path = "/app/cray/infra/slurm_configs/slurm.conf"
 gres_config_path = "/app/cray/infra/slurm_configs/gres.conf"
 
@@ -120,8 +122,15 @@ def write_partition_config(partition):
     """
     PartitionName=short Nodes=node1,node2,node3 Default=YES MaxTime=INFINITE State=UP
     """
+
+    config = get_config()
+
+    max_training_time = (
+        config["max_train_time"] + config["extra_training_seconds"]
+    ) // 60
+
     node_names = ",".join([node["hostname"] for node in partition["nodes"]])
-    partition_config = f"PartitionName={partition['name']} Nodes={node_names} Default=YES MaxTime=20 State=UP"
+    partition_config = f"PartitionName={partition['name']} Nodes={node_names} Default=YES MaxTime={max_training_time} State=UP"
     with open(slurm_config_path, "a") as f:
         f.write(partition_config + "\n")
 

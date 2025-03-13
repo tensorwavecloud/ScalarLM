@@ -10,5 +10,6 @@ data:
     gpu_memory_utilization: {{ .Values.gpu_memory_utilization }}
     vllm_api_url: http://scalarlm-vllm:8001
     server_list: api
+    max_train_time: {{ .Values.max_train_time }}
 
 
