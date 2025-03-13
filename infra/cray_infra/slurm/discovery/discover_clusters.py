@@ -145,9 +145,9 @@ def write_gres_config(cluster_info):
                     f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
                 )
 
-
         with open(gres_config_path, "a") as f:
             f.write(gres_config)
+
 
 def get_gpu_indexes():
     # handle the case where the card is an arbtirary number
@@ -162,13 +162,12 @@ def get_gpu_indexes():
 
     for file in os.listdir(prefix):
         if file.startswith(card_name):
-            print(file[len(card_name):])
-            index_as_int = int(file[len(card_name):])
+            print(file[len(card_name) :])
+            index_as_int = int(file[len(card_name) :])
 
             indexes.append(index_as_int)
 
     return indexes
-
 
 
 discover_clusters()

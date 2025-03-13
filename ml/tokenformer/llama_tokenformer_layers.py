@@ -1,42 +1,20 @@
 import torch
 from typing import Optional, Tuple
 import torch.nn as nn
-from transformers.models.llama.modeling_llama import LlamaAttention, apply_rotary_pos_emb, LlamaDecoderLayer
+from transformers.models.llama.modeling_llama import (
+    LlamaAttention,
+    apply_rotary_pos_emb,
+    LlamaDecoderLayer,
+)
 from transformers.models.llama.configuration_llama import LlamaConfig
 from transformers.processing_utils import Unpack
 from transformers.modeling_flash_attention_utils import FlashAttentionKwargs
 from transformers.cache_utils import Cache
 
-class Attention(nn.Module):
-    def __init__(
-        self, head_dim) -> None:
-        super().__init__()
-        self.head_dim = head_dim
-
-    def forward(self,
-        query: torch.Tensor,
-        key: torch.Tensor,
-        value: torch.Tensor,
-        attn_mask: Optional[torch.Tensor],
-        dropout_p: float = 0.0,
-        scale: Optional[float] = None,
-        is_causal: Optional[bool] = None,
-    ) -> torch.Tensor:
-
-        return torch.nn.functional.scaled_dot_product_attention(
-            query,
-            key,
-            value,
-            attn_mask=attn_mask,
-            dropout_p=dropout_p,
-            scale=scale,
-            is_causal=is_causal,
-    )
 
 class LlamaTokenformerAttention(LlamaAttention):
     def __init__(self, config, layer_idx: int):
         super().__init__(config, layer_idx)
-        self.attn = Attention(self.head_dim)
 
     def repeat_kv(self, hidden_states: torch.Tensor, n_rep: int) -> torch.Tensor:
         """
@@ -46,7 +24,9 @@ class LlamaTokenformerAttention(LlamaAttention):
         batch, num_key_value_heads, slen, head_dim = hidden_states.shape
         if n_rep == 1:
             return hidden_states
-        hidden_states = hidden_states[:, :, None, :, :].expand(batch, num_key_value_heads, n_rep, slen, head_dim)
+        hidden_states = hidden_states[:, :, None, :, :].expand(
+            batch, num_key_value_heads, n_rep, slen, head_dim
+        )
         return hidden_states.reshape(batch, num_key_value_heads * n_rep, slen, head_dim)
 
     def sdpa_attention_forward(
@@ -80,7 +60,7 @@ class LlamaTokenformerAttention(LlamaAttention):
         if is_causal is None:
             is_causal = causal_mask is None and query.shape[2] > 1
 
-        attn_output = self.attn(
+        attn_output = torch.nn.functional.scaled_dot_product_attention(
             query,
             key,
             value,
@@ -110,12 +90,16 @@ class LlamaTokenformerAttention(LlamaAttention):
         value_states = self.v_proj(hidden_states).view(hidden_shape).transpose(1, 2)
 
         cos, sin = position_embeddings
-        query_states, key_states = apply_rotary_pos_emb(query_states, key_states, cos, sin)
+        query_states, key_states = apply_rotary_pos_emb(
+            query_states, key_states, cos, sin
+        )
 
         if past_key_value is not None:
             # sin and cos are specific to RoPE models; cache_position needed for the static cache
             cache_kwargs = {"sin": sin, "cos": cos, "cache_position": cache_position}
-            key_states, value_states = past_key_value.update(key_states, value_states, self.layer_idx, cache_kwargs)
+            key_states, value_states = past_key_value.update(
+                key_states, value_states, self.layer_idx, cache_kwargs
+            )
 
         attn_output, attn_weights = self.sdpa_attention_forward(
             self,
@@ -132,6 +116,7 @@ class LlamaTokenformerAttention(LlamaAttention):
         attn_output = self.o_proj(attn_output)
         return attn_output, attn_weights
 
+
 class LlamaTokenformerDecoderLayer(LlamaDecoderLayer):
     def __init__(self, config: LlamaConfig, layer_idx: int):
         super().__init__(config, layer_idx)
@@ -146,9 +131,13 @@ class LlamaTokenformerDecoderLayer(LlamaDecoderLayer):
         output_attentions: Optional[bool] = False,
         use_cache: Optional[bool] = False,
         cache_position: Optional[torch.LongTensor] = None,
-        position_embeddings: Optional[Tuple[torch.Tensor, torch.Tensor]] = None,  # necessary, but kept here for BC
+        position_embeddings: Optional[
+            Tuple[torch.Tensor, torch.Tensor]
+        ] = None,  # necessary, but kept here for BC
         **kwargs: Unpack[FlashAttentionKwargs],
-    ) -> Tuple[torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]]:
+    ) -> Tuple[
+        torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]
+    ]:
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)

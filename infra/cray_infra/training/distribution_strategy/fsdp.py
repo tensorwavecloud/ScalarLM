@@ -2,70 +2,79 @@ import torch
 import torch.nn as nn
 import numpy as np
 from mpi4py import MPI
+from torch.utils.checkpoint import checkpoint
+
+import time
+
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 class FSDPLayer(nn.Module):
     def __init__(self, module):
         super().__init__()
         self.module = module
-        self.comm = MPI.COMM_WORLD
-        self.world_size = self.comm.Get_size()
-        self.rank = self.comm.Get_rank()
-        self.backward_handle = self.register_backward_hook(self.synchronize_gradients_hook)
-        self.forward_handle = self.module.register_forward_pre_hook(self.forward_pre_hook)
+        self.shard_parameters()
 
-    def all_gather(self, tensor):
-        if tensor is None:
-            return None
-        tensor_numpy = tensor.detach().to(torch.float32).cpu().numpy()
-        gathered = np.zeros([self.world_size] + list(tensor_numpy.shape), dtype=tensor_numpy.dtype)
-        self.comm.Allgather(tensor_numpy, gathered)
-        return torch.from_numpy(gathered).to(tensor.dtype).to(tensor.device)
+    def shard_parameters(self):
+        self.sharded_parameter_metadata = {}
 
-    def forward_pre_hook(self, module, input):
-        if hasattr(module, 'weight'):
-            full_weight = self.all_gather(module.weight)
-            module.weight.data = full_weight[self.rank]
-        if hasattr(module, 'bias') and module.bias is not None:
-            full_bias = self.all_gather(module.bias)
-            module.bias.data = full_bias[self.rank]
-        return input
+        logger.info(f"Rank {rank}: Sharding parameters for {self.module}")
 
-    def reduce_scatter(self, param):
-        if param.grad is not None:
-            grad = param.grad.data
-            local_size = grad.numel() // self.world_size
-            start = self.rank * local_size
-            end = start + local_size if self.rank < self.world_size - 1 else grad.numel()
-            
-            local_grad = torch.zeros(end - start, dtype=grad.dtype, device=grad.device)
-            
-            self.comm.Reduce_scatter(grad.view(-1).numpy(), local_grad.numpy(), op=MPI.SUM)
-            
-            grad.view(-1)[start:end] = local_grad.to(grad.device)
-            grad /= self.world_size
-            param.grad.data = grad
+        for name, param in list(self.module.named_parameters(recurse=False)):
+            shard, metadata_dict = shard_tensor(param)
 
-    def synchronize_gradients_hook(self, module, grad_input, grad_output):
-        if hasattr(module, 'weight'):
-            self.reduce_scatter(module.weight)
-        if hasattr(module, 'bias') and module.bias is not None:
-            self.reduce_scatter(module.bias)
-        return grad_input
+            self.sharded_parameter_metadata[name] = metadata_dict
 
-    def __getattr__(self, name):
-        try:
-            return super().__getattr__(name)
-        except AttributeError:
-            return getattr(self.module, name)
+            logger.info(
+                f" Rank {rank}: Sharding parameter {name} with shape {param.shape} into {metadata_dict}, new shape {shard.shape}"
+            )
+
+            setattr(
+                self.module,
+                "shard_" + name,
+                nn.Parameter(shard, requires_grad=param.requires_grad),
+            )
+            delattr(self.module, name)
+            setattr(self.module, name, shard)
+
+        logger.info(
+            f" Rank {rank}: Sharded parameters are {[i[0] for i in self.module.named_parameters(recurse=False)]}"
+        )
 
     def forward(self, *args, **kwargs):
+        return checkpoint(self.forward_op, *args, use_reentrant=False, **kwargs)
+
+    def forward_op(self, *args, **kwargs):
+        self.gather_all_parameters()
         return self.module(*args, **kwargs)
-    
-    def remove_hooks(self):
-        if hasattr(self, 'backward_handle'):
-            self.backward_handle.remove()
-        if hasattr(self, 'forward_handle'):
-            self.forward_handle.remove()
+
+    def gather_all_parameters(self):
+        logger.info(f"Rank {rank}: Gathering parameters for {self.module}")
+
+        for name, param in self.module.named_parameters(recurse=False):
+
+            if not name.startswith("shard_"):
+                logger.info(f" Rank {rank}: Skipping parameter {name}")
+                continue
+
+            # Remove _shard_ prefix
+            name = name[6:]
+
+            # Get metadata for this parameter
+            metadata_dict = self.sharded_parameter_metadata[name]
+
+            # Gather all shards and reconstruct the full tensor
+            full_tensor = all_gather_op(param, metadata_dict)
+
+            logger.info(
+                f" Rank {rank}: Gathered parameter {name} with shape {full_tensor.shape}"
+            )
+
+            # Copy the full tensor back to the original parameter
+            setattr(self.module, name, full_tensor)
+
 
 class SimpleFSDP(nn.Module):
     def __init__(self, model):
@@ -75,46 +84,133 @@ class SimpleFSDP(nn.Module):
 
     def _wrap_layers(self, module):
         for name, child in module.named_children():
-            if list(child.children()):
-                self._wrap_layers(child)
-            else:
+            params = list(child.parameters(recurse=False))
+
+            if len(params) > 0:
                 wrapped = FSDPLayer(child)
                 setattr(module, name, wrapped)
 
+            grand_children = list(child.children())
+
+            if len(grand_children) > 0:
+                self._wrap_layers(child)
+
     def forward(self, *args, **kwargs):
         return self.model(*args, **kwargs)
-    
-    def remove_all_hooks(self):
-        for module in self.model.modules():
-            if isinstance(module, FSDPLayer):
-                module.remove_hooks()
-    
+
     def __getattr__(self, name):
         try:
             return super().__getattr__(name)
         except AttributeError:
             return getattr(self.model, name)
 
-    def unwrap_model(self):
-        config = self.model.config
-        unwrapped_model = type(self.model)(config)
-        unwrapped_state_dict = {}
 
-        for name, module in self.model.named_modules():
-            if isinstance(module, FSDPLayer):
-                if hasattr(module.module, 'weight'):
-                    full_weight = module.all_gather(module.module.weight)
-                    unwrapped_state_dict[f"{name}.weight"] = full_weight[0]
-                if hasattr(module.module, 'bias') and module.module.bias is not None:
-                    full_bias = module.all_gather(module.module.bias)
-                    unwrapped_state_dict[f"{name}.bias"] = full_bias[0]
+comm = MPI.COMM_WORLD
+world_size = comm.Get_size()
+rank = comm.Get_rank()
 
-        # Load the gathered state dict into the new model
-        unwrapped_model.load_state_dict(unwrapped_state_dict, strict=False)
-        
-        # Fix for pad_token_id
-        unwrapped_model.config.pad_token_id = unwrapped_model.config.eos_token_id
-        if hasattr(unwrapped_model, 'generation_config'):
-            unwrapped_model.generation_config.pad_token_id = unwrapped_model.config.eos_token_id
 
-        return unwrapped_model
+def shard_tensor(tensor):
+    """Evenly shard tensor across ranks with padding if needed.
+    Returns (shard, metadata_dict) where metadata_dict contains
+    {rank: (original_numel, original_shape)} for all ranks."""
+    original_shape = tensor.shape
+    original_numel = tensor.numel()
+
+    # Calculate padding for equal division
+    padded_numel = ((original_numel + world_size - 1) // world_size) * world_size
+    padding = padded_numel - original_numel
+
+    # Pad tensor if needed
+    if padding > 0:
+        tensor_padded = torch.cat(
+            [tensor.view(-1), torch.zeros(padding, device=tensor.device)]
+        )
+    else:
+        tensor_padded = tensor.view(-1).clone()
+
+    # Split into equal shards
+    shard_size = padded_numel // world_size
+    start = rank * shard_size
+    shard = tensor_padded[start : start + shard_size]
+
+    # Gather metadata from all ranks
+    local_metadata = (original_numel, original_shape)
+    all_metadata = comm.allgather(local_metadata)  # Gather metadata from all ranks
+
+    # Create a dictionary of metadata keyed by rank
+    metadata_dict = {rank: meta for rank, meta in enumerate(all_metadata)}
+
+    return shard, metadata_dict
+
+
+def collectives_all_gather(shard, metadata_dict):
+    """Gather shards and reconstruct the full tensor using metadata."""
+    # Prepare buffers
+    shard_numpy = shard.detach().to(torch.float32).cpu().numpy().flatten()
+    gathered = np.empty(shard_numpy.size * world_size, dtype=shard_numpy.dtype)
+
+    # Collective operation
+    comm.Allgather(shard_numpy, gathered)
+
+    # Reconstruct the full tensor using metadata
+    all_tensors = []
+    offset = 0
+    for rank in range(world_size):
+        rank_original_numel, rank_original_shape = metadata_dict[rank]
+        shard_size = gathered.size // world_size  # All shards are evenly sized
+        rank_shard_flattened = gathered[
+            offset : offset + rank_original_numel // world_size
+        ]
+        all_tensors.append(rank_shard_flattened)
+        offset += shard_size
+
+    concatenated_numpy = np.concatenate(all_tensors)
+
+    original_shape = metadata_dict[rank][1]
+    return (
+        torch.from_numpy(concatenated_numpy)
+        .to(shard.device)
+        .to(shard.dtype)
+        .reshape(original_shape)
+    )
+
+
+def collectives_reduce_scatter(tensor, metadata_dict):
+    """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
+    assert tensor.numel() % world_size == 0, "Input tensor must be padded first"
+
+    tensor_numpy = tensor.detach().float().cpu().numpy()
+    shard_size = tensor.numel() // world_size
+    local_shard = np.zeros(shard_size, dtype=tensor_numpy.dtype)
+
+    # Collective operation
+    comm.Reduce_scatter(tensor_numpy, local_shard, op=MPI.SUM)
+
+    # Trim padding on last rank using its original size from metadata_dict
+    rank_original_numel, original_shape = metadata_dict[rank]
+
+    if rank == world_size - 1:
+        valid_elements = rank_original_numel - (world_size - 1) * shard_size
+        local_shard = local_shard[:valid_elements]
+
+    return (
+        torch.from_numpy(local_shard)
+        .to(tensor.device)
+        .to(tensor.dtype)
+    )
+
+
+class _AllGather(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, shard, metadata_dict):
+        ctx.metadata_dict = metadata_dict
+        return collectives_all_gather(shard, metadata_dict)
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        metadata_dict = ctx.metadata_dict
+        return collectives_reduce_scatter(grad_output, metadata_dict), None
+
+
+all_gather_op = _AllGather.apply

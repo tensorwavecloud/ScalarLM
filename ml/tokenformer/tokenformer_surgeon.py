@@ -38,6 +38,10 @@ class TokenformerMLPAdapter(nn.Module):
         layer_and_adaptor_sum = base_layer_results + tokenformer_results
         return layer_and_adaptor_sum
 
+    # Visualize the size of the parameters
+    def __repr__(self):
+        return f"TokenformerMLPAdapter(\nhidden_size={self.hidden_size}\n(layer): " + self.layer.__repr__() + "\n)"
+
 
 class TokenformerAttentionAdapter(nn.Module):
     def __init__(self, layer, hidden_size, device):
@@ -72,6 +76,9 @@ class TokenformerAttentionAdapter(nn.Module):
         # sum the two outputs
         layer_and_adaptor_sum = base_layer_results + tokenformer_results
         return layer_and_adaptor_sum
+
+    def __repr__(self):
+        return f"TokenformerAttentionAdapter(\nhidden_size={self.hidden_size}\n(layer): " + self.layer.__repr__() + "\n)"
 
 
 class TokenformerSurgeon(ABC):

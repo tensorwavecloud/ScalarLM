@@ -3,6 +3,7 @@ from cray_infra.training.training_job_status import TrainingJobStatus
 
 import traceback
 import sys
+import os
 
 
 def print_exception():
@@ -22,6 +23,8 @@ import logging
 def main():
 
     harness = TrainingHarness()
+
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     try:
         setup_logging()

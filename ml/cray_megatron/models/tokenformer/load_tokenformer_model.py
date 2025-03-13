@@ -6,6 +6,7 @@ from cray_megatron.megatron.distribution.apply_distribution_strategy import (
 from tokenformer.llama_tokenformer_model import create_llama_tokenformer_model
 
 from cray_infra.util.get_job_config import get_job_config
+from cray_infra.util.get_config import get_config
 
 from transformers import AutoConfig
 from transformers import AutoTokenizer
@@ -63,13 +64,30 @@ def materialize_model(model_info):
         model_info["model"], model_info["distribution_strategy"]["device"]
     )
 
-    model_info["model"] = model_info["model"].to(torch.bfloat16)
+    config = get_config()
+    config_dtype = config["dtype"]
+    dtype = (
+        torch.float16
+        if config_dtype == "float16"
+        else torch.float32 if config_dtype == "float32" else torch.bfloat16
+    )
+    logger.info(f"Converting model to {dtype}...")
+
+    model_info["model"] = model_info["model"].to(dtype=dtype)
+
+
+    if (
+        "distribution_strategy" in model_info
+        and "strategy" in model_info["distribution_strategy"]
+    ):
+        model_info["model"] = model_info["distribution_strategy"]["strategy"](
+            model_info["model"]
+        )
+
     logger.info(f"Model: {model_info['model']}")
+
     model_info["model"].to(model_info["distribution_strategy"]["device"])
-    
-    if "distribution_strategy" in model_info and "strategy" in model_info["distribution_strategy"]:
-        model_info["model"] = model_info["distribution_strategy"]["strategy"](model_info["model"])
-    
+
     return model_info
 
 
