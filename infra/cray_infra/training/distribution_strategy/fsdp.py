@@ -90,6 +90,25 @@ class FSDPLayer(nn.Module):
 
             # Copy the full tensor back to the original parameter
             setattr(self.module, name, full_tensor)
+
+    def free_params(self):
+        for name, param in self.module.named_parameters(recurse=False):
+
+            if not name.startswith("shard_"):
+                logger.info(f" Rank {rank}: Skipping parameter {name}")
+                continue
+
+            # Remove _shard_ prefix
+            name = name[6:]
+
+            if hasattr(self.module, name):
+                if getattr(self.module, name).data_ptr() != param.data.data_ptr():
+                    delattr(self.module, name)
+
+            setattr(self.module, name, param.data)
+
+        gc.collect()
+        torch.cuda.empty_cache()
     
     def __getattr__(self, name):
         try:
@@ -256,7 +275,7 @@ def collectives_all_gather(shard, metadata_dict):
 def collectives_reduce_scatter(tensor, metadata_dict):
     """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
     
-    _, _, shard_size, padding = metadata_dict[rank]
+    original_numel, _, shard_size, padding = metadata_dict[rank]
 
     # Pad tensor if needed
     tensor_padded = tensor.view(-1).clone()
@@ -271,11 +290,12 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     # Collective operation
     comm.Reduce_scatter(tensor_numpy, local_shard, op=MPI.SUM)
 
-    return (
-        torch.from_numpy(local_shard)
-        .to(tensor.device)
-        .to(tensor.dtype)
-    )
+    # Trim padding on last rank using its original size from metadata_dict
+    if rank == world_size - 1:
+        valid_elements = original_numel - padding
+        local_shard = local_shard[:valid_elements]
+
+    return torch.from_numpy(local_shard).to(tensor.device).to(tensor.dtype)
 
 
 class _AllGather(torch.autograd.Function):

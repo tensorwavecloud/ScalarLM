@@ -112,3 +112,5 @@ if __name__ == "__main__":
     test_sequential_model(rank, device)
 
 # PYTHONPATH=/app/cray/ mpirun --allow-run-as-root -np 2 --oversubscribe python test/infra/distribution_strategy/test_fsdp.py
+# PYTHONPATH=/app/cray/ mpirun --allow-run-as-root -np 4 --oversubscribe python test/infra/distribution_strategy/test_fsdp.py
+# PYTHONPATH=/app/cray/ mpirun --allow-run-as-root -np 8 --oversubscribe python test/infra/distribution_strategy/test_fsdp.py
