@@ -3,6 +3,7 @@ from cray_infra.training.training_job_status import TrainingJobStatus
 
 import traceback
 import sys
+import os
 
 
 def print_exception():
@@ -23,6 +24,8 @@ def main():
 
     harness = TrainingHarness()
 
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
+
     try:
         setup_logging()
         setup_signal_handler(harness)
@@ -41,7 +44,9 @@ def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
     logging.getLogger("filelock").setLevel(logging.WARNING)
-
+    logging.getLogger("cray_infra.training.distribution_strategy.fsdp").setLevel(
+        logging.INFO
+    )
 
 def setup_signal_handler(harness):
     def signal_handler(sig, frame):

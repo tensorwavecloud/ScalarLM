@@ -2,6 +2,8 @@ import socket
 import os
 import torch
 
+from cray_infra.util.get_config import get_config
+
 slurm_config_path = "/app/cray/infra/slurm_configs/slurm.conf"
 gres_config_path = "/app/cray/infra/slurm_configs/gres.conf"
 
@@ -120,8 +122,15 @@ def write_partition_config(partition):
     """
     PartitionName=short Nodes=node1,node2,node3 Default=YES MaxTime=INFINITE State=UP
     """
+
+    config = get_config()
+
+    max_training_time = (
+        config["max_train_time"] + config["extra_training_seconds"]
+    ) // 60
+
     node_names = ",".join([node["hostname"] for node in partition["nodes"]])
-    partition_config = f"PartitionName={partition['name']} Nodes={node_names} Default=YES MaxTime=20 State=UP"
+    partition_config = f"PartitionName={partition['name']} Nodes={node_names} Default=YES MaxTime={max_training_time} State=UP"
     with open(slurm_config_path, "a") as f:
         f.write(partition_config + "\n")
 
@@ -130,9 +139,12 @@ def write_gres_config(cluster_info):
     """
     NodeName=41ad10a2cba0 Name=gpu File=/dev/nvidia0
     """
+    # Clear the file
+    open(gres_config_path, "w").close()
+
     for node in cluster_info["all_nodes"]:
         gres_config = ""
-        for index in range(node["gpu_count"]):
+        for index in get_gpu_indexes():
             if torch.version.hip:
                 gres_config += (
                     f"NodeName={node['hostname']} Name=gpu File=/dev/dri/card{index}\n"
@@ -141,10 +153,30 @@ def write_gres_config(cluster_info):
                 gres_config += (
                     f"NodeName={node['hostname']} Name=gpu File=/dev/nvidia{index}\n"
                 )
-            
 
         with open(gres_config_path, "a") as f:
             f.write(gres_config)
+
+
+def get_gpu_indexes():
+    # handle the case where the card is an arbtirary number
+    if torch.version.hip:
+        prefix = "/dev/dri"
+        card_name = "card"
+    else:
+        prefix = "/dev"
+        card_name = "nvidia"
+
+    indexes = []
+
+    for file in os.listdir(prefix):
+        if file.startswith(card_name):
+            print(file[len(card_name) :])
+            index_as_int = int(file[len(card_name) :])
+
+            indexes.append(index_as_int)
+
+    return indexes
 
 
 discover_clusters()

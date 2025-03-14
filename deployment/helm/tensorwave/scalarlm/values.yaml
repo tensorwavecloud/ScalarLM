@@ -1,0 +1,27 @@
+image:
+  repository: tensorwave/scalarlm-amd
+  tag: latest
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  port: 8000
+  targetPort: 8000
+  externalIP: 104.171.203.79
+
+jobs_pvc:
+  storageClass: local-path
+  size: 100Gi
+
+cache_pvc:
+  storageClass: local-path
+  size: 200Gi
+
+model: meta-llama/Llama-3.1-70B-Instruct
+max_model_length: 4096
+gpu_memory_utilization: 0.95
+
+training_gpus: 4
+inference_gpus: 1
+
+max_train_time: 86400

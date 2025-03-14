@@ -15,7 +15,7 @@ logger = logging.getLogger(__name__)
 
 async def create_vllm(port, running_status):
 
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     config = get_config()
 

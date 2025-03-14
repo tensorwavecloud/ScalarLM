@@ -141,10 +141,11 @@ def get_train_job_entrypoint(train_args: Dict):
 
 def get_tasks_per_node(train_args: Dict):
     requested_gpu_count = train_args.get("gpus", 1)
-    
-    max_gpu_count = get_max_gpu_count_from_slurm()
-    
+
+    max_gpu_count = train_args.get("max_gpus", get_max_gpu_count_from_slurm())
+
     return min(requested_gpu_count, max_gpu_count)
+
 
 def get_max_gpu_count_from_slurm():
     scontrol_command = ["scontrol", "show", "nodes"]
@@ -227,12 +228,23 @@ def get_train_time_limit(train_args: Dict):
     max_train_time = config.get("max_train_time", 14400)
 
     if train_time is None:
-        return str(datetime.timedelta(seconds=max_train_time + extra_training_seconds))
+        return format_timedelta(
+            datetime.timedelta(seconds=max_train_time + extra_training_seconds)
+        )
     else:
         train_time = min(train_time, max_train_time)
 
-    # convert seconds to HH:MM:SS
-    return str(datetime.timedelta(seconds=train_time + extra_training_seconds))
+    # convert seconds to DD:HH:MM:SS
+    return format_timedelta(
+        datetime.timedelta(seconds=train_time + extra_training_seconds)
+    )
+
+
+def format_timedelta(delta):
+    days = delta.days
+    hours, remaining_seconds = divmod(delta.seconds, 3600)
+    minutes, seconds = divmod(remaining_seconds, 60)
+    return f"{days}-{hours:02}:{minutes:02}:{seconds:02}"
 
 
 def run_sbatch(run_command, train_args):

@@ -24,6 +24,9 @@ services:
             - type: bind
               source: ./ml
               target: /app/cray/ml
+            - type: bind
+              source: ./test
+              target: /app/cray/test
         networks:
             - cray-network
 
