@@ -280,13 +280,13 @@ def get_optimizer(model):
     job_config = get_job_config()
     learning_rate = job_config["learning_rate"]
     # use AdamW optimizer
-    # return AdamW(model.parameters(), lr=learning_rate)
+    return AdamW(model.parameters(), lr=learning_rate)
 
     # use Adafactor optimizer
-    return torch.optim.Adafactor(
-        model.parameters(),
-        lr=learning_rate,
-    )
+    #return torch.optim.Adafactor(
+    #    model.parameters(),
+    #    lr=learning_rate,
+    #)
 
 
 def get_scheduler(optimizer, max_steps):

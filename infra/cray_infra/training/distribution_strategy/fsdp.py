@@ -29,14 +29,14 @@ class FSDPLayer(nn.Module):
     def shard_parameters(self):
         self.sharded_parameter_metadata = {}
 
-        logger.info(f"Rank {rank}: Sharding parameters for {self.module}")
+        logger.debug(f"Rank {rank}: Sharding parameters for {self.module}")
 
         for name, param in list(self.module.named_parameters(recurse=False)):
             shard, metadata_dict = shard_tensor(param)
 
             self.sharded_parameter_metadata[name] = metadata_dict
 
-            logger.info(
+            logger.debug(
                 f" Rank {rank}: Sharding parameter {name} with shape {param.shape} into {metadata_dict}, new shape {shard.shape}"
             )
 
@@ -48,7 +48,7 @@ class FSDPLayer(nn.Module):
             delattr(self.module, name)
             setattr(self.module, name, shard)
 
-        logger.info(
+        logger.debug(
             f" Rank {rank}: Sharded parameters are {[i[0] for i in self.module.named_parameters(recurse=False)]}"
         )
 
@@ -67,12 +67,12 @@ class FSDPLayer(nn.Module):
         return result
 
     def gather_all_parameters(self):
-        logger.info(f"Rank {rank}: Gathering parameters for {self.module}")
+        logger.debug(f"Rank {rank}: Gathering parameters for {self.module}")
 
         for name, param in self.module.named_parameters(recurse=False):
 
             if not name.startswith("shard_"):
-                logger.info(f" Rank {rank}: Skipping parameter {name}")
+                logger.debug(f" Rank {rank}: Skipping parameter {name}")
                 continue
 
             # Remove _shard_ prefix
@@ -84,7 +84,7 @@ class FSDPLayer(nn.Module):
             # Gather all shards and reconstruct the full tensor
             full_tensor = all_gather_op(param, metadata_dict)
 
-            logger.info(
+            logger.debug(
                 f" Rank {rank}: Gathered parameter {name} with shape {full_tensor.shape}"
             )
 
@@ -95,7 +95,7 @@ class FSDPLayer(nn.Module):
         for name, param in self.module.named_parameters(recurse=False):
 
             if not name.startswith("shard_"):
-                logger.info(f" Rank {rank}: Skipping parameter {name}")
+                logger.debug(f" Rank {rank}: Skipping parameter {name}")
                 continue
 
             # Remove _shard_ prefix
@@ -109,7 +109,7 @@ class FSDPLayer(nn.Module):
 
         gc.collect()
         torch.cuda.empty_cache()
-    
+
     def __getattr__(self, name):
         try:
             return super().__getattr__(name)
@@ -120,7 +120,7 @@ class FSDPLayer(nn.Module):
         for name, param in self.module.named_parameters(recurse=False):
 
             if not name.startswith("shard_"):
-                logger.info(f" Rank {rank}: Skipping parameter {name}")
+                logger.debug(f" Rank {rank}: Skipping parameter {name}")
                 continue
 
             # Remove _shard_ prefix
@@ -209,23 +209,23 @@ def shard_tensor(tensor):
 
 
 def trim_padding(all_tensors, rank, world_size, metadata_dict):
-    
+
     original_numel, _, shard_size, padding = metadata_dict[rank]
-    
+
     if padding == 0:
         return all_tensors
-    
+
     # all_tensors is a list of tensors that have been collected
     if padding > shard_size:
         # Calculate the number of fully padded tensors
         fully_padded_tensors = padding // shard_size
-        
+
         # Remove fully padded tensors
         all_tensors = all_tensors[:-fully_padded_tensors]
-        
+
         # Calculate the remaining padding in the last tensor
         remaining_padding = padding % shard_size
-        
+
         # Trim the remaining padding from the last tensor
         if remaining_padding > 0 and len(all_tensors) > 0:
             last_tensor = all_tensors[-1]
@@ -235,8 +235,8 @@ def trim_padding(all_tensors, rank, world_size, metadata_dict):
         if rank == world_size - 1:
             valid_elements = original_numel - (world_size - 1) * shard_size
             all_tensors[-1] = all_tensors[-1][:valid_elements]
-        
-    
+
+
     return all_tensors
 
 def collectives_all_gather(shard, metadata_dict):
@@ -274,7 +274,7 @@ def collectives_all_gather(shard, metadata_dict):
 
 def collectives_reduce_scatter(tensor, metadata_dict):
     """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
-    
+
     original_numel, _, shard_size, padding = metadata_dict[rank]
 
     # Pad tensor if needed
@@ -283,7 +283,7 @@ def collectives_reduce_scatter(tensor, metadata_dict):
         tensor_padded = torch.cat(
             [tensor.view(-1), torch.zeros(padding, device=tensor.device)]
         )
-        
+
     tensor_numpy = tensor_padded.detach().float().cpu().numpy()
     local_shard = np.zeros(shard_size, dtype=tensor_numpy.dtype)
 

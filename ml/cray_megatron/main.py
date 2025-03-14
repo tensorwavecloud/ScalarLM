@@ -44,7 +44,9 @@ def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
     logging.getLogger("filelock").setLevel(logging.WARNING)
-
+    logging.getLogger("cray_infra.training.distribution_strategy.fsdp").setLevel(
+        logging.INFO
+    )
 
 def setup_signal_handler(harness):
     def signal_handler(sig, frame):
