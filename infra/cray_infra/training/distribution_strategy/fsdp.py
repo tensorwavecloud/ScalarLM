@@ -168,6 +168,79 @@ class SimpleFSDP(nn.Module):
         except AttributeError:
             return getattr(self.model, name)
 
+    def unwrap_model(self):
+        unwrapped_state_dict = {}
+        required_grads = {}
+
+        self.unwrap_layers(
+            prefix="",
+            module=self.model,
+            unwrapped_state_dict=unwrapped_state_dict,
+            required_grads=required_grads,
+        )
+
+        # Load the gathered state dict into the new model
+        config = self.model.config
+        unwrapped_model = type(self.model)(config)
+
+        logger.debug(
+            f" Rank {rank}: Loading state dict into unwrapped model {unwrapped_model}"
+        )
+        unwrapped_model.load_state_dict(unwrapped_state_dict, strict=False)
+
+        # Set the required grads
+        for name, param in unwrapped_model.named_parameters():
+            param.requires_grad = required_grads.get(name, False)
+            logger.debug(f" Rank {rank}: Setting requires_grad for {name} to {param.requires_grad}")
+
+        # Fix for pad_token_id
+        unwrapped_model.config.pad_token_id = unwrapped_model.config.eos_token_id
+        if hasattr(unwrapped_model, "generation_config"):
+            unwrapped_model.generation_config.pad_token_id = (
+                unwrapped_model.config.eos_token_id
+            )
+
+        return unwrapped_model
+
+    def unwrap_layers(self, prefix, module, unwrapped_state_dict, required_grads):
+        for name, child in module.named_children():
+            if isinstance(child, FSDPLayer):
+                logger.debug(f" Rank {rank}: Unwrapping module {prefix}{name}")
+                for param_name, param in child.module.named_parameters(recurse=False):
+                    if not name.startswith("shard_"):
+                        # Remove _shard_ prefix
+                        param_name = param_name[6:]
+
+                        # Get metadata for this parameter
+                        metadata_dict = child.sharded_parameter_metadata[param_name]
+
+                        # Gather all shards and reconstruct the full tensor
+                        full_tensor = all_gather_op(param, metadata_dict)
+
+                        unwrapped_state_dict[f"{prefix}{name}.{param_name}"] = full_tensor.to(
+                            torch.device("cpu")
+                        )
+                        required_grads[f"{prefix}{name}.{param_name}"] = param.requires_grad
+
+                    else:
+                        unwrapped_state_dict[f"{prefix}{name}.{param_name}"] = param.to(
+                            torch.device("cpu")
+                        )
+                        required_grads[f"{prefix}{name}.{param_name}"] = param.requires_grad
+
+                    logger.debug(
+                        f" Rank {rank}: Unwrapping parameter {prefix}{name}.{param_name}"
+                    )
+
+            else:
+                logger.debug(f" Rank {rank}: Skipping module {prefix}{name}")
+                self.unwrap_layers(
+                    prefix=prefix + name + ".",
+                    module=child,
+                    unwrapped_state_dict=unwrapped_state_dict,
+                    required_grads=required_grads,
+                )
+
 
 comm = MPI.COMM_WORLD
 world_size = comm.Get_size()
@@ -236,8 +309,8 @@ def trim_padding(all_tensors, rank, world_size, metadata_dict):
             valid_elements = original_numel - (world_size - 1) * shard_size
             all_tensors[-1] = all_tensors[-1][:valid_elements]
 
-
     return all_tensors
+
 
 def collectives_all_gather(shard, metadata_dict):
     """Gather shards and reconstruct the full tensor using metadata."""
@@ -253,9 +326,7 @@ def collectives_all_gather(shard, metadata_dict):
     offset = 0
     for rank in range(world_size):
         shard_size = metadata_dict[rank][2]
-        rank_shard_flattened = gathered[
-            offset : offset + shard_size
-        ]
+        rank_shard_flattened = gathered[offset : offset + shard_size]
         all_tensors.append(rank_shard_flattened)
         offset += shard_size
 

@@ -48,9 +48,9 @@ async def upload_training_data(request: Request):
 
         logger.info(f"Uploaded file in {end_time - start_time} seconds")
         logger.info(f"Uploaded file to {temp_filepath}")
-        logger.info(f"Uploaded file size: {os.path.getsize(temp_filepath)} bytes")
+        logger.info(f"Uploaded file size: {get_file_size(temp_filepath)} bytes")
         logger.info(
-            f"Transfer rate: {os.path.getsize(temp_filepath) / (1.0e6 * (end_time - start_time))} MB/sec"
+            f"Transfer rate: {get_file_size(temp_filepath) / (1.0e6 * (end_time - start_time))} MB/sec"
         )
 
         file_hash = get_file_hash(temp_filepath)
@@ -149,4 +149,10 @@ def get_job_directory(train_args: Dict):
     job_directory = os.path.join(config["training_job_directory"], hash_id)
 
     return job_directory
+
+def get_file_size(filepath: str):
+    try:
+        return os.path.getsize(filepath)
+    except FileNotFoundError:
+        return 0
 

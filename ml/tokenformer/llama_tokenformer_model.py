@@ -30,7 +30,7 @@ def create_llama_tokenformer_model(model, device, train_lm_head = True):
             param.requires_grad = True
 
     # If lm_head should be included in training, set it as well.
-    # In some models, lm_head is tied to embeddings and not included as a param. 
+    # In some models, lm_head is tied to embeddings and not included as a param.
     # So it's best to access it directly.
     if train_lm_head:
         tokenformer_model.lm_head.weight.requires_grad = True

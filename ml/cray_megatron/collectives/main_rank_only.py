@@ -1,9 +1,13 @@
+
+from mpi4py import MPI
+
+
 def is_main_rank():
-    return True
+    return MPI.COMM_WORLD.Get_rank() == 0
 
 
 def barrier():
-    pass
+    MPI.COMM_WORLD.Barrier()
 
 
 def main_rank_only(func):

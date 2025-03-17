@@ -33,6 +33,8 @@ class JobConfig(BaseModel):
     learning_rate: float = 3e-3
     batch_size: int = 1
 
+    max_token_block_size: int = 16777216 # 16 mega tokens
+
     # Checkpointing
     steps_per_checkpoint: int = 100
     max_checkpoints_to_keep: int = 3

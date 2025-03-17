@@ -91,7 +91,7 @@ def make_data_file(data):
             yield f.name
 
     elif isinstance(data, list):
-        with tempfile.NamedTemporaryFile() as f:
+        with tempfile.NamedTemporaryFile(delete=False) as f:
             with jsonlines.open(f.name, mode="w") as writer:
                 for item in data:
                     writer.write(item)
