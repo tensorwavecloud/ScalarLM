@@ -228,9 +228,7 @@ def get_train_time_limit(train_args: Dict):
     max_train_time = config.get("max_train_time", 14400)
 
     if train_time is None:
-        return format_timedelta(
-            datetime.timedelta(seconds=max_train_time + extra_training_seconds)
-        )
+        train_time = max_train_time
     else:
         train_time = min(train_time, max_train_time)
 

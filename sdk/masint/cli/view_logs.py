@@ -73,10 +73,14 @@ async def read_log_stream(log_stream):
     async for chunk in log_stream.iter_any():
         text = chunk.decode("utf-8")
 
-        reader = jsonlines.Reader(io.StringIO(text))
+        try:
+            reader = jsonlines.Reader(io.StringIO(text))
 
-        for obj in reader:
-            object_buffer.append(obj)
+            for obj in reader:
+                object_buffer.append(obj)
+        except json.JSONDecodeError:
+            logger.debug(f"Failed to decode json: {text}")
+            continue
 
     return object_buffer
 

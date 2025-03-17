@@ -231,6 +231,7 @@ def get_callbacks(trainer):
 
 class TimeoutCallback:
     def __init__(self, trainer):
+        self.trainer = trainer
         job_config = get_job_config()
         self.timeout = job_config["timeout"]
 
@@ -242,7 +243,7 @@ class TimeoutCallback:
             logger.info(
                 f"Training timed out after {time.time() - self.start_time} seconds"
             )
-            self.training_state.should_stop_training = True
+            self.trainer.training_state.should_stop_training = True
 
 
 class CheckpointCallback:
