@@ -269,7 +269,7 @@ def shard_tensor(tensor):
     # Split into equal shards
     shard_size = padded_numel // world_size
     start = rank * shard_size
-    shard = tensor_padded[start : start + shard_size].clone()
+    shard = tensor_padded[start : start + shard_size].clone().to(tensor.device)
 
     # Gather metadata from all ranks
     local_metadata = (original_numel, original_shape, shard_size, padding)
