@@ -323,7 +323,9 @@ def collectives_all_gather(shard, metadata_dict):
     comm.Allgather(MPI.memory.frombuffer(shard_detached), MPI.memory.frombuffer(gathered))
     end = time.time()
     
-    logger.info(f"All_gather time: {end - start}, bandwidth: {shard_detached.nbytes / (end - start) / 1e9} GB/s on tensor {shard_detached.shape}"
+    total_time = "{:.1e}".format(end - start)
+    bandwidth = "{:.1e}".format(shard_detached.nbytes / (end - start) / 1e9)
+    logger.info(f"All_gather time: {total_time}, bandwidth: {bandwidth} GB/s on tensor {shard_detached.shape}"
         )
     
     # Reconstruct the full tensor using metadata
@@ -361,8 +363,10 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     comm.Reduce_scatter(MPI.memory.frombuffer(tensor_padded), MPI.memory.frombuffer(local_shard), op=MPI.SUM)
     end = time.time()
     
+    total_time = "{:.1e}".format(end - start)
+    bandwidth = "{:.1e}".format(tensor_padded.nbytes / (end - start) / 1e9)
     logger.info(
-                f"Reduce_scatter time: {end - start}, bandwidth: {tensor_padded.nbytes / (end - start) / 1e9} GB/s"
+                f"Reduce_scatter time: {total_time}, bandwidth: {bandwidth} GB/s"
             )
 
     # Trim padding on last rank using its original size from metadata_dict
