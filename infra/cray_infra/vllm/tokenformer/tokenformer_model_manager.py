@@ -171,9 +171,7 @@ class TokenformerModelManager(AdapterModelManager):
         tokenformers = self._registered_adapters[adapter_id].tokenformers
 
         for key in tokenformers:
-            if "tokenformer_k" in key:
-                nn.init.kaiming_uniform_(model_state_dict[key])
-            elif "tokenformer_v" in key:
+            if "tokenformer_p" in key:
                 nn.init.zeros_(model_state_dict[key])
             elif "lm_head" in key:
                 model_state_dict[key] = self.orig_lm_head[key]
@@ -192,7 +190,6 @@ class TokenformerModelManager(AdapterModelManager):
         )
 
     def remove_all_adapters(self) -> None:
-        logger.info(f"Resetting Tokenformer")
         for id in self._registered_adapters:
             self.deactivate_adapter(id)
         self._registered_adapters.clear()
