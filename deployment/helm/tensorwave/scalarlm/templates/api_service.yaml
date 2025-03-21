@@ -5,8 +5,8 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.port }}
-      targetPort: {{ .Values.service.targetPort }}
+    - port: {{ .Values.service.api_port }}
+      targetPort: 8000
       protocol: TCP
       name: http
   externalIPs:

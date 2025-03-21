@@ -5,9 +5,9 @@ image:
 
 service:
   type: ClusterIP
-  port: 8000
-  targetPort: 8000
-  externalIP: 104.171.203.79
+  api_port: 9000
+  vllm_port: 9001
+  externalIP: 64.139.222.101
 
 jobs_pvc:
   storageClass: local-path
@@ -15,13 +15,13 @@ jobs_pvc:
 
 cache_pvc:
   storageClass: local-path
-  size: 200Gi
+  size: 32Gi
 
-model: meta-llama/Llama-3.1-70B-Instruct
+model: meta-llama/Llama-3.1-8B-Instruct
 max_model_length: 4096
 gpu_memory_utilization: 0.95
 
-training_gpus: 4
+training_gpus: 1
 inference_gpus: 1
 
 max_train_time: 86400

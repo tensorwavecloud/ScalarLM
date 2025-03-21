@@ -23,7 +23,7 @@ spec:
           command: ["/app/cray/scripts/start_one_server.sh"]
           ports:
             - name: http
-              containerPort: 8000
+              containerPort: {{ .Values.service.api_port }}
               hostPort: 8000
               protocol: TCP
           volumeMounts:
