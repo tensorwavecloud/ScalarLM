@@ -171,7 +171,6 @@ def get_gpu_indexes():
 
     for file in os.listdir(prefix):
         if file.startswith(card_name):
-            print(file[len(card_name) :])
             index_as_int = int(file[len(card_name) :])
 
             indexes.append(index_as_int)

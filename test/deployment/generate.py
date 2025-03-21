@@ -18,12 +18,12 @@ def get_dataset(count):
 
 llm = masint.SupermassiveIntelligence()
 
-dataset = get_dataset(count=10)
+dataset = get_dataset(count=1)
 
 results = llm.generate(
     prompts=dataset,
     # generate with default model
-    # model_name="c7c3ed39e0005e0e73145d49510c94d7b5e4f6552cd35c4a7a8b37d0b41f318e"
+    # model_name="67be28dc01557ac8188c8a473d7051d5e49c48dad9dff196214376985c4bc2f8"
 )
 
 print(results)

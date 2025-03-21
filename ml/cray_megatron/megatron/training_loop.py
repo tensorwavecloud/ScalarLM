@@ -2,11 +2,17 @@ from cray_megatron.megatron.dataset.data_loader import DataLoader
 
 from cray_megatron.models.get_model_manager import get_model_manager
 from cray_megatron.models.does_any_checkpoint_exist import does_any_checkpoint_exist
-from cray_megatron.models.get_latest_checkpoint_path import get_latest_checkpoint_path, delete_old_checkpoints
+from cray_megatron.models.get_latest_checkpoint_path import (
+    get_latest_checkpoint_path,
+    delete_old_checkpoints,
+)
+
+from cray_megatron.collectives.main_rank_only import main_rank_only
 
 from cray_infra.training.training_job_status import TrainingJobStatus
 from cray_infra.training.training_harness import TrainingHarness
 from cray_infra.util.get_job_config import get_job_config
+
 
 from torch.optim import AdamW
 
@@ -105,6 +111,8 @@ class TrainingLoop:
 
         device = self.training_state.model_info["distribution_strategy"]["device"]
 
+        start_time = time.time()
+
         # forward pass
         loss = self.training_state.model_info["model"](
             input_ids=batch["input_ids"].to(device),
@@ -113,21 +121,7 @@ class TrainingLoop:
         ).loss
 
         # Synchronize loss across all ranks
-        comm = MPI.COMM_WORLD
-        if comm.Get_size() > 1:
-            local_loss = loss.detach().clone()
-            global_loss = torch.tensor([local_loss.item()], device=device)
-            comm.Allreduce(MPI.IN_PLACE, global_loss, op=MPI.SUM)
-            avg_loss = global_loss.item() / comm.Get_size()
-            # Scaling adjusts loss while maintaining its connection to the graph, which is needed for loss.backward() to work
-            loss = loss * (avg_loss / local_loss.item())
-
-        logger.info(
-            f"Training step {self.training_state.current_step} "
-            f"- epoch {self.training_state.epoch} "
-            f"- loss {loss.item()} "
-            f"- learning rate {self.training_state.scheduler.get_last_lr()[0]}"
-        )
+        loss = self.sync_loss(loss)
 
         # backward pass
         self.training_state.optimizer.zero_grad()
@@ -138,6 +132,21 @@ class TrainingLoop:
 
         # log loss
         self.update_history(loss)
+
+        self.print_training_step_info(loss, start_time)
+
+    def sync_loss(self, loss):
+        comm = MPI.COMM_WORLD
+        device = self.training_state.model_info["distribution_strategy"]["device"]
+        if comm.Get_size() > 1:
+            local_loss = loss.detach().clone()
+            global_loss = torch.tensor([local_loss.item()], device=device)
+            comm.Allreduce(MPI.IN_PLACE, global_loss, op=MPI.SUM)
+            avg_loss = global_loss.item() / comm.Get_size()
+            # Scaling adjusts loss while maintaining its connection to the graph, which is needed for loss.backward() to work
+            loss = loss * (avg_loss / local_loss.item())
+
+        return loss
 
     def on_train_begin(self):
         self.training_state.start_time = time.time()
@@ -165,15 +174,18 @@ class TrainingLoop:
                 callback.on_train_end()
 
     def checkpoint(self):
-
         model = self.training_state.model_info["model"]
-        if hasattr(model, 'unwrap_model'):
+        if hasattr(model, "unwrap_model"):
+            logger.info("Unwrapping model")
             model = self.training_state.model_info["model"].unwrap_model()
 
+        self.save_checkpoint(model)
+
+    @main_rank_only
+    def save_checkpoint(self, model):
+
         checkpoint = {
-            "model_state_dict": filter_checkpoint(
-                model, model.state_dict()
-            ),
+            "model_state_dict": filter_checkpoint(model, model.state_dict()),
             "optimizer_state_dict": self.training_state.optimizer.state_dict(),
             "scheduler_state_dict": self.training_state.scheduler.state_dict(),
             "step": self.training_state.current_step,
@@ -190,6 +202,7 @@ class TrainingLoop:
 
         delete_old_checkpoints()
 
+    @main_rank_only
     def update_history(self, loss):
         job_config = get_job_config()
 
@@ -214,6 +227,17 @@ class TrainingLoop:
             metadata={"history": self.training_state.history},
         )
 
+    @main_rank_only
+    def print_training_step_info(self, loss, start_time):
+        logger.info(
+            f"Training step {self.training_state.current_step} "
+            f"- epoch {self.training_state.epoch} "
+            f"- loss {loss.item():.4f} "
+            f"- learning rate {self.training_state.scheduler.get_last_lr()[0]:.6f} "
+            f"- step time {time.time() - start_time:.3f} seconds"
+        )
+
+    @main_rank_only
     def print_device_info(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         idx = self.training_state.model_info["distribution_strategy"]["device"]
@@ -234,9 +258,10 @@ class TimeoutCallback:
         self.trainer = trainer
         job_config = get_job_config()
         self.timeout = job_config["timeout"]
+        self.start_time = time.time()
 
     def on_train_begin(self):
-        self.start_time = time.time()
+        pass
 
     def on_step_end(self, step):
         if time.time() - self.start_time > self.timeout:
@@ -284,10 +309,10 @@ def get_optimizer(model):
     return AdamW(model.parameters(), lr=learning_rate)
 
     # use Adafactor optimizer
-    #return torch.optim.Adafactor(
+    # return torch.optim.Adafactor(
     #    model.parameters(),
     #    lr=learning_rate,
-    #)
+    # )
 
 
 def get_scheduler(optimizer, max_steps):
@@ -319,4 +344,11 @@ def remove_closest_entry(history, max_length):
 
 def filter_checkpoint(model, state_dict):
     # Remove the layers without gradients
-    return {k: state_dict[k] for k, v in model.named_parameters() if v.requires_grad}
+    saved_params = {}
+
+    for name, param in model.named_parameters(recurse=True):
+        if param.requires_grad:
+            logger.info(f"Saving parameter {name}")
+            saved_params[name] = state_dict[name]
+
+    return saved_params
