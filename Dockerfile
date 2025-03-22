@@ -23,6 +23,8 @@ RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION}
 RUN uv pip install xformers==0.0.27.post2
 
+RUN pip install cupy-cuda12x
+
 ENV BASE_NAME=nvidia
 
 ###############################################################################
@@ -56,10 +58,12 @@ ARG MAX_JOBS=8
 
 ENV BASE_NAME=amd
 
-RUN pip install amdsmi
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update -y \
     && apt install -y amd-smi-lib
+RUN pip install pyhip>=1.1.0
+RUN pip install amdsmi
+ENV HIP_FORCE_DEV_KERNARG=1
 
 ###############################################################################
 # VLLM BUILD STAGE
@@ -140,4 +144,3 @@ RUN /app/cray/infra/slurm_src/compile.sh
 
 ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
 
-ENV HIP_FORCE_DEV_KERNARG=1

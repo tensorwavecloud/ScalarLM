@@ -2,16 +2,23 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 
-import numpy as np
 from mpi4py import MPI
+
+try:
+    import cupy as cp
+except ImportError:
+    cp = None
+
+try:
+    import pyhip as hip
+except ImportError:
+    hip = None
 
 import gc
 import time
-
 import logging
 
 logger = logging.getLogger(__name__)
-
 
 class FSDPLayer(nn.Module):
     def __init__(self, module, should_checkpoint=False):
@@ -343,31 +350,48 @@ def collectives_all_gather(shard, metadata_dict):
     original_shape = metadata_dict[rank][1]
     return concatenated.reshape(original_shape)
 
+def get_array_module(tensor):
+    if isinstance(tensor, torch.Tensor):
+        if tensor.is_cuda:
+            return cp
+        elif tensor.device.type == 'hip':
+            return hip
+        else:
+            return torch
+    elif cp is not None and isinstance(tensor, cp.ndarray):
+        return cp
+    elif hip is not None and isinstance(tensor, hip.hiparray):
+        return hip
+    else:
+        raise ValueError("Unsupported tensor type")
+
 
 def collectives_reduce_scatter(tensor, metadata_dict):
     """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
+    comm = MPI.COMM_WORLD
+    rank = comm.Get_rank()
+    world_size = comm.Get_size()
 
     original_numel, _, shard_size, padding = metadata_dict[rank]
+    xp = get_array_module(tensor)
 
     # Pad tensor if needed
-    tensor_padded = tensor.view(-1).clone().to(tensor.device)
+    tensor_padded = xp.asarray(tensor.reshape(-1))
     if padding > 0:
-        tensor_padded = torch.cat(
-            [tensor.view(-1), torch.zeros(padding, device=tensor.device)]
-        ).detach()
+        tensor_padded = xp.concatenate([tensor_padded, xp.zeros(padding, dtype=tensor_padded.dtype)])
 
-    local_shard = torch.empty(shard_size, device=tensor.device, dtype=tensor.dtype).detach()
+    local_shard = xp.empty(shard_size, dtype=tensor_padded.dtype)
 
     # Collective operation
     start = time.time()
-    comm.Reduce_scatter(MPI.memory.frombuffer(tensor_padded), MPI.memory.frombuffer(local_shard), op=MPI.SUM)
+    comm.Reduce_scatter(tensor_padded, local_shard, op=MPI.SUM)
     end = time.time()
     
     total_time = "{:.1e}".format(end - start)
     bandwidth = "{:.1e}".format(tensor_padded.nbytes / (end - start) / 1e9)
     logger.info(
-                f"Reduce_scatter time on device {tensor_padded.device}: {total_time}, bandwidth: {bandwidth} GB/s"
-            )
+        f"Reduce_scatter time on device {tensor.device if hasattr(tensor, 'device') else 'CPU'}: {total_time}, bandwidth: {bandwidth} GB/s"
+    )
 
     # Trim padding on last rank using its original size from metadata_dict
     if rank == world_size - 1:
