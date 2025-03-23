@@ -4,20 +4,11 @@ from torch.utils.checkpoint import checkpoint
 from mpi4py import MPI
 from infra.cray_infra.training.distribution_strategy.mpi_utils import get_mpi_datatype
 
-try:
-    import cupy as cp
-except ImportError:
-    cp = None
-
-try:
-    import pyhip as hip
-except ImportError:
-    hip = None
-
 import gc
 import time
 import logging
 
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class FSDPLayer(nn.Module):
@@ -36,16 +27,16 @@ class FSDPLayer(nn.Module):
     def shard_parameters(self):
         self.sharded_parameter_metadata = {}
 
-        # logger.debug(f"Rank {rank}: Sharding parameters for {self.module}")
+        logger.debug(f"Rank {rank}: Sharding parameters for {self.module}")
 
         for name, param in list(self.module.named_parameters(recurse=False)):
             shard, metadata_dict = shard_tensor(param)
 
             self.sharded_parameter_metadata[name] = metadata_dict
 
-            # logger.debug(
-            #    f" Rank {rank}: Sharding parameter {name} with shape {param.shape} into {metadata_dict}, new shape {shard.shape}"
-            #)
+            logger.debug(
+                f" Rank {rank}: Sharding parameter {name} with shape {param.shape} into {metadata_dict}, new shape {shard.shape}"
+            )
 
             setattr(
                 self.module,
@@ -55,9 +46,9 @@ class FSDPLayer(nn.Module):
             delattr(self.module, name)
             setattr(self.module, name, shard)
 
-        #logger.debug(
-        #    f" Rank {rank}: Sharded parameters are {[i[0] for i in self.module.named_parameters(recurse=False)]}"
-        #)
+        logger.debug(
+            f" Rank {rank}: Sharded parameters are {[i[0] for i in self.module.named_parameters(recurse=False)]}"
+        )
 
     def forward(self, *args, **kwargs):
         if self.should_checkpoint:
@@ -74,12 +65,12 @@ class FSDPLayer(nn.Module):
         return result
 
     def gather_all_parameters(self):
-        #logger.debug(f"Rank {rank}: Gathering parameters for {self.module}")
+        logger.debug(f"Rank {rank}: Gathering parameters for {self.module}")
 
         for name, param in self.module.named_parameters(recurse=False):
 
             if not name.startswith("shard_"):
-                #logger.debug(f" Rank {rank}: Skipping parameter {name}")
+                logger.debug(f" Rank {rank}: Skipping parameter {name}")
                 continue
 
             # Remove _shard_ prefix
@@ -91,9 +82,9 @@ class FSDPLayer(nn.Module):
             # Gather all shards and reconstruct the full tensor
             full_tensor = all_gather_op(param, metadata_dict)
 
-            #logger.debug(
-            #   f" Rank {rank}: Gathered parameter {name} with shape {full_tensor.shape}"
-            #)
+            logger.debug(
+               f" Rank {rank}: Gathered parameter {name} with shape {full_tensor.shape}"
+            )
 
             # Copy the full tensor back to the original parameter
             setattr(self.module, name, full_tensor)

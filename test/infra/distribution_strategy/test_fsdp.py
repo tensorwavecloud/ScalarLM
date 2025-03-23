@@ -9,7 +9,7 @@ from mpi4py import MPI
 from infra.cray_infra.training.distribution_strategy.fsdp import SimpleFSDP
 
 # Initialize logging
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def seed_all(seed):
@@ -52,7 +52,7 @@ def test_sequential_model(rank, device):
         optimizer.step()
         
         if rank == 0:
-            logger.debug(f"Epoch {epoch}, Loss: {loss.item()}")
+            logger.info(f"Epoch {epoch}, Loss: {loss.item()}")
     
     assert isinstance(fsdp_model, SimpleFSDP)
     assert loss.item() > 0
