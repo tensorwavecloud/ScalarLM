@@ -23,8 +23,6 @@ RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION}
 RUN uv pip install xformers==0.0.27.post2
 
-RUN pip install cupy-cuda12x
-
 ENV BASE_NAME=nvidia
 
 ###############################################################################
