@@ -1,6 +1,5 @@
 import torch
 import torch.nn as nn
-from torch.nn import TransformerDecoder, TransformerDecoderLayer
 import numpy as np
 import logging
 import random

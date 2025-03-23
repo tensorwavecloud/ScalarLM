@@ -2,31 +2,7 @@ import argparse
 import time
 import torch
 from mpi4py import MPI
-
-try:
-    import cupy as cp
-except ImportError:
-    cp = None
-
-try:
-    import pyhip as hip
-except ImportError:
-    hip = None
-
-def get_array_module(tensor):
-    if isinstance(tensor, torch.Tensor):
-        if tensor.is_cuda:
-            return cp
-        elif tensor.device.type == 'hip':
-            return hip
-        else:
-            return torch
-    elif cp is not None and isinstance(tensor, cp.ndarray):
-        return cp
-    elif hip is not None and isinstance(tensor, hip.hiparray):
-        return hip
-    else:
-        raise ValueError("Unsupported tensor type")
+from infra.cray_infra.training.distribution_strategy.mpi_utils import get_mpi_datatype
 
 
 def verify_gpu_support(arch_type):
@@ -51,19 +27,21 @@ def benchmark_collective(comm, collective_fn, send_size, recv_size, expected_val
     size = comm.Get_size()
 
     sendbuf = create_buffer(args.arch_type, send_size).contiguous()
-    xp = get_array_module(sendbuf)
     # Create send/recv buffers
-    recvbuf = xp.empty(recv_size, dtype=torch.float32, device=sendbuf.device).contiguous()
+    recvbuf = torch.empty(recv_size, dtype=torch.float32, device=sendbuf.device).contiguous()
+
+    sendbuf_raw = MPI.memory.fromaddress(sendbuf.data_ptr(), sendbuf.nbytes)
+    recvbuf_raw = MPI.memory.fromaddress(recvbuf.data_ptr(), recvbuf.nbytes)
 
     # Warmup iterations
     for _ in range(warmup):
-        collective_fn(sendbuf, recvbuf)
+        collective_fn([sendbuf_raw, get_mpi_datatype(sendbuf)], [recvbuf_raw, get_mpi_datatype(recvbuf)])
 
     # Timing the collective operation
     comm.Barrier()
     t0 = time.time()
     for _ in range(num_iters):
-        collective_fn(sendbuf, recvbuf)
+        collective_fn([sendbuf_raw, get_mpi_datatype(sendbuf)], [recvbuf_raw, get_mpi_datatype(recvbuf)])
     comm.Barrier()
     dt = time.time() - t0
 
@@ -113,7 +91,7 @@ if __name__ == "__main__":
 # mpirun --allow-run-as-root --oversubscribe -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type cuda
 
 # For ROCm GPUs
-# mpirun --allow-run-as-root --oversubscribe -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type rocm
+# mpirun --allow-run-as-root --oversubscribe -np 2 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type rocm
 
 # For CPU
 # mpirun --allow-run-as-root --oversubscribe -np 2 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type cpu
