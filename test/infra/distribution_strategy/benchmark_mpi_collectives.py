@@ -4,17 +4,6 @@ import torch
 from mpi4py import MPI
 from infra.cray_infra.training.distribution_strategy.mpi_utils import get_mpi_datatype
 
-
-def verify_gpu_support(arch_type):
-    if arch_type == 'cuda':
-        if not MPI.Query_cuda_support():
-            raise RuntimeError("CUDA-aware MPI not supported")
-    elif arch_type == 'rocm':
-        if not MPI.Query_rocm_support():
-            raise RuntimeError("ROCm-aware MPI not supported")
-    elif arch_type != 'cpu':
-        raise ValueError("Unsupported GPU type")
-
 def create_buffer(arch_type, size):
     if arch_type == 'cuda':
         return torch.ones(size, dtype=torch.float32, device='cuda')
@@ -61,9 +50,6 @@ if __name__ == "__main__":
     comm = MPI.COMM_WORLD
     rank = comm.Get_rank()
     size = comm.Get_size()
-
-    if args.arch_type != 'cpu':
-        verify_gpu_support(args.arch_type)
 
     # Scale data size with number of processes (1MB per process)
     data_size = 262144 * size # 1MB per process (262144 floats = 1MB)
