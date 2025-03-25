@@ -89,9 +89,6 @@ RUN cd / && \
 ENV PATH=/opt/ompi-rocm/bin:/opt/ucx-rocm/bin:$PATH
 ENV LD_LIBRARY_PATH=/opt/ompi-rocm/lib:/opt/ucx-rocm/lib:$LD_LIBRARY_PATH
 
-# Install mpi-rocm python package
-RUN python ${INSTALL_ROOT}/infra/cray_infra/training/distribution_strategy/fsdp/mpi_rocm/setup.py install
-
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm
