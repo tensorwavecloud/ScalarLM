@@ -63,6 +63,29 @@ RUN pip install pyhip>=1.1.0
 RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
+# Set environment variables
+ENV ROCM_PATH=/opt/rocm
+
+# Clone and build UCX
+RUN git clone https://github.com/openucx/ucx.git -b v1.15.x && \
+    cd ucx && \
+    ./autogen.sh && \
+    ./configure --prefix=$HOME/ucx-rocm \
+      --with-rocm=$ROCM_PATH \
+      --enable-mt && \
+    make -j$(nproc) && make install
+
+# Build Open MPI
+RUN cd / && \
+    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz && \
+    tar -xvf openmpi-5.0.7.tar.gz && \
+    cd openmpi-5.0.7 && \
+    ./configure --prefix=$HOME/ompi-rocm \
+      --with-ucx=$HOME/ucx-rocm \
+      --with-rocm=$ROCM_PATH && \
+    make -j$(nproc) && make install
+
+
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm
