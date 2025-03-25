@@ -87,7 +87,6 @@ RUN cd / && \
 
 # Set environment variables for runtime
 ENV PATH=/opt/ompi-rocm/bin:/opt/ucx-rocm/bin:$PATH
-ENV LD_LIBRARY_PATH=/opt/ompi-rocm/lib:/opt/ucx-rocm/lib:$LD_LIBRARY_PATH
 
 ###############################################################################
 # VLLM BUILD STAGE
