@@ -85,9 +85,6 @@ RUN cd / && \
       --with-rocm=$ROCM_PATH && \
     make -j$(nproc) && make install
 
-# Set environment variables for runtime
-ENV PATH=/opt/ompi-rocm/bin:/opt/ucx-rocm/bin:$PATH
-
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm
