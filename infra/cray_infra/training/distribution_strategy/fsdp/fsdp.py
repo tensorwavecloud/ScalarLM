@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 from mpi4py import MPI
-from mpi_rocm import allgather, reduce_scatter
+from gpu_aware_mpi import allgather, reduce_scatter
 
 import gc
 import time

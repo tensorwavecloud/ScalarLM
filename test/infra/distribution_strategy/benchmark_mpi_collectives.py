@@ -2,7 +2,7 @@ import argparse
 import time
 import torch
 from mpi4py import MPI
-from mpi_rocm import allgather, reduce_scatter
+from gpu_aware_mpi import allgather, reduce_scatter
 
 def create_buffer(arch_type, size):
     if arch_type == 'cuda':
@@ -74,7 +74,7 @@ if __name__ == "__main__":
 # mpirun --allow-run-as-root --oversubscribe -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type cuda
 
 # For ROCm GPUs
-# mpirun --allow-run-as-root --oversubscribe -np 2 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type rocm
+# mpirun --allow-run-as-root -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type rocm
 
 # For CPU
 # mpirun --allow-run-as-root --oversubscribe -np 2 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type cpu
