@@ -35,7 +35,7 @@ def benchmark_collective(comm, collective_fn, send_size, recv_size, expected_val
     assert torch.allclose(recvbuf, torch.full_like(recvbuf, expected_value), atol=1e-6), "Verification failed"
 
     # Calculate bandwidth (assumes float32)    
-    total_data = send_size * 4 * 2 * (size - 1)  # 4 bytes per float32, 2 for send/recv
+    total_data = send_size * 4 * 2 * size  # 4 bytes per float32, 2 for send/recv
     bandwidth = (total_data / dt) / 1e9  # GB/s
     return bandwidth
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     collectives = {
         'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
-        'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf, op=MPI.SUM), data_size, data_size // size, size * 1.0),
+        'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf), data_size, data_size // size, size * 1.0),
     }
 
     results = {}
