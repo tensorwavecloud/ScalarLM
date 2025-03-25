@@ -1,0 +1,15 @@
+# templates/api_configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-api-configmap
+data:
+  cray-config.yaml: |
+    model: {{ .Values.model }}
+    max_model_length: {{ .Values.max_model_length }}
+    gpu_memory_utilization: {{ .Values.gpu_memory_utilization }}
+    vllm_api_url: "http://scalarlm-vllm:{{ .Values.service.vllm_port }}"
+    server_list: api
+    max_train_time: {{ .Values.max_train_time }}
+
+
