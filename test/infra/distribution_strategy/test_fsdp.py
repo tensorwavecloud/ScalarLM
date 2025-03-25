@@ -6,7 +6,7 @@ import random
 import math
 from mpi4py import MPI
 
-from infra.cray_infra.training.distribution_strategy.fsdp import SimpleFSDP
+from infra.cray_infra.training.distribution_strategy.fsdp.fsdp import SimpleFSDP
 
 # Initialize logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
