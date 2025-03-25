@@ -85,6 +85,8 @@ RUN cd / && \
       --with-rocm=$ROCM_PATH && \
     make -j$(nproc) && make install
 
+ENV PATH="/opt/ompi-rocm/bin:${PATH}"
+
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm
