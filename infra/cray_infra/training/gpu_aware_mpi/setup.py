@@ -43,7 +43,7 @@ setup(
     name="gpu_aware_mpi",
     ext_modules=[cpp_extension.CppExtension(
         'gpu_aware_mpi',
-        sources=['gpu_aware_mpi.cpp'],
+        sources=['infra/cray_infra/training/gpu_aware_mpi/gpu_aware_mpi.cpp'],
         include_dirs=include_dirs,
         library_dirs=library_dirs,
         libraries=libraries,

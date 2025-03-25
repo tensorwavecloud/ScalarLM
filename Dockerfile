@@ -63,6 +63,9 @@ RUN pip install pyhip>=1.1.0
 RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
+RUN pip install mpi4py==4.0.3
+RUN pip install openmpi==0.0.0
+
 # Set environment variables
 ENV ROCM_PATH=/opt/rocm
 
@@ -75,7 +78,7 @@ RUN git clone https://github.com/openucx/ucx.git -b v1.15.x && \
       --enable-mt && \
     make -j$(nproc) && make install
 
-# Build Open MPI
+# Build ROCM-Aware Open MPI
 RUN cd / && \
     wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz && \
     tar -xvf openmpi-5.0.7.tar.gz && \
@@ -86,6 +89,12 @@ RUN cd / && \
     make -j$(nproc) && make install
 
 ENV PATH="/opt/ompi-rocm/bin:${PATH}"
+
+ARG INSTALL_ROOT=/app/cray
+WORKDIR ${INSTALL_ROOT}
+
+COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
+RUN python ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py install
 
 ###############################################################################
 # VLLM BUILD STAGE
