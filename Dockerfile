@@ -70,7 +70,7 @@ ENV ROCM_PATH=/opt/rocm
 RUN git clone https://github.com/openucx/ucx.git -b v1.15.x && \
     cd ucx && \
     ./autogen.sh && \
-    ./configure --prefix=$HOME/ucx-rocm \
+    ./configure --prefix=/opt/ucx-rocm \
       --with-rocm=$ROCM_PATH \
       --enable-mt && \
     make -j$(nproc) && make install
@@ -80,8 +80,8 @@ RUN cd / && \
     wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz && \
     tar -xvf openmpi-5.0.7.tar.gz && \
     cd openmpi-5.0.7 && \
-    ./configure --prefix=$HOME/ompi-rocm \
-      --with-ucx=$HOME/ucx-rocm \
+    ./configure --prefix=/opt/ompi-rocm \
+      --with-ucx=/opt/ucx-rocm \
       --with-rocm=$ROCM_PATH && \
     make -j$(nproc) && make install
 

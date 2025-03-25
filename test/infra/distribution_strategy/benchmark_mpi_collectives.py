@@ -2,7 +2,7 @@ import argparse
 import time
 import torch
 from mpi4py import MPI
-from infra.cray_infra.training.distribution_strategy.mpi_utils import get_mpi_datatype
+from mpi_rocm import allgather, reduce_scatter
 
 def create_buffer(arch_type, size):
     if arch_type == 'cuda':
@@ -19,18 +19,15 @@ def benchmark_collective(comm, collective_fn, send_size, recv_size, expected_val
     # Create send/recv buffers
     recvbuf = torch.empty(recv_size, dtype=torch.float32, device=sendbuf.device).contiguous()
 
-    sendbuf_raw = MPI.memory.fromaddress(sendbuf.data_ptr(), sendbuf.nbytes)
-    recvbuf_raw = MPI.memory.fromaddress(recvbuf.data_ptr(), recvbuf.nbytes)
-
     # Warmup iterations
     for _ in range(warmup):
-        collective_fn([sendbuf_raw, get_mpi_datatype(sendbuf)], [recvbuf_raw, get_mpi_datatype(recvbuf)])
+        collective_fn(sendbuf, recvbuf)
 
     # Timing the collective operation
     comm.Barrier()
     t0 = time.time()
     for _ in range(num_iters):
-        collective_fn([sendbuf_raw, get_mpi_datatype(sendbuf)], [recvbuf_raw, get_mpi_datatype(recvbuf)])
+        collective_fn(sendbuf, recvbuf)
     comm.Barrier()
     dt = time.time() - t0
 
@@ -55,8 +52,8 @@ if __name__ == "__main__":
     data_size = 262144 * size # 1MB per process (262144 floats = 1MB)
 
     collectives = {
-        'AllGather': (lambda sbuf, rbuf: comm.Allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
-        'ReduceScatter': (lambda sbuf, rbuf: comm.Reduce_scatter(sbuf, rbuf, op=MPI.SUM), data_size, data_size // size, size * 1.0),
+        'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
+        'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf, op=MPI.SUM), data_size, data_size // size, size * 1.0),
     }
 
     results = {}
