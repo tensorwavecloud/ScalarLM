@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 from mpi4py import MPI
-from infra.cray_infra.training.distribution_strategy.mpi_utils import get_mpi_datatype
+from mpi_rocm import allgather, reduce_scatter
 
 import gc
 import time
@@ -315,13 +315,10 @@ def collectives_all_gather(shard, metadata_dict):
     # Prepare buffers
     gathered = torch.empty(shard.numel() * world_size, device=shard.device, dtype=shard.dtype).contiguous().detach()
     shard_detached = shard.contiguous().detach().to(shard.device)
-    
-    sendbuf = MPI.memory.fromaddress(shard_detached.data_ptr(), shard_detached.nbytes)
-    recvbuf = MPI.memory.fromaddress(gathered.data_ptr(), gathered.nbytes)
 
     # Collective operation
     start = time.time()
-    comm.Allgather([sendbuf, get_mpi_datatype(shard_detached)], [recvbuf, get_mpi_datatype(gathered)])
+    allgather(shard_detached, gathered)
     end = time.time()
     
     total_time = "{:.1e}".format(end - start)
@@ -361,12 +358,9 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     tensor_padded = tensor_padded.contiguous()
     local_shard = torch.empty(shard_size, dtype=tensor_padded.dtype).contiguous()
     
-    sendbuf = MPI.memory.fromaddress(tensor_padded.data_ptr(), tensor_padded.nbytes)
-    recvbuf = MPI.memory.fromaddress(local_shard.data_ptr(), local_shard.nbytes)
-
     # Collective operation
     start = time.time()
-    comm.Reduce_scatter([sendbuf, get_mpi_datatype(tensor_padded)], [recvbuf, get_mpi_datatype(local_shard)], op=MPI.SUM)
+    reduce_scatter(tensor_padded, local_shard)
     end = time.time()
     
     total_time = "{:.1e}".format(end - start)
