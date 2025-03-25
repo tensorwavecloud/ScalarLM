@@ -68,7 +68,7 @@ def apply_smoothing(data, smooth):
 
     for i in range(len(data)):
         if i < smooth_steps:
-            smoothed_data.append(data[i])
+            smoothed_data.append(sum(data[: i + 1]) / (i + 1))
         else:
             smoothed_data.append(sum(data[i - smooth_steps : i]) / smooth_steps)
 

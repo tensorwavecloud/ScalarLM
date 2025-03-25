@@ -137,6 +137,7 @@ async def get_work(app: FastAPI):
 def kill_vllm_container():
     # Kill instances of pt_thread_main process
     os.system("pgrep pt_main_thread | xargs kill -9")
+    os.system("pgrep python | xargs kill -9")
     sys.exit(1)
 
 

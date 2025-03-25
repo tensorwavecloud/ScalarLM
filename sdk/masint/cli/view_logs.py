@@ -78,7 +78,7 @@ async def read_log_stream(log_stream):
 
             for obj in reader:
                 object_buffer.append(obj)
-        except json.JSONDecodeError:
+        except Exception:
             logger.debug(f"Failed to decode json: {text}")
             continue
 

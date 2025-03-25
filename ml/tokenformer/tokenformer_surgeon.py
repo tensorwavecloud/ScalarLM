@@ -37,7 +37,7 @@ class TokenformerMLPAdapter(nn.Module):
 
     def reset_parameters(self):
         k_gain = 3.0 / math.sqrt(self.hidden_size / self.num_heads)
-        v_gain = math.sqrt(3.0 / self.tokenformer_r)
+        v_gain = 3.0 / math.sqrt(self.hidden_size)
 
         nn.init.normal_(self.tokenformer_k, std=k_gain)
         nn.init.uniform_(self.tokenformer_v, a=-v_gain, b=v_gain)
