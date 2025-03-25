@@ -356,7 +356,7 @@ def collectives_reduce_scatter(tensor, metadata_dict):
         tensor_padded = torch.concatenate([tensor_padded, torch.zeros(padding, dtype=tensor_padded.dtype)])
 
     tensor_padded = tensor_padded.contiguous()
-    local_shard = torch.empty(shard_size, dtype=tensor_padded.dtype).contiguous()
+    local_shard = torch.empty(shard_size, device=tensor.device, dtype=tensor_padded.dtype).contiguous()
     
     # Collective operation
     start = time.time()
