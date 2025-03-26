@@ -267,7 +267,7 @@ def shard_tensor(tensor):
     # Split into equal shards
     shard_size = padded_numel // world_size
     start = rank * shard_size
-    shard = tensor_padded[start : start + shard_size].clone().to(tensor.device)
+    shard = tensor_padded[start : start + shard_size].clone()
 
     # Gather metadata from all ranks
     local_metadata = (original_numel, original_shape, shard_size, padding)
@@ -314,7 +314,7 @@ def collectives_all_gather(shard, metadata_dict):
     """Gather shards and reconstruct the full tensor using metadata."""
     # Prepare buffers
     gathered = torch.empty(shard.numel() * world_size, device=shard.device, dtype=shard.dtype).contiguous().detach()
-    shard_detached = shard.contiguous().detach().to(shard.device)
+    shard_detached = shard.contiguous().detach()
 
     # Collective operation
     start = time.time()
