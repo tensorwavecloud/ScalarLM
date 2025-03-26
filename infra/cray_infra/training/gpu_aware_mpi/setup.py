@@ -8,7 +8,7 @@ def detect_gpu_platform():
         return 'rocm'
     if os.path.exists('/usr/local/cuda'):
         return 'cuda'
-    raise EnvironmentError("No supported GPU platform detected")
+    return 'cpu'
 
 platform = detect_gpu_platform()
 
@@ -38,6 +38,14 @@ elif platform == 'cuda':
         '/usr/local/mpi/lib'
     ])
     libraries.append('cudart')
+elif platform == 'cpu':
+    include_dirs.extend([
+        '/usr/include/aarch64-linux-gnu/mpi',
+    ])
+    library_dirs.extend([
+        '/usr/lib/aarch64-linux-gnu/mpi',
+    ])
+    libraries.append('mpi_cxx')
 
 setup(
     name="gpu_aware_mpi",

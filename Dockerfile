@@ -23,6 +23,9 @@ RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION}
 RUN uv pip install xformers==0.0.27.post2
 
+RUN pip install mpi4py==4.0.3
+RUN pip install openmpi==0.0.0
+
 ENV BASE_NAME=nvidia
 
 ###############################################################################
@@ -46,6 +49,12 @@ ARG TORCH_VERSION="2.4.0"
 
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.org/whl/cpu
+
+RUN pip install mpi4py==4.0.3
+RUN pip install openmpi==0.0.0
+
+COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
+RUN python ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py install
 
 ENV BASE_NAME=cpu
 

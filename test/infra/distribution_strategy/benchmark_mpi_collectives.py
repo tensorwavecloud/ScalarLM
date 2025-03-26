@@ -2,7 +2,7 @@ import argparse
 import time
 import torch
 from mpi4py import MPI
-from gpu_aware_mpi import allgather, reduce_scatter
+from gpu_aware_mpi import allgather, reduce_scatter, send, recv
 
 def create_buffer(arch_type, size):
     if arch_type == 'cuda':
@@ -39,6 +39,41 @@ def benchmark_collective(comm, collective_fn, send_size, recv_size, expected_val
     bandwidth = (total_data / dt) / 1e9  # GB/s
     return bandwidth
 
+def send_recv(comm, sendbuf, i):
+    sender = i % 2
+    rank = comm.Get_rank()
+    comm.Barrier()
+    if rank == sender:
+        send(sendbuf, (rank + 1) % 2)
+    else:
+        recv(sendbuf, (rank + 1) % 2)
+    comm.Barrier()
+
+def benchmark_send_recv(comm, data_size, num_iters=100, warmup=10):
+    rank = comm.Get_rank()
+    sendbuf = create_buffer(args.arch_type, data_size).contiguous()
+
+    if rank == 1:
+        torch.zero_(sendbuf)
+
+    for i in range(warmup):
+        send_recv(comm, sendbuf, i)
+
+    # Timing the collective operation
+    comm.Barrier()
+    t0 = time.time()
+    for i in range(num_iters):
+        send_recv(comm, sendbuf, i)
+    comm.Barrier()
+    dt = time.time() - t0
+
+    # Verify correctness
+    assert torch.allclose(sendbuf, torch.full_like(sendbuf, 1), atol=1e-6), "Verification failed"
+
+    total_data = data_size * 4 * num_iters
+    bandwidth = (total_data / dt) / 1e9  # GB/s
+    return bandwidth
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--arch_type', choices=['cuda', 'rocm', 'cpu'], required=True)
@@ -49,8 +84,16 @@ if __name__ == "__main__":
     size = comm.Get_size()
 
     # Scale data size with number of processes (1MB per process)
-    data_size = 262144 * size # 1MB per process (262144 floats = 1MB)
+    data_size = 262144 * 16 
 
+    print(f"Rank {rank} of {size} running with data size {data_size}")
+
+    bandwidth = benchmark_send_recv(comm, data_size)
+
+    if rank == 0:
+        print(f"Send/Recv (GB/s): {bandwidth:.6}")
+
+    '''
     collectives = {
         'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
         'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf), data_size, data_size // size, size * 1.0),
@@ -68,6 +111,7 @@ if __name__ == "__main__":
         for name, bw in results.items():
             bw_scientific = '{:.2e}'.format(bw)
             print(f"{name}: {bw_scientific}")
+    '''
 
 
 # For CUDA GPUs
