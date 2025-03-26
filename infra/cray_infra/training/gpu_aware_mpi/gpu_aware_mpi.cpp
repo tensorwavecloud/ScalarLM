@@ -91,10 +91,24 @@ void barrier() {
     MPI_Barrier(MPI_COMM_WORLD);
 }
 
+int get_rank() {
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    return rank;
+}
+
+int get_size() {
+    int size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    return size;
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("allgather", &mpi_allgather, "MPI AllGather");
     m.def("reduce_scatter", &mpi_reduce_scatter, "MPI ReduceScatter");
     m.def("send", &mpi_send, "MPI Send");
     m.def("recv", &mpi_recv, "MPI Recv");
     m.def("barrier", &barrier, "MPI Barrier");
+    m.def("get_rank", &get_rank, "Get MPI rank");
+    m.def("get_size", &get_size, "Get MPI world size");
 }
