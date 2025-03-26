@@ -14,8 +14,8 @@ def create_buffer(arch_type, size, rank):
 
 def benchmark_collective(comm, collective_fn, send_size, recv_size, expected_value, num_iters=100, warmup=10):
     size = comm.Get_size()
-
-    sendbuf = create_buffer(args.arch_type, send_size).contiguous()
+    rank = comm.Get_rank()
+    sendbuf = create_buffer(args.arch_type, send_size, rank).contiguous()
     # Create send/recv buffers
     recvbuf = torch.empty(recv_size, dtype=torch.float32, device=sendbuf.device).contiguous()
 
