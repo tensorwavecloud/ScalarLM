@@ -2,13 +2,13 @@ import argparse
 import time
 import torch
 from mpi4py import MPI
-from gpu_aware_mpi import allgather, reduce_scatter, send, recv
+from gpu_aware_mpi import allgather, reduce_scatter, send, recv, barrier
 
-def create_buffer(arch_type, size):
+def create_buffer(arch_type, size, rank):
     if arch_type == 'cuda':
         return torch.ones(size, dtype=torch.float32, device='cuda')
     elif arch_type == 'rocm':
-        return torch.ones(size, dtype=torch.float32, device='cuda')  # ROCm uses the same device string
+        return torch.ones(size, dtype=torch.float32, device='cuda:' + str(rank))  # ROCm uses the same device string
     else:
         return torch.ones(size, dtype=torch.float32, device='cpu')
 
@@ -24,17 +24,17 @@ def benchmark_collective(comm, collective_fn, send_size, recv_size, expected_val
         collective_fn(sendbuf, recvbuf)
 
     # Timing the collective operation
-    comm.Barrier()
+    barrier()
     t0 = time.time()
     for _ in range(num_iters):
         collective_fn(sendbuf, recvbuf)
-    comm.Barrier()
+    barrier()
     dt = time.time() - t0
 
     # Verify correctness
     assert torch.allclose(recvbuf, torch.full_like(recvbuf, expected_value), atol=1e-6), "Verification failed"
 
-    # Calculate bandwidth (assumes float32)    
+    # Calculate bandwidth (assumes float32)
     total_data = send_size * 4 * 2 * size  # 4 bytes per float32, 2 for send/recv
     bandwidth = (total_data / dt) / 1e9  # GB/s
     return bandwidth
@@ -42,29 +42,29 @@ def benchmark_collective(comm, collective_fn, send_size, recv_size, expected_val
 def send_recv(comm, sendbuf, i):
     sender = i % 2
     rank = comm.Get_rank()
-    comm.Barrier()
+    barrier()
     if rank == sender:
         send(sendbuf, (rank + 1) % 2)
     else:
         recv(sendbuf, (rank + 1) % 2)
-    comm.Barrier()
+    barrier()
 
 def benchmark_send_recv(comm, data_size, num_iters=100, warmup=10):
     rank = comm.Get_rank()
-    sendbuf = create_buffer(args.arch_type, data_size).contiguous()
+    sendbuf = create_buffer(args.arch_type, data_size, rank).contiguous()
 
     if rank == 1:
         torch.zero_(sendbuf)
 
-    for i in range(warmup):
+    for i in range(0, warmup * 2, 2):
         send_recv(comm, sendbuf, i)
 
     # Timing the collective operation
-    comm.Barrier()
+    barrier()
     t0 = time.time()
-    for i in range(num_iters):
+    for i in range(0, num_iters * 2, 2):
         send_recv(comm, sendbuf, i)
-    comm.Barrier()
+    barrier()
     dt = time.time() - t0
 
     # Verify correctness
@@ -73,6 +73,7 @@ def benchmark_send_recv(comm, data_size, num_iters=100, warmup=10):
     total_data = data_size * 4 * num_iters
     bandwidth = (total_data / dt) / 1e9  # GB/s
     return bandwidth
+
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -83,8 +84,7 @@ if __name__ == "__main__":
     rank = comm.Get_rank()
     size = comm.Get_size()
 
-    # Scale data size with number of processes (1MB per process)
-    data_size = 262144 * 16 
+    data_size = 262144 * 64 
 
     print(f"Rank {rank} of {size} running with data size {data_size}")
 
@@ -93,25 +93,23 @@ if __name__ == "__main__":
     if rank == 0:
         print(f"Send/Recv (GB/s): {bandwidth:.6}")
 
-    '''
-    collectives = {
-        'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
-        'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf), data_size, data_size // size, size * 1.0),
-    }
+    # collectives = {
+    #     'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
+    #     'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf), data_size, data_size // size, size * 1.0),
+    # }
 
-    results = {}
-    
-    for name, info in collectives.items():
-        bw = benchmark_collective(comm, info[0], info[1], info[2], info[3])
-        if rank == 0:
-            results[name] = bw
+    # results = {}
+    #
+    # for name, info in collectives.items():
+    #     bw = benchmark_collective(comm, info[0], info[1], info[2], info[3])
+    #     if rank == 0:
+    #         results[name] = bw
 
-    if rank == 0:
-        print("\nBenchmark Results (GB/s):")
-        for name, bw in results.items():
-            bw_scientific = '{:.2e}'.format(bw)
-            print(f"{name}: {bw_scientific}")
-    '''
+    # if rank == 0:
+    #     print("\nBenchmark Results (GB/s):")
+    #     for name, bw in results.items():
+    #         bw_scientific = '{:.2e}'.format(bw)
+    #         print(f"{name}: {bw_scientific}")
 
 
 # For CUDA GPUs
@@ -122,4 +120,3 @@ if __name__ == "__main__":
 
 # For CPU
 # mpirun --allow-run-as-root --oversubscribe -np 2 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type cpu
-
