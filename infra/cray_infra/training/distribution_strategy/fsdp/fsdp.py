@@ -268,15 +268,15 @@ def shard_tensor(tensor):
 
     # Gather metadata from all ranks
     local_metadata = torch.tensor([original_numel, *original_shape, shard_size, padding], dtype=torch.long)
-    all_metadata = [torch.zeros_like(local_metadata) for _ in range(world_size)]
-    allgather(all_metadata, local_metadata)
+    all_metadata = torch.zeros((world_size, local_metadata.numel()), dtype=torch.long)
+    allgather(local_metadata, all_metadata)
 
     # Create a dictionary of metadata keyed by rank
-    metadata_dict = {rank: meta.tolist() for rank, meta in enumerate(all_metadata)}
+    metadata_dict = {rank: all_metadata[rank].tolist() for rank in range(world_size)}
 
     # Convert metadata back to original format
     metadata_dict = {rank: (meta[0], tuple(meta[1:-2]), meta[-2], meta[-1]) for rank, meta in metadata_dict.items()}
-
+    
     return shard, metadata_dict
 
 
