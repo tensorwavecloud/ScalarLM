@@ -144,6 +144,13 @@ WORKDIR ${INSTALL_ROOT}
 COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
 RUN python ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py install
 
+ENV OMPI_MCA_pml=ucx
+ENV OMPI_MCA_osc=ucx
+ENV OMPI_MCA_coll_ucc_enable=1
+ENV OMPI_MCA_coll_ucc_priority=100
+ENV UCX_TLS=rc,cuda,rocm
+ENV UCX_ROCM_GDR_ENABLE=y
+
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm
