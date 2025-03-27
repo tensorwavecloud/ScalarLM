@@ -66,9 +66,11 @@ RUN pip install pyhip>=1.1.0
 RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
+ARG INSTALL_ROOT=/app/cray
+WORKDIR ${INSTALL_ROOT}
+
 COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
-RUN cd ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi && \
-    python3 setup.py bdist_wheel --dist-dir=dist && \
+RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py bdist_wheel --dist-dir=dist && \
     pip install dist/*.whl
 
 ###############################################################################
