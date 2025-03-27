@@ -17,6 +17,8 @@ library_dirs = []
 compile_defines = []
 libraries = ['mpi']
 
+os.environ['CXX'] = '/opt/ompi-rocm/bin/mpicxx'
+
 if platform == 'rocm':
     compile_defines.append(('USE_ROCM', '1'))
     include_dirs.extend([
