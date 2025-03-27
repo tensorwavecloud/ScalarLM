@@ -85,19 +85,6 @@ void mpi_recv(torch::Tensor& tensor, int source) {
         std::cout << "Received message from unexpected source: " << status.MPI_SOURCE << " != " << source << std::endl;
         throw std::runtime_error("Received message from unexpected source: " + std::to_string(status.MPI_SOURCE) + " != " + std::to_string(source));
     }
-
-    // Check for errors
-    int error;
-
-    MPI_Error_class(status.MPI_ERROR, &error);
-
-    if (error != MPI_SUCCESS) {
-        char error_string[MPI_MAX_ERROR_STRING] = {0};
-        int length;
-        MPI_Error_string(error, error_string, &length);
-        std::cout << "Received error: " << error_string << " (" << error << ")" << std::endl;
-        throw std::runtime_error(error_string);
-    }
 }
 
 void barrier() {
