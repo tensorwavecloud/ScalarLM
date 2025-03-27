@@ -148,8 +148,7 @@ ENV OMPI_MCA_pml=ucx
 ENV OMPI_MCA_osc=ucx
 ENV OMPI_MCA_coll_ucc_enable=1
 ENV OMPI_MCA_coll_ucc_priority=100
-ENV UCX_TLS=rc,cuda,rocm
-ENV UCX_ROCM_GDR_ENABLE=y
+ENV UCX_TLS=sm,self,rocm
 
 ###############################################################################
 # VLLM BUILD STAGE

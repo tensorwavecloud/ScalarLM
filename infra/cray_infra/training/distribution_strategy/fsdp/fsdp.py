@@ -1,8 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
-from mpi4py import MPI
-from gpu_aware_mpi import allgather, reduce_scatter
+from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter
 
 import gc
 import time
@@ -240,10 +239,8 @@ class SimpleFSDP(nn.Module):
                 )
 
 
-comm = MPI.COMM_WORLD
-world_size = comm.Get_size()
-rank = comm.Get_rank()
-
+world_size = get_size()
+rank = get_rank()
 
 def shard_tensor(tensor):
     """Evenly shard tensor across ranks with padding if needed.
@@ -270,11 +267,15 @@ def shard_tensor(tensor):
     shard = tensor_padded[start : start + shard_size].clone()
 
     # Gather metadata from all ranks
-    local_metadata = (original_numel, original_shape, shard_size, padding)
-    all_metadata = comm.allgather(local_metadata)  # Gather metadata from all ranks
+    local_metadata = torch.tensor([original_numel, *original_shape, shard_size, padding], dtype=torch.long)
+    all_metadata = [torch.zeros_like(local_metadata) for _ in range(world_size)]
+    allgather(all_metadata, local_metadata)
 
     # Create a dictionary of metadata keyed by rank
-    metadata_dict = {rank: meta for rank, meta in enumerate(all_metadata)}
+    metadata_dict = {rank: meta.tolist() for rank, meta in enumerate(all_metadata)}
+
+    # Convert metadata back to original format
+    metadata_dict = {rank: (meta[0], tuple(meta[1:-2]), meta[-2], meta[-1]) for rank, meta in metadata_dict.items()}
 
     return shard, metadata_dict
 
@@ -344,9 +345,8 @@ def collectives_all_gather(shard, metadata_dict):
 
 def collectives_reduce_scatter(tensor, metadata_dict):
     """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
-    world_size = comm.Get_size()
+    rank = get_rank()
+    world_size = get_size()
 
     original_numel, _, shard_size, padding = metadata_dict[rank]
 

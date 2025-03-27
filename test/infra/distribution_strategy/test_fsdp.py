@@ -3,8 +3,7 @@ import torch.nn as nn
 import numpy as np
 import logging
 import random
-import math
-from mpi4py import MPI
+from gpu_aware_mpi import get_rank
 
 from infra.cray_infra.training.distribution_strategy.fsdp.fsdp import SimpleFSDP
 
@@ -58,8 +57,7 @@ def test_sequential_model(rank, device):
     assert loss.item() > 0
 
 if __name__ == "__main__":
-    comm = MPI.COMM_WORLD
-    rank = comm.Get_rank()
+    rank = get_rank()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     test_sequential_model(rank, device)
