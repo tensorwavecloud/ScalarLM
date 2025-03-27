@@ -99,12 +99,13 @@ ENV PATH=$MPI_HOME/bin:$PATH
 ENV LD_LIBRARY_PATH=$MPI_HOME/lib:$LD_LIBRARY_PATH
 ENV CMAKE_PREFIX_PATH=$MPI_HOME:$CMAKE_PREFIX_PATH
 ENV ROCM_PATH=/opt/rocm
-ENV PATH=$ROCM_PATH/bin:$PATH
+ENV PATH=$ROCM_PATH/bin:$ROCM_PATH/hip/bin:$PATH
 ENV LD_LIBRARY_PATH=$ROCM_PATH/lib:$LD_LIBRARY_PATH
 ENV USE_ROCM=1
 ENV USE_MPI=1
 ENV MPI_INCLUDE_DIR=$MPI_HOME/include
 ENV MPI_LIBRARY=$MPI_HOME/lib/libmpi.so
+ENV PYTORCH_ROCM_ARCH=gfx942
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -130,11 +131,9 @@ RUN pip3 install -r requirements.txt
 
 # Build PyTorch
 RUN python3 setup.py clean
+RUN python3 tools/amd_build/build_amd.py
 RUN python3 setup.py build
 RUN python3 setup.py install
-
-# Verify installation
-RUN python3 -c "import torch; print(torch.__version__); print(torch.distributed.is_mpi_available()); print(torch.cuda.is_available()); print(torch.version.hip)"
 
 # Set the default command
 CMD ["/bin/bash"]
