@@ -58,7 +58,7 @@ void mpi_send(torch::Tensor& tensor, int dest) {
     ensure_mpi_initialized();
     void* ptr = tensor.data_ptr();
     int count = tensor.numel();
-    MPI_Datatype datatype = get_mpi_datatype(tensor);
+    MPI_Datatype datatype = MPI_FLOAT;
 
     MPI_Send(ptr, count, datatype, dest, 0, MPI_COMM_WORLD);
 }
@@ -67,7 +67,7 @@ void mpi_recv(torch::Tensor& tensor, int source) {
     ensure_mpi_initialized();
     void* ptr = tensor.data_ptr();
     int count = tensor.numel();
-    MPI_Datatype datatype = get_mpi_datatype(tensor);
+    MPI_Datatype datatype = MPI_FLOAT;
 
     MPI_Status status;
 
