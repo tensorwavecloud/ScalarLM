@@ -3,7 +3,7 @@ import torch.nn as nn
 import numpy as np
 import logging
 import random
-from gpu_aware_mpi import get_rank, mpi_finalize
+from gpu_aware_mpi import get_rank, finalize_mpi
 
 from infra.cray_infra.training.distribution_strategy.fsdp.fsdp import SimpleFSDP
 
@@ -61,7 +61,7 @@ if __name__ == "__main__":
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     test_sequential_model(rank, device)
-    mpi_finalize()
+    finalize_mpi()
 
 # PYTHONPATH=/app/cray/ mpirun --allow-run-as-root -np 2 --oversubscribe python test/infra/distribution_strategy/test_fsdp.py
 # PYTHONPATH=/app/cray/ mpirun --allow-run-as-root -np 4 --oversubscribe python test/infra/distribution_strategy/test_fsdp.py
