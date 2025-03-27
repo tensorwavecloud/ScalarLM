@@ -353,7 +353,7 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     # Pad tensor if needed
     tensor_padded = tensor.reshape(-1)
     if padding > 0:
-        tensor_padded = torch.concatenate([tensor_padded, torch.zeros(padding, dtype=tensor_padded.dtype)])
+        tensor_padded = torch.concatenate([tensor_padded, torch.zeros(padding, device=tensor.device, dtype=tensor_padded.dtype)])
 
     tensor_padded = tensor_padded.contiguous()
     local_shard = torch.empty(shard_size, device=tensor.device, dtype=tensor_padded.dtype).contiguous()
