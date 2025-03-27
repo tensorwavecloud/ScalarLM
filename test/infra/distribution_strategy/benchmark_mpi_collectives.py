@@ -1,7 +1,6 @@
 import argparse
 import time
 import torch
-from mpi4py import MPI
 from gpu_aware_mpi import allgather, reduce_scatter, send, recv, barrier, get_rank, get_size
 
 def create_buffer(arch_type, size, rank):

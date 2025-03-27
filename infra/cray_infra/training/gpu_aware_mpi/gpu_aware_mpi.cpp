@@ -3,6 +3,15 @@
 #include <stdexcept>
 #include <iostream>
 
+static bool mpi_initialized = false;
+
+void ensure_mpi_initialized() {
+    if (!mpi_initialized) {
+        MPI_Init(nullptr, nullptr);
+        mpi_initialized = true;
+    }
+}
+
 MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
     switch (tensor.scalar_type()) {
         case torch::kFloat32: return MPI_FLOAT;
@@ -16,6 +25,7 @@ MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
 }
 
 void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
+    ensure_mpi_initialized();
     void* send_ptr = sendbuf.data_ptr();
     void* recv_ptr = recvbuf.data_ptr();
 
@@ -26,6 +36,7 @@ void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
 }
 
 void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
+    ensure_mpi_initialized();
     void* send_ptr = sendbuf.data_ptr();
     void* recv_ptr = recvbuf.data_ptr();
     
@@ -44,6 +55,7 @@ void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
 }
 
 void mpi_send(torch::Tensor& tensor, int dest) {
+    ensure_mpi_initialized();
     void* ptr = tensor.data_ptr();
     int count = tensor.numel();
     MPI_Datatype datatype = get_mpi_datatype(tensor);
@@ -52,6 +64,7 @@ void mpi_send(torch::Tensor& tensor, int dest) {
 }
 
 void mpi_recv(torch::Tensor& tensor, int source) {
+    ensure_mpi_initialized();
     void* ptr = tensor.data_ptr();
     int count = tensor.numel();
     MPI_Datatype datatype = get_mpi_datatype(tensor);
@@ -88,19 +101,29 @@ void mpi_recv(torch::Tensor& tensor, int source) {
 }
 
 void barrier() {
+    ensure_mpi_initialized();
     MPI_Barrier(MPI_COMM_WORLD);
 }
 
 int get_rank() {
+    ensure_mpi_initialized();
     int rank;
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     return rank;
 }
 
 int get_size() {
+    ensure_mpi_initialized();
     int size;
     MPI_Comm_size(MPI_COMM_WORLD, &size);
     return size;
+}
+
+void finalize_mpi() {
+    if (mpi_initialized) {
+        MPI_Finalize();
+        mpi_initialized = false;
+    }
 }
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
@@ -111,4 +134,5 @@ PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("barrier", &barrier, "MPI Barrier");
     m.def("get_rank", &get_rank, "Get MPI rank");
     m.def("get_size", &get_size, "Get MPI world size");
+    m.def("finalize_mpi", &finalize_mpi, "Finalize MPI");
 }

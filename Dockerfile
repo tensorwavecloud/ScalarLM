@@ -23,9 +23,6 @@ RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION}
 RUN uv pip install xformers==0.0.27.post2
 
-RUN pip install mpi4py==4.0.3
-RUN pip install openmpi==0.0.0
-
 ENV BASE_NAME=nvidia
 
 ###############################################################################
@@ -50,9 +47,6 @@ ARG TORCH_VERSION="2.4.0"
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.org/whl/cpu
 
-RUN pip install mpi4py==4.0.3
-RUN pip install openmpi==0.0.0
-
 COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
 RUN python ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py install
 
@@ -72,8 +66,8 @@ RUN pip install pyhip>=1.1.0
 RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
-RUN pip install mpi4py==4.0.3
-RUN pip install openmpi==0.0.0
+# Uninstall existing pytorch and dependencies
+RUN pip uninstall torch torchvision torchaudio -y
 
 # Set environment variables
 ENV ROCM_PATH=/opt/rocm
@@ -98,6 +92,52 @@ RUN cd / && \
     make -j$(nproc) && make install
 
 ENV PATH="/opt/ompi-rocm/bin:${PATH}"
+
+# Reinstall pytorch with ROCM and ROCM-aware MPI support
+ENV MPI_HOME=/opt/ompi-rocm
+ENV PATH=$MPI_HOME/bin:$PATH
+ENV LD_LIBRARY_PATH=$MPI_HOME/lib:$LD_LIBRARY_PATH
+ENV CMAKE_PREFIX_PATH=$MPI_HOME:$CMAKE_PREFIX_PATH
+ENV ROCM_PATH=/opt/rocm
+ENV PATH=$ROCM_PATH/bin:$PATH
+ENV LD_LIBRARY_PATH=$ROCM_PATH/lib:$LD_LIBRARY_PATH
+ENV USE_ROCM=1
+ENV USE_MPI=1
+ENV MPI_INCLUDE_DIR=$MPI_HOME/include
+ENV MPI_LIBRARY=$MPI_HOME/lib/libmpi.so
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install Python dependencies
+RUN pip3 install --upgrade pip
+RUN pip3 install cmake ninja
+
+# Clone PyTorch repository
+WORKDIR /opt
+RUN git clone --recursive https://github.com/pytorch/pytorch
+WORKDIR /opt/pytorch
+
+RUN git submodule sync && git submodule update --init --recursive
+
+# Install PyTorch dependencies
+RUN pip3 install -r requirements.txt
+
+# Build PyTorch
+RUN python3 setup.py clean
+RUN python3 setup.py build
+RUN python3 setup.py install
+
+# Verify installation
+RUN python3 -c "import torch; print(torch.__version__); print(torch.distributed.is_mpi_available()); print(torch.cuda.is_available()); print(torch.version.hip)"
+
+# Set the default command
+CMD ["/bin/bash"]
 
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
