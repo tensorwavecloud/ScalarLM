@@ -1,7 +1,7 @@
 import argparse
 import time
 import torch
-from gpu_aware_mpi import allgather, reduce_scatter, send, recv, barrier, get_rank, get_size, mpi_finalize
+from gpu_aware_mpi import allgather, reduce_scatter, send, recv, barrier, get_rank, get_size, finalize_mpi
 
 def create_buffer(arch_type, size, rank):
     if arch_type == 'cuda':
@@ -90,7 +90,7 @@ if __name__ == "__main__":
     if rank == 0:
         print(f"Send/Recv (GB/s): {bandwidth:.6}")
         
-    mpi_finalize()
+    finalize_mpi()
 
     # collectives = {
     #     'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
