@@ -21,10 +21,10 @@ def create_llama_tokenformer_model(model, device, train_lm_head = None):
     tokenformer_model = TransformersTokenformerSurgeon(model, device).insert_adapter_modules()
 
     if train_lm_head is None:
-        # Big models with more than 10M parameters don't need to train the lm_head
+        # Big models with more than 100M parameters don't need to train the lm_head
         # and getting the gradient scale right can be tricky.
         # Finally, the lm_head can be big and slow down adaptor loading in inference.
-        train_lm_head = count_parameters(tokenformer_model) < 10_000_000
+        train_lm_head = count_parameters(tokenformer_model) < 100_000_000
 
     # Freeze all parameters
     for param in tokenformer_model.parameters():
