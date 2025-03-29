@@ -1,0 +1,114 @@
+import torch
+import json
+import time
+
+from tqdm import tqdm
+
+import logging
+
+logger = logging.getLogger(__name__)
+
+# List of memcpy sizes, in bytes, should be multiples of the page size
+memcpy_sizes = [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576]
+
+
+def main():
+    benchmark_memcpy_peer()
+
+
+def benchmark_memcpy_peer():
+    logger.info("Running memcpy peer benchmark")
+    results = run_memcpy_peer_benchmark()
+
+    save_results(results)
+
+
+def run_memcpy_peer_benchmark():
+
+    warmup()
+
+    results = {}
+
+    for size in tqdm(memcpy_sizes):
+        results[size] = run_memcpy_peer(size)
+
+    return results
+
+
+def warmup():
+    run_memcpy_peer(4096)
+
+
+def run_memcpy_peer(size):
+    a = torch.randn(size, device=get_device(0))
+    b = torch.randn(size, device=get_device(1))
+
+    start = get_event()
+    end = get_event()
+
+    # 16MB
+    total_data_copied = 64 * 1024 * 1024
+
+    iterations = total_data_copied // size
+
+    barrier()
+
+    start.record()
+    for _ in range(iterations):
+        b.copy_(a)
+    end.record()
+
+    barrier()
+    time = start.elapsed_time(end) * 1e-3 / iterations
+
+    return {
+        "size": size,
+        "time": time,
+        "bandwidth": size / time,
+        "GB/s": size / time / 1e9,
+    }
+
+
+def get_device(index):
+    if torch.cuda.is_available():
+        max_devices = torch.cuda.device_count()
+        return torch.device(f"cuda:{index % max_devices}")
+    else:
+        return torch.device("cpu")
+
+
+class CPUEvent:
+    def __init__(self):
+        self.time = 0
+
+    def record(self):
+        self.time = time.time()
+
+    def elapsed_time(self, other):
+        return (other.time - self.time) * 1e3
+
+
+def get_event():
+    if torch.cuda.is_available():
+        return torch.cuda.Event(enable_timing=True)
+    else:
+        return CPUEvent()
+
+
+def barrier():
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()
+    else:
+        pass
+
+
+def save_results(results):
+    # Save results to a json file
+    path = "/app/cray/data/benchmark_memcpy_peer.json"
+
+    with open(path, "w") as f:
+        json.dump(results, f)
+
+
+if __name__ == "__main__":
+    main()
