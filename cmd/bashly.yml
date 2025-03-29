@@ -107,3 +107,6 @@ commands:
 - name: pypi
   help: Publish the cray package to pypi
 
+- name: benchmark
+  help: Run the benchmark tests
+

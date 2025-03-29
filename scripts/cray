@@ -35,6 +35,7 @@ cray_usage() {
   printf "  %s   Invoke the LLM tool\n" "llm        "
   printf "  %s   Evaluate a diffusion model\n" "diffusion  "
   printf "  %s   Publish the cray package to pypi\n" "pypi       "
+  printf "  %s   Run the benchmark tests\n" "benchmark  "
   echo
 
   # :command.long_usage
@@ -438,6 +439,27 @@ cray_pypi_usage() {
   printf "%s\n" "Usage:"
   printf "  cray pypi\n"
   printf "  cray pypi --help | -h\n"
+  echo
+
+  # :command.long_usage
+  if [[ -n "$long_usage" ]]; then
+    printf "%s\n" "Options:"
+
+    # :command.usage_fixed_flags
+    printf "  %s\n" "--help, -h"
+    printf "    Show this help\n"
+    echo
+
+  fi
+}
+
+# :command.usage
+cray_benchmark_usage() {
+  printf "cray benchmark - Run the benchmark tests\n\n"
+
+  printf "%s\n" "Usage:"
+  printf "  cray benchmark\n"
+  printf "  cray benchmark --help | -h\n"
   echo
 
   # :command.long_usage
@@ -1031,6 +1053,44 @@ cray_pypi_command() {
 
 }
 
+# :command.function
+cray_benchmark_command() {
+
+  # cmd/benchmark_command.sh
+  inspect_args
+
+  ./cray build-image
+
+  declare -a benchmark_command_parts
+  benchmark_command_parts=(
+        "python" "/app/cray/test/benchmark/main.py"
+  )
+
+  benchmark_command="${benchmark_command_parts[*]}"
+
+  echo $command
+
+  # Get the directory of this script
+  LOCAL_DIRECTORY="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
+
+  # Set cwd to the project root directory
+  ROOT_DIRECTORY=$LOCAL_DIRECTORY/..
+
+  declare -a docker_command_parts
+
+  # Make sure the data directory exists
+  mkdir -p $ROOT_DIRECTORY/data
+
+  docker_command_parts=("docker" "run" "--rm" "--network" "host" "-v" "$ROOT_DIRECTORY/data:/app/cray/data")
+
+  docker_command_parts+=("cray:latest" "sh" "-c" "'$benchmark_command'")
+
+  docker_command="${docker_command_parts[*]}"
+  echo $docker_command
+  eval $docker_command
+
+}
+
 # :command.parse_requirements
 parse_requirements() {
   # :command.fixed_flags_filter
@@ -1121,6 +1181,13 @@ parse_requirements() {
       action="pypi"
       shift
       cray_pypi_parse_requirements "$@"
+      shift $#
+      ;;
+
+    benchmark)
+      action="benchmark"
+      shift
+      cray_benchmark_parse_requirements "$@"
       shift $#
       ;;
 
@@ -1973,6 +2040,51 @@ cray_pypi_parse_requirements() {
 
 }
 
+# :command.parse_requirements
+cray_benchmark_parse_requirements() {
+  # :command.fixed_flags_filter
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+      --help | -h)
+        long_usage=yes
+        cray_benchmark_usage
+        exit
+        ;;
+
+      *)
+        break
+        ;;
+
+    esac
+  done
+
+  # :command.command_filter
+  action="benchmark"
+
+  # :command.parse_requirements_while
+  while [[ $# -gt 0 ]]; do
+    key="$1"
+    case "$key" in
+
+      -?*)
+        printf "invalid option: %s\n" "$key" >&2
+        exit 1
+        ;;
+
+      *)
+        # :command.parse_requirements_case
+        # :command.parse_requirements_case_simple
+        printf "invalid argument: %s\n" "$key" >&2
+        exit 1
+
+        ;;
+
+    esac
+  done
+
+}
+
 # :command.initialize
 initialize() {
   declare -g version="0.1.0"
@@ -2006,6 +2118,7 @@ run() {
     "llm squeue") cray_llm_squeue_command ;;
     "diffusion") cray_diffusion_command ;;
     "pypi") cray_pypi_command ;;
+    "benchmark") cray_benchmark_command ;;
   esac
 }
 
