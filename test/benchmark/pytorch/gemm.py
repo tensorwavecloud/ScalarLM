@@ -7,29 +7,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-# Common sizes used in LLMs
-
-llama_100m_sizes = [
-    (256, 256, 2048),
-    (16384, 256, 2048),
-    (2048, 256, 1024),
-]
-
-llama_1b_sizes = [
-    (2048, 2048, 2048),
-    (128256, 2048, 2048),
-    (2048, 2048, 8192),
-]
-
-
-llama_8b_sizes = [
-    (4096, 4096, 2048),
-    (128256, 4096, 2048),
-    (2048, 4096, 14336),
-]
-
-gemm_sizes = llama_100m_sizes
-
 
 def main():
     benchmark_gemm()
@@ -60,9 +37,9 @@ def warmup():
 
 def run_gemm(size):
     m, n, k = size
-    a = torch.randn(m, k, dtype=torch.float32)
-    b = torch.randn(k, n, dtype=torch.float32)
-    c = torch.randn(m, n, dtype=torch.float32)
+    a = torch.randn(m, k, dtype=torch.float16)
+    b = torch.randn(k, n, dtype=torch.float16)
+    c = torch.randn(m, n, dtype=torch.float16)
 
     # run at least 1 second
     start_time = time.time()
@@ -116,12 +93,76 @@ def barrier():
         pass
 
 
+def select_appropriate_size_for_this_machine():
+    # Try a small GEMM, and time it
+    # If it runs too fast, select a bigger model
+    # If it runs too slow, select a smaller model
+
+    tiny_gemm = (256, 256, 256)
+
+    metrics = run_gemm(tiny_gemm)
+
+    # Get the total number of flops in each model
+
+    def get_flops(size):
+        m, n, k = size
+        return 2 * m * n * k
+
+    tiny_flops = get_flops(tiny_gemm)
+
+    # get the flops for each llama model
+    llama_100m_flops = sum([get_flops(size) for size in llama_100m_sizes])
+    llama_1b_flops = sum([get_flops(size) for size in llama_1b_sizes])
+    llama_8b_flops = sum([get_flops(size) for size in llama_8b_sizes])
+
+    # Get the time it took to run the tiny gemm
+    tiny_time = metrics["time"]
+
+    # Get the time it would take to run each llama model
+    llama_100m_time = llama_100m_flops / tiny_flops * tiny_time
+    llama_1b_time = llama_1b_flops / tiny_flops * tiny_time
+    llama_8b_time = llama_8b_flops / tiny_flops * tiny_time
+
+    # Select the smallest model that will take at most 10 seconds to run
+    if llama_100m_time < 10:
+        return llama_100m_sizes
+    elif llama_1b_time < 10:
+        return llama_1b_sizes
+    elif llama_8b_time < 10:
+        return llama_8b_sizes
+    else:
+        return [tiny_gemm]
+
+
 def save_results(results):
     # Save results to a json file
     path = "/app/cray/data/benchmark_gemm.json"
 
     with open(path, "w") as f:
         json.dump(results, f)
+
+# Common sizes used in LLMs
+
+llama_100m_sizes = [
+    (256, 256, 2048),
+    (16384, 256, 2048),
+    (2048, 256, 1024),
+]
+
+llama_1b_sizes = [
+    (2048, 2048, 2048),
+    (128256, 2048, 2048),
+    (2048, 2048, 8192),
+]
+
+
+llama_8b_sizes = [
+    (4096, 4096, 2048),
+    (128256, 4096, 2048),
+    (2048, 4096, 14336),
+]
+
+gemm_sizes = select_appropriate_size_for_this_machine()
 
 
 if __name__ == "__main__":
