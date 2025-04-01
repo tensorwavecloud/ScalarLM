@@ -172,6 +172,7 @@ class cmake_build_ext(build_ext):
             cmake_args += [
                 "-DCMAKE_JOB_POOL_COMPILE:STRING=compile",
                 "-DCMAKE_JOB_POOLS:STRING=compile={}".format(num_jobs),
+                "-DCMAKE_POLICY_VERSION_MINIMUM=3.5",
             ]
         else:
             # Default build tool to whatever cmake picks.
