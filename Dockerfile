@@ -80,6 +80,9 @@ ENV HIP_FORCE_DEV_KERNARG=1
 # Uninstall existing pytorch and dependencies
 RUN pip uninstall torch torchvision torchaudio -y
 
+# Remove existing openmpi 
+RUN apt-get remove --purge -y openmpi-bin libopenmpi-dev
+
 # Set environment variables
 ENV ROCM_PATH=/opt/rocm
 
@@ -105,6 +108,10 @@ RUN cd / && \
 ENV PATH="/opt/ompi-rocm/bin:${PATH}"
 
 # Reinstall pytorch with ROCM and ROCM-aware MPI support
+ARG PYTORCH_BRANCH="3a585126"
+ARG PYTORCH_VISION_BRANCH="v0.19.1"
+ARG PYTORCH_REPO="https://github.com/pytorch/pytorch.git"
+ARG PYTORCH_VISION_REPO="https://github.com/pytorch/vision.git"
 ENV MPI_HOME=/opt/ompi-rocm
 ENV PATH=$MPI_HOME/bin:$PATH
 ENV LD_LIBRARY_PATH=$MPI_HOME/lib:$LD_LIBRARY_PATH
@@ -116,7 +123,7 @@ ENV USE_ROCM=1
 ENV USE_MPI=1
 ENV MPI_INCLUDE_DIR=$MPI_HOME/include
 ENV MPI_LIBRARY=$MPI_HOME/lib/libmpi.so
-ENV PYTORCH_ROCM_ARCH=gfx942
+ENV PYTORCH_ROCM_ARCH=gfx90a;gfx942
 
 # Set OpenMPI variables for optimal performance
 ENV OMPI_MCA_pml=ucx
@@ -137,21 +144,34 @@ RUN apt-get update && apt-get install -y \
 RUN pip3 install --upgrade pip
 RUN pip3 install cmake ninja
 
-# Clone PyTorch repository
-WORKDIR /opt
-RUN git clone --recursive https://github.com/pytorch/pytorch
-WORKDIR /opt/pytorch
+# Set working directory
+WORKDIR /pytorch
 
-RUN git submodule sync && git submodule update --init --recursive
+# Clone and build PyTorch
+RUN git clone ${PYTORCH_REPO} pytorch && \
+    cd pytorch && \
+    git checkout ${PYTORCH_BRANCH} && \
+    pip install -r requirements.txt && \
+    git submodule update --init --recursive && \
+    python3 tools/amd_build/build_amd.py && \
+    CMAKE_PREFIX_PATH=$(python3 -c 'import sys; print(sys.prefix)') python3 setup.py bdist_wheel --dist-dir=dist && \
+    pip install dist/*.whl
 
-# Install PyTorch dependencies
-RUN pip3 install -r requirements.txt
+# Clone and build torchvision
+RUN git clone ${PYTORCH_VISION_REPO} vision && \
+    cd vision && \
+    git checkout ${PYTORCH_VISION_BRANCH} && \
+    python3 setup.py bdist_wheel --dist-dir=dist && \
+    pip install dist/*.whl
 
-# Build PyTorch
-RUN python3 setup.py clean
-RUN python3 tools/amd_build/build_amd.py
-RUN python3 setup.py build
-RUN python3 setup.py install
+# Copy all wheel files to installation directory
+RUN cp /pytorch/pytorch/dist/*.whl /app/install && \
+    cp /pytorch/vision/dist/*.whl /app/install
+
+RUN python -m venv /app/venv
+ENV PATH="/app/venv/bin:$PATH"
+
+RUN pip install /app/install/*.whl
 
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
