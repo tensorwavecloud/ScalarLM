@@ -77,6 +77,82 @@ RUN pip install pyhip>=1.1.0
 RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
+# Uninstall existing pytorch and dependencies
+RUN pip uninstall torch torchvision torchaudio -y
+
+# Set environment variables
+ENV ROCM_PATH=/opt/rocm
+
+# Clone and build UCX
+RUN git clone https://github.com/openucx/ucx.git -b v1.15.x && \
+    cd ucx && \
+    ./autogen.sh && \
+    ./configure --prefix=/opt/ucx-rocm \
+      --with-rocm=$ROCM_PATH \
+      --enable-mt && \
+    make -j$(nproc) && make install
+
+# Build ROCM-Aware Open MPI
+RUN cd / && \
+    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz && \
+    tar -xvf openmpi-5.0.7.tar.gz && \
+    cd openmpi-5.0.7 && \
+    ./configure --prefix=/opt/ompi-rocm \
+      --with-ucx=/opt/ucx-rocm \
+      --with-rocm=$ROCM_PATH && \
+    make -j$(nproc) && make install
+
+ENV PATH="/opt/ompi-rocm/bin:${PATH}"
+
+# Reinstall pytorch with ROCM and ROCM-aware MPI support
+ENV MPI_HOME=/opt/ompi-rocm
+ENV PATH=$MPI_HOME/bin:$PATH
+ENV LD_LIBRARY_PATH=$MPI_HOME/lib:$LD_LIBRARY_PATH
+ENV CMAKE_PREFIX_PATH=$MPI_HOME:$CMAKE_PREFIX_PATH
+ENV ROCM_PATH=/opt/rocm
+ENV PATH=$ROCM_PATH/bin:$ROCM_PATH/hip/bin:$PATH
+ENV LD_LIBRARY_PATH=$ROCM_PATH/lib:$LD_LIBRARY_PATH
+ENV USE_ROCM=1
+ENV USE_MPI=1
+ENV MPI_INCLUDE_DIR=$MPI_HOME/include
+ENV MPI_LIBRARY=$MPI_HOME/lib/libmpi.so
+ENV PYTORCH_ROCM_ARCH=gfx942
+
+# Set OpenMPI variables for optimal performance
+ENV OMPI_MCA_pml=ucx
+ENV OMPI_MCA_osc=ucx
+ENV OMPI_MCA_coll_ucc_enable=1
+ENV OMPI_MCA_coll_ucc_priority=100
+ENV UCX_TLS=sm,self,rocm
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    python3-pip \
+    python3-dev \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip and install Python dependencies
+RUN pip3 install --upgrade pip
+RUN pip3 install cmake ninja
+
+# Clone PyTorch repository
+WORKDIR /opt
+RUN git clone --recursive https://github.com/pytorch/pytorch
+WORKDIR /opt/pytorch
+
+RUN git submodule sync && git submodule update --init --recursive
+
+# Install PyTorch dependencies
+RUN pip3 install -r requirements.txt
+
+# Build PyTorch
+RUN python3 setup.py clean
+RUN python3 tools/amd_build/build_amd.py
+RUN python3 setup.py build
+RUN python3 setup.py install
+
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
 
