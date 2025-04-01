@@ -148,11 +148,25 @@ RUN pip3 install cmake ninja
 WORKDIR /pytorch
 
 # Clone and build PyTorch
-RUN git clone ${PYTORCH_REPO} pytorch && \
+# Define ARGs or ENVs for repository and branch
+ARG PYTORCH_REPO=https://github.com/pytorch/pytorch.git
+ARG PYTORCH_BRANCH=main
+
+RUN set -e && \
+    git clone ${PYTORCH_REPO} pytorch && \
     cd pytorch && \
     git checkout ${PYTORCH_BRANCH} && \
     pip install -r requirements.txt && \
     git submodule update --init --recursive && \
+    # Update all CMakeLists.txt files in third_party directory
+    find third_party -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION .*$/cmake_minimum_required(VERSION 3.5)/I' {} + && \
+    # Update all CMakeLists.txt files in test directory
+    find test -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION .*$/cmake_minimum_required(VERSION 3.5)/I' {} + && \
+    # Update specific file in /opt/rocm if it exists
+    if [ -f /opt/rocm/lib/cmake/hiprtc/hiprtc-config.cmake ]; then \
+        sed -i 's/cmake_minimum_required(VERSION .*$/cmake_minimum_required(VERSION 3.5)/' /opt/rocm/lib/cmake/hiprtc/hiprtc-config.cmake; \
+    fi && \
+    # Build and install PyTorch
     python3 tools/amd_build/build_amd.py && \
     CMAKE_PREFIX_PATH=$(python3 -c 'import sys; print(sys.prefix)') python3 setup.py bdist_wheel --dist-dir=dist && \
     pip install dist/*.whl
