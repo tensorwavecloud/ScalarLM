@@ -63,6 +63,8 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
 
     model = AutoModelForCausalLM.from_pretrained(model_name)
 
+    model.to(get_device())
+
     # Input tokens are randomly generated ints between 0 and the model's vocab size
     input_ids = torch.randint(
         low=0, high=model.config.vocab_size, size=(batch_size, input_tokens)
@@ -118,6 +120,12 @@ def calculate_byte_count(model, batch_size, input_tokens, output_tokens):
     output_byte_count = batch_size * output_tokens * 4  # 4 bytes per int32
 
     return input_byte_count + output_byte_count + model_byte_count
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    else:
+        return torch.device("cpu")
 
 
 def save_results(results):

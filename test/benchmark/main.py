@@ -12,11 +12,11 @@ import logging
 def main():
     setup_logging()
 
-    #benchmark_memcpy()
-    #benchmark_memcpy_peer()
-    #benchmark_gemm()
-    #benchmark_forward()
-    #benchmark_backward()
+    benchmark_memcpy()
+    benchmark_memcpy_peer()
+    benchmark_gemm()
+    benchmark_forward()
+    benchmark_backward()
 
     plot_roofline()
     plot_bandwidth_sweep()

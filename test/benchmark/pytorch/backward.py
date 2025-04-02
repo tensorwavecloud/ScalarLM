@@ -60,6 +60,8 @@ def run_backward(model_name, batch_size, input_tokens):
 
     model = AutoModelForCausalLM.from_pretrained(model_name)
 
+    model.to(get_device())
+
     # Input tokens are randomly generated ints between 0 and the model's vocab size
     input_ids = torch.randint(
         low=0, high=model.config.vocab_size, size=(batch_size, input_tokens)
@@ -113,6 +115,13 @@ def calculate_byte_count(model, batch_size, input_tokens):
     return input_byte_count + model_byte_count
 
 
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    else:
+        return torch.device("cpu")
+
+
 def save_results(results):
     # Save results to a json file
     path = "/app/cray/data/benchmark_backward.json"
@@ -157,4 +166,3 @@ benchmark_model_list = [
     ["meta-llama/Llama-3.1-8B-Instruct", 1, 128],
     ["meta-llama/Llama-3.3-70B-Instruct", 1, 128],
 ]
-

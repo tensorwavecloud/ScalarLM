@@ -37,9 +37,9 @@ def warmup():
 
 def run_gemm(size):
     m, n, k = size
-    a = torch.randn(m, k, dtype=gemm_dtype)
-    b = torch.randn(k, n, dtype=gemm_dtype)
-    c = torch.randn(m, n, dtype=gemm_dtype)
+    a = torch.randn(m, k, dtype=gemm_dtype, device=get_device())
+    b = torch.randn(k, n, dtype=gemm_dtype, device=get_device())
+    c = torch.randn(m, n, dtype=gemm_dtype, device=get_device())
 
     # run at least 1 second
     start_time = time.time()
@@ -57,7 +57,7 @@ def run_gemm(size):
         iterations += 1
     end.record()
 
-    iterations=max(1,iterations)
+    iterations = max(1, iterations)
 
     barrier()
 
@@ -97,6 +97,13 @@ def barrier():
         torch.cuda.synchronize()
     else:
         pass
+
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    else:
+        return torch.device("cpu")
 
 
 def select_appropriate_size_for_this_machine():
@@ -146,6 +153,7 @@ def save_results(results):
 
     with open(path, "w") as f:
         json.dump(results, f)
+
 
 # Common sizes used in LLMs
 

@@ -1,12 +1,12 @@
+import matplotlib.pyplot as plt
+from textwrap import wrap
+
 import os
 import platform
 import subprocess
 import re
 import json
-from textwrap import wrap
-
-import matplotlib.pyplot as plt
-
+import torch
 
 def plot_roofline():
     machine_roofline = get_machine_roofline()
