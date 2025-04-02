@@ -1,6 +1,7 @@
 import torch
 import json
 import time
+
 from tqdm import tqdm
 
 import logging
@@ -8,27 +9,8 @@ import logging
 logger = logging.getLogger(__name__)
 
 # List of memcpy sizes, in bytes, should be multiples of the page size
-# Go up to the tensor size used in Llama 3 (4096 * 128256) = 525_336_576
-memcpy_sizes = [
-    4096,
-    8192,
-    16384,
-    32768,
-    65536,
-    131072,
-    262144,
-    524288,
-    1048576,
-    2097152,
-    4194304,
-    8388608,
-    16777216,
-    33554432,
-    67108864,
-    134217728,
-    268435456,
-    536870912
-]
+# Go up to the tensor size used in Llama 3 (4096 * 128256 * 4) = 2_101_346_304
+memcpy_sizes = [ i**2 for i in range(12, 64) if i**2 <= 2_101_346_304 ]
 
 
 def main():
@@ -62,19 +44,19 @@ def run_memcpy(size):
     a = torch.randn(size // 4) # size is in bytes, so divide by 4 to get number of floats
     b = torch.randn(size // 4)
 
-    # copy at least 16MB
-    total_data_copied = 16 * 1024 * 1024
-
-    iterations = max(1, total_data_copied // size)
-
+    # copy for at least 1 second
     barrier()
 
     start = get_event()
     end = get_event()
 
+    start_time = time.time()
+
     start.record()
-    for _ in range(iterations):
+    iterations = 0
+    while time.time() - start_time < 1:
         b.copy_(a)
+        iterations += 1
     end.record()
 
     barrier()
@@ -83,8 +65,9 @@ def run_memcpy(size):
     return {
         "operational_intensity": 1 / 4,  # 1 FLOP per 4 bytes
         "flop/s": size / 4 / time,
-        "size": size,
+        "bytes": size,
         "time": time,
+        "iterations": iterations,
         "bandwidth": size / time,
         "GB/s": size / time / 1e9,
     }
