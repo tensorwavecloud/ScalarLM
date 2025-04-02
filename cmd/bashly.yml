@@ -107,4 +107,7 @@ commands:
     - name: target
       allowed: ["cpu", "nvidia", "arm", "amd"]
       default: "cpu"
+    - name: visible-gpus
+      help: Comma separated list of the IDs of visible gpus
+      default: "0"
 

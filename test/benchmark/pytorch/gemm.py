@@ -110,7 +110,6 @@ def select_appropriate_size_for_this_machine():
     # Try a small GEMM, and time it
     # If it runs too fast, select a bigger model
     # If it runs too slow, select a smaller model
-
     tiny_gemm = (256, 256, 256)
 
     metrics = run_gemm(tiny_gemm)
@@ -122,6 +121,8 @@ def select_appropriate_size_for_this_machine():
         return 2 * m * n * k
 
     tiny_flops = get_flops(tiny_gemm)
+
+    logger.info(f"Tiny GEMM took {metrics['time']} seconds")
 
     # get the flops for each llama model
     llama_100m_flops = sum([get_flops(size) for size in llama_100m_sizes])
@@ -135,6 +136,10 @@ def select_appropriate_size_for_this_machine():
     llama_100m_time = llama_100m_flops / tiny_flops * tiny_time
     llama_1b_time = llama_1b_flops / tiny_flops * tiny_time
     llama_8b_time = llama_8b_flops / tiny_flops * tiny_time
+
+    logger.info(f"GEMM from llama_100m will take {llama_100m_time} seconds")
+    logger.info(f"GEMM from llama_1b will take {llama_1b_time} seconds")
+    logger.info(f"GEMM from llama_8b will take {llama_8b_time} seconds")
 
     # Select the smallest model that will take at most 10 seconds to run
     if llama_100m_time < 10:

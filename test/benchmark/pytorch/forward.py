@@ -146,6 +146,8 @@ def select_appropriate_models_for_this_machine():
     # Machines with over 1TFLOP/s peak GEMM performance can run the llama models
     # Over 10 TFLOP/s can run the 70B model
 
+    logger.info(f"Peak GEMM performance: {gemm_flops / 1e12} TFLOP/s")
+
     if gemm_flops > 10e12:
         return benchmark_model_list
     elif gemm_flops > 1e12:

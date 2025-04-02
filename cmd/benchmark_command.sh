@@ -1,12 +1,13 @@
 inspect_args
 
 target=${args[target]}
+visible_gpus=${args[visible-gpus]}
 
 ./cray build-image $target
 
 declare -a benchmark_command_parts
 benchmark_command_parts=(
-      "python" "/app/cray/test/benchmark/main.py"
+      "CUDA_VISIBLE_DEVICES=${visible_gpus}" "python" "/app/cray/test/benchmark/main.py"
 )
 
 benchmark_command="${benchmark_command_parts[*]}"

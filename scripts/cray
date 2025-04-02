@@ -428,7 +428,7 @@ cray_benchmark_usage() {
   printf "cray benchmark - Run the benchmark tests\n\n"
 
   printf "%s\n" "Usage:"
-  printf "  cray benchmark [TARGET]\n"
+  printf "  cray benchmark [TARGET] [VISIBLE-GPUS]\n"
   printf "  cray benchmark --help | -h\n"
   echo
 
@@ -449,6 +449,12 @@ cray_benchmark_usage() {
     printf "\n"
     printf "    %s\n" "Allowed: cpu, nvidia, arm, amd"
     printf "    %s\n" "Default: cpu"
+    echo
+
+    # :argument.usage
+    printf "  %s\n" "VISIBLE-GPUS"
+    printf "    Comma separated list of the IDs of visible gpus\n"
+    printf "    %s\n" "Default: 0"
     echo
 
   fi
@@ -1003,12 +1009,13 @@ cray_benchmark_command() {
   inspect_args
 
   target=${args[target]}
+  visible_gpus=${args[visible-gpus]}
 
   ./cray build-image $target
 
   declare -a benchmark_command_parts
   benchmark_command_parts=(
-        "python" "/app/cray/test/benchmark/main.py"
+        "CUDA_VISIBLE_DEVICES=${visible_gpus}" "python" "/app/cray/test/benchmark/main.py"
   )
 
   benchmark_command="${benchmark_command_parts[*]}"
@@ -1978,6 +1985,10 @@ cray_benchmark_parse_requirements() {
         if [[ -z ${args['target']+x} ]]; then
           args['target']=$1
           shift
+        # :argument.case
+        elif [[ -z ${args['visible-gpus']+x} ]]; then
+          args['visible-gpus']=$1
+          shift
         else
           printf "invalid argument: %s\n" "$key" >&2
           exit 1
@@ -1990,6 +2001,7 @@ cray_benchmark_parse_requirements() {
 
   # :command.default_assignments
   [[ -n ${args['target']:-} ]] || args['target']="cpu"
+  [[ -n ${args['visible-gpus']:-} ]] || args['visible-gpus']="0"
 
   # :command.whitelist_filter
   if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia|arm|amd)$ ]]; then
