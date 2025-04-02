@@ -41,6 +41,8 @@ class TransformersTokenformerSurgeon(TokenformerSurgeon):
         if not self._is_attn_layer(name):
             return
 
+        # logger.info(f"Wrapping layer {name} with TransformersTokenformerAttentionAdaptor")
+
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(self.model, name, TransformersTokenformerAttentionAdapter(layer, layer.head_dim, self.device))
+        # self._recursive_setattr(self.model, name, TransformersTokenformerAttentionAdapter(layer, layer.head_dim, self.device))
 

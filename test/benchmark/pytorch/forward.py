@@ -75,6 +75,7 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
     end = time.time()
 
     flop_count = calculate_flop_count(model, batch_size, input_tokens, output_tokens)
+    byte_count = calculate_byte_count(model, batch_size, input_tokens, output_tokens)
 
     return {
         input_tokens: {
@@ -82,7 +83,10 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
                 batch_size: {
                     "time": end - start,
                     "GFLOP/s": flop_count / (end - start) / 1e9,
+                    "flop/s": flop_count / (end - start),
                     "flop_count": flop_count,
+                    "byte_count": byte_count,
+                    "operational_intensity": flop_count / byte_count,
                     "batch_size": batch_size,
                     "input_tokens": input_tokens,
                     "output_tokens": output_tokens,
@@ -100,6 +104,20 @@ def calculate_flop_count(model, batch_size, input_tokens, output_tokens):
     gemm_flops = 2 * batch_size * (input_tokens + output_tokens) * param_count
 
     return gemm_flops
+
+
+def calculate_byte_count(model, batch_size, input_tokens, output_tokens):
+    # parameter count
+    param_count = sum(p.numel() for p in model.parameters())
+
+    # Get the number of bytes in the model
+    model_byte_count = param_count * 2  # 2 bytes per bfloat16
+
+    # Input and output byte count
+    input_byte_count = batch_size * input_tokens * 4  # 4 bytes per int32
+    output_byte_count = batch_size * output_tokens * 4  # 4 bytes per int32
+
+    return input_byte_count + output_byte_count + model_byte_count
 
 
 def save_results(results):

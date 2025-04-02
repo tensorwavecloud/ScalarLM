@@ -37,9 +37,9 @@ def warmup():
 
 def run_gemm(size):
     m, n, k = size
-    a = torch.randn(m, k, dtype=torch.float16)
-    b = torch.randn(k, n, dtype=torch.float16)
-    c = torch.randn(m, n, dtype=torch.float16)
+    a = torch.randn(m, k, dtype=gemm_dtype)
+    b = torch.randn(k, n, dtype=gemm_dtype)
+    c = torch.randn(m, n, dtype=gemm_dtype)
 
     # run at least 1 second
     start_time = time.time()
@@ -64,6 +64,10 @@ def run_gemm(size):
     return {
         "size": size,
         "time": seconds,
+        "flops": 2 * m * n * k,
+        "flop/s": 2 * m * n * k / seconds,
+        "bytes": (m * k + k * n + m * n) * 2,
+        "operational_intensity": 2 * m * n * k / ((m * k + k * n + m * n) * 2),
         "GFLOP/s": 2 * m * n * k / seconds / 1e9,
     }
 
@@ -162,8 +166,9 @@ llama_8b_sizes = [
     (2048, 4096, 14336),
 ]
 
-gemm_sizes = select_appropriate_size_for_this_machine()
+gemm_dtype = torch.bfloat16
 
+gemm_sizes = select_appropriate_size_for_this_machine()
 
 if __name__ == "__main__":
     main()

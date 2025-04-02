@@ -8,7 +8,27 @@ import logging
 logger = logging.getLogger(__name__)
 
 # List of memcpy sizes, in bytes, should be multiples of the page size
-memcpy_sizes = [4096, 8192, 16384, 32768, 65536, 131072, 262144, 524288, 1048576]
+# Go up to the tensor size used in Llama 3 (4096 * 128256) = 525_336_576
+memcpy_sizes = [
+    4096,
+    8192,
+    16384,
+    32768,
+    65536,
+    131072,
+    262144,
+    524288,
+    1048576,
+    2097152,
+    4194304,
+    8388608,
+    16777216,
+    33554432,
+    67108864,
+    134217728,
+    268435456,
+    536870912
+]
 
 
 def main():
@@ -39,13 +59,13 @@ def warmup():
 
 
 def run_memcpy(size):
-    a = torch.randn(size)
-    b = torch.randn(size)
+    a = torch.randn(size // 4) # size is in bytes, so divide by 4 to get number of floats
+    b = torch.randn(size // 4)
 
     # copy at least 16MB
     total_data_copied = 16 * 1024 * 1024
 
-    iterations = total_data_copied // size
+    iterations = max(1, total_data_copied // size)
 
     barrier()
 
@@ -61,6 +81,8 @@ def run_memcpy(size):
     time = start.elapsed_time(end) * 1e-3 / iterations
 
     return {
+        "operational_intensity": 1 / 4,  # 1 FLOP per 4 bytes
+        "flop/s": size / 4 / time,
         "size": size,
         "time": time,
         "bandwidth": size / time,

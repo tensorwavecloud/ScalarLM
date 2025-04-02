@@ -71,12 +71,14 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
         if not self._is_attn_layer(name):
             return
 
+        # logger.info(f"Wrapping layer {name} with vLLMTokenformerAttentionAdaptor")
+
         # Wrap the layer with a TokenformerAttentionAdapter
-        self._recursive_setattr(
-            self.model,
-            name,
-            vLLMTokenformerAttentionAdapter(layer, layer.head_dim, self.device),
-        )
+        #self._recursive_setattr(
+        #    self.model,
+        #    name,
+        #    vLLMTokenformerAttentionAdapter(layer, layer.head_dim, self.device),
+        #)
 
 
 class TokenformerModel(AdapterModel):
