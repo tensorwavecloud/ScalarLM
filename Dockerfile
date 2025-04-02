@@ -65,7 +65,7 @@ ENV BASE_NAME=cpu
 
 ###############################################################################
 # AMD BASE IMAGE
-FROM gdiamos/rocm-base AS amd
+FROM gdiamos/rocm-base:rocm_mpi AS amd
 ARG MAX_JOBS=8
 
 ENV BASE_NAME=amd
@@ -77,122 +77,11 @@ RUN pip install pyhip>=1.1.0
 RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
-# Uninstall existing pytorch and dependencies
-RUN pip uninstall torch torchvision torchaudio -y
-
-# Remove existing openmpi 
-RUN apt-get remove --purge -y openmpi-bin libopenmpi-dev
-
-# Set environment variables
-ENV ROCM_PATH=/opt/rocm
-
-# Clone and build UCX
-RUN git clone https://github.com/openucx/ucx.git -b v1.15.x && \
-    cd ucx && \
-    ./autogen.sh && \
-    ./configure --prefix=/opt/ucx-rocm \
-      --with-rocm=$ROCM_PATH \
-      --enable-mt && \
-    make -j$(nproc) && make install
-
-# Build ROCM-Aware Open MPI
-RUN cd / && \
-    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz && \
-    tar -xvf openmpi-5.0.7.tar.gz && \
-    cd openmpi-5.0.7 && \
-    ./configure --prefix=/opt/ompi-rocm \
-      --with-ucx=/opt/ucx-rocm \
-      --with-rocm=$ROCM_PATH && \
-    make -j$(nproc) && make install
-
-ENV PATH="/opt/ompi-rocm/bin:${PATH}"
-
-# Reinstall pytorch with ROCM and ROCM-aware MPI support
-ARG PYTORCH_BRANCH="3a585126"
-ARG PYTORCH_VISION_BRANCH="v0.19.1"
-ARG PYTORCH_REPO="https://github.com/pytorch/pytorch.git"
-ARG PYTORCH_VISION_REPO="https://github.com/pytorch/vision.git"
-ENV MPI_HOME=/opt/ompi-rocm
-ENV PATH=$MPI_HOME/bin:$PATH
-ENV LD_LIBRARY_PATH=$MPI_HOME/lib:$LD_LIBRARY_PATH
-ENV CMAKE_PREFIX_PATH=$MPI_HOME:$CMAKE_PREFIX_PATH
-ENV ROCM_PATH=/opt/rocm
-ENV PATH=$ROCM_PATH/bin:$ROCM_PATH/hip/bin:$PATH
-ENV LD_LIBRARY_PATH=$ROCM_PATH/lib:$LD_LIBRARY_PATH
-ENV USE_ROCM=1
-ENV USE_MPI=1
-ENV MPI_INCLUDE_DIR=$MPI_HOME/include
-ENV MPI_LIBRARY=$MPI_HOME/lib/libmpi.so
-ENV PYTORCH_ROCM_ARCH=gfx90a;gfx942
-
-# Set OpenMPI variables for optimal performance
-ENV OMPI_MCA_pml=ucx
-ENV OMPI_MCA_osc=ucx
-ENV OMPI_MCA_coll_ucc_enable=1
-ENV OMPI_MCA_coll_ucc_priority=100
-ENV UCX_TLS=sm,self,rocm
-
-# Install system dependencies
-RUN apt-get update && apt-get install -y \
-    git \
-    python3-pip \
-    python3-dev \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
-
-# Upgrade pip and install Python dependencies
-RUN pip3 install --upgrade pip
-RUN pip3 install cmake ninja
-
-# Set working directory
-WORKDIR /pytorch
-
-# Clone and build PyTorch
-# Define ARGs or ENVs for repository and branch
-ARG PYTORCH_REPO=https://github.com/pytorch/pytorch.git
-ARG PYTORCH_BRANCH=main
-
-RUN set -e && \
-    git clone ${PYTORCH_REPO} pytorch && \
-    cd pytorch && \
-    git checkout ${PYTORCH_BRANCH} && \
-    pip install -r requirements.txt && \
-    git submodule update --init --recursive && \
-    # Update all CMakeLists.txt files in third_party directory
-    find third_party -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION .*$/cmake_minimum_required(VERSION 3.5)/I' {} + && \
-    # Update all CMakeLists.txt files in test directory
-    find test -type f -name "CMakeLists.txt" -exec sed -i 's/cmake_minimum_required(VERSION .*$/cmake_minimum_required(VERSION 3.5)/I' {} + && \
-    # Update specific file in /opt/rocm if it exists
-    if [ -f /opt/rocm/lib/cmake/hiprtc/hiprtc-config.cmake ]; then \
-        sed -i 's/cmake_minimum_required(VERSION .*$/cmake_minimum_required(VERSION 3.5)/' /opt/rocm/lib/cmake/hiprtc/hiprtc-config.cmake; \
-    fi && \
-    # Build and install PyTorch
-    python3 tools/amd_build/build_amd.py && \
-    CMAKE_PREFIX_PATH=$(python3 -c 'import sys; print(sys.prefix)') python3 setup.py bdist_wheel --dist-dir=dist && \
-    pip install dist/*.whl
-
-# Clone and build torchvision
-RUN git clone ${PYTORCH_VISION_REPO} vision && \
-    cd vision && \
-    git checkout ${PYTORCH_VISION_BRANCH} && \
-    python3 setup.py bdist_wheel --dist-dir=dist && \
-    pip install dist/*.whl
-
-# Copy all wheel files to installation directory
-RUN cp /pytorch/pytorch/dist/*.whl /app/install && \
-    cp /pytorch/vision/dist/*.whl /app/install
-
-RUN python -m venv /app/venv
-ENV PATH="/app/venv/bin:$PATH"
-
-RUN pip install /app/install/*.whl
-
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
 
 COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
-RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py bdist_wheel --dist-dir=dist && \
-    pip install dist/*.whl
+RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py install 
 
 ###############################################################################
 # VLLM BUILD STAGE

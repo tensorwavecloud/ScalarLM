@@ -15,7 +15,7 @@ platform = detect_gpu_platform()
 include_dirs = []
 library_dirs = []
 compile_defines = []
-libraries = ['mpi']
+libraries = []
 
 if platform == 'rocm':
     os.environ['CXX'] = '/opt/ompi-rocm/bin/mpicxx'
@@ -41,12 +41,13 @@ elif platform == 'cuda':
     libraries.append('cudart')
 elif platform == 'cpu':
     include_dirs.extend([
-        '/usr/include/aarch64-linux-gnu/mpi',
+        '/opt/rocm/include',
+        '/opt/ompi-rocm/include'
     ])
     library_dirs.extend([
-        '/usr/lib/aarch64-linux-gnu/mpi',
+        '/opt/rocm/lib',
+        '/opt/ompi-rocm/lib'
     ])
-    libraries.append('mpi_cxx')
 
 setup(
     name="gpu_aware_mpi",
@@ -58,7 +59,8 @@ setup(
         libraries=libraries,
         extra_compile_args={
             'cxx': [f'-D{name}={value}' for name, value in compile_defines]
-        }
+        },
+        extra_link_args=['-lmpi'],
     )],
     cmdclass={'build_ext': cpp_extension.BuildExtension}
 )
