@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # List of memcpy sizes, in bytes, should be multiples of the page size
 # Go up to the tensor size used in Llama 3 (4096 * 128256 * 4) = 2_101_346_304
-memcpy_sizes = [i ** 2 for i in range(12, 64) if i ** 2 <= 2_101_346_304]
+memcpy_sizes = [2 ** i  for i in range(12, 64) if 2 ** i <= 2_101_346_304]
 
 
 def main():
@@ -41,8 +41,8 @@ def warmup():
 
 
 def run_memcpy_peer(size):
-    a = torch.randn(size // 4, device=get_device(0))
-    b = torch.randn(size // 4, device=get_device(1))
+    a = torch.zeros(size // 4, device=get_device(0), dtype=torch.float32)
+    b = torch.zeros(size // 4, device=get_device(1), dtype=torch.float32)
 
     start = get_event()
     end = get_event()
@@ -55,19 +55,20 @@ def run_memcpy_peer(size):
     iterations = 0
     while time.time() - start_time < 1:
         b.copy_(a)
+        iterations += 1
     end.record()
 
     barrier()
-    time = start.elapsed_time(end) * 1e-3 / iterations
+    total_time = start.elapsed_time(end) * 1e-3 / iterations
 
     return {
         "operational_intensity": 1 / 4,  # 1 FLOP per 4 bytes
-        "flops/s" : size / 4 / time,
+        "flops/s" : size / 4 / total_time,
         "bytes": size,
-        "time": time,
+        "time": total_time,
         "iterations": iterations,
-        "bandwidth": size / time,
-        "GB/s": size / time / 1e9,
+        "bandwidth": size / total_time,
+        "GB/s": size / total_time / 1e9,
     }
 
 

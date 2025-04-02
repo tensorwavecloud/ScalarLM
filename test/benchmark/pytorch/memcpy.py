@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 # List of memcpy sizes, in bytes, should be multiples of the page size
 # Go up to the tensor size used in Llama 3 (4096 * 128256 * 4) = 2_101_346_304
-memcpy_sizes = [ i**2 for i in range(12, 64) if i**2 <= 2_101_346_304 ]
+memcpy_sizes = [ 2 ** i for i in range(12, 64) if 2 ** i <= 2_101_346_304 ]
 
 
 def main():
@@ -41,8 +41,8 @@ def warmup():
 
 
 def run_memcpy(size):
-    a = torch.randn(size // 4) # size is in bytes, so divide by 4 to get number of floats
-    b = torch.randn(size // 4)
+    a = torch.zeros(size // 4, device=get_device(), dtype=torch.float32) # size is in bytes, so divide by 4 to get number of floats
+    b = torch.zeros(size // 4, device=get_device(), dtype=torch.float32)
 
     # copy for at least 1 second
     barrier()
@@ -60,16 +60,16 @@ def run_memcpy(size):
     end.record()
 
     barrier()
-    time = start.elapsed_time(end) * 1e-3 / iterations
+    total_time = start.elapsed_time(end) * 1e-3 / iterations
 
     return {
         "operational_intensity": 1 / 4,  # 1 FLOP per 4 bytes
-        "flop/s": size / 4 / time,
+        "flop/s": size / 4 / total_time,
         "bytes": size,
-        "time": time,
+        "time": total_time,
         "iterations": iterations,
-        "bandwidth": size / time,
-        "GB/s": size / time / 1e9,
+        "bandwidth": size / total_time,
+        "GB/s": size / total_time / 1e9,
     }
 
 
@@ -96,6 +96,12 @@ def barrier():
         torch.cuda.synchronize()
     else:
         pass
+
+def get_device():
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    else:
+        return torch.device("cpu")
 
 
 def save_results(results):
