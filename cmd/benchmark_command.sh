@@ -30,7 +30,7 @@ declare -a gpu_options
 
 # Set the GPU options depending on the target
 if [ "$target" == "cpu" ]; then
-    # No GPU options needed
+    gpu_options+=()
 elif [ "$target" == "amd" ]; then
     gpu_options+=("--device" "/dev/kfd" "--device" "/dev/dri")
 else
