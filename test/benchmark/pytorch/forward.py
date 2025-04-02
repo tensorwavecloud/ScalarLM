@@ -67,7 +67,8 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
 
     # Input tokens are randomly generated ints between 0 and the model's vocab size
     input_ids = torch.randint(
-        low=0, high=model.config.vocab_size, size=(batch_size, input_tokens)
+        low=0, high=model.config.vocab_size, size=(batch_size, input_tokens),
+        device=get_device()
     )
 
     # Run the forward pass
