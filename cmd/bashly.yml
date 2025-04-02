@@ -98,15 +98,13 @@ commands:
     - name: squeue
       help: Invoke the squeue tool from SLURM
 
-- name: diffusion
-  help: Evaluate a diffusion model
-  args:
-    - name: model
-      help: Model name to evaluate
-
 - name: pypi
   help: Publish the cray package to pypi
 
 - name: benchmark
   help: Run the benchmark tests
+  args:
+    - name: target
+      allowed: ["cpu", "nvidia", "arm", "amd"]
+      default: "cpu"
 
