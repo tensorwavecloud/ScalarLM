@@ -57,6 +57,8 @@ def run_gemm(size):
         iterations += 1
     end.record()
 
+    iterations=max(1,iterations)
+
     barrier()
 
     seconds = start.elapsed_time(end) / 1000 / iterations
