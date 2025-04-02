@@ -33,7 +33,6 @@ cray_usage() {
   printf "  %s   Deploy the cray platform to modal\n" "deploy     "
   printf "  %s   Serve the cray platform using modal\n" "serve      "
   printf "  %s   Invoke the LLM tool\n" "llm        "
-  printf "  %s   Evaluate a diffusion model\n" "diffusion  "
   printf "  %s   Publish the cray package to pypi\n" "pypi       "
   printf "  %s   Run the benchmark tests\n" "benchmark  "
   echo
@@ -404,35 +403,6 @@ cray_llm_squeue_usage() {
 }
 
 # :command.usage
-cray_diffusion_usage() {
-  printf "cray diffusion - Evaluate a diffusion model\n\n"
-
-  printf "%s\n" "Usage:"
-  printf "  cray diffusion [MODEL]\n"
-  printf "  cray diffusion --help | -h\n"
-  echo
-
-  # :command.long_usage
-  if [[ -n "$long_usage" ]]; then
-    printf "%s\n" "Options:"
-
-    # :command.usage_fixed_flags
-    printf "  %s\n" "--help, -h"
-    printf "    Show this help\n"
-    echo
-
-    # :command.usage_args
-    printf "%s\n" "Arguments:"
-
-    # :argument.usage
-    printf "  %s\n" "MODEL"
-    printf "    Model name to evaluate\n"
-    echo
-
-  fi
-}
-
-# :command.usage
 cray_pypi_usage() {
   printf "cray pypi - Publish the cray package to pypi\n\n"
 
@@ -458,7 +428,7 @@ cray_benchmark_usage() {
   printf "cray benchmark - Run the benchmark tests\n\n"
 
   printf "%s\n" "Usage:"
-  printf "  cray benchmark\n"
+  printf "  cray benchmark [TARGET]\n"
   printf "  cray benchmark --help | -h\n"
   echo
 
@@ -469,6 +439,16 @@ cray_benchmark_usage() {
     # :command.usage_fixed_flags
     printf "  %s\n" "--help, -h"
     printf "    Show this help\n"
+    echo
+
+    # :command.usage_args
+    printf "%s\n" "Arguments:"
+
+    # :argument.usage
+    printf "  %s\n" "TARGET"
+    printf "\n"
+    printf "    %s\n" "Allowed: cpu, nvidia, arm, amd"
+    printf "    %s\n" "Default: cpu"
     echo
 
   fi
@@ -983,43 +963,6 @@ cray_llm_squeue_command() {
 }
 
 # :command.function
-cray_diffusion_command() {
-
-  # cmd/diffusion_command.sh
-  inspect_args
-
-  model=${args[model]}
-
-  if [ -z "$model" ]; then
-      model="latest"
-  fi
-
-  ./cray build-image
-
-  declare -a diffusion_command_parts
-  diffusion_command_parts=(
-        "python" "/app/cray/ml/diffusion_forcing/eval.py" "--model" "$model"
-  )
-
-  echo $tail
-
-  diffusion_command="${diffusion_command_parts[*]}"
-
-  echo $command
-
-  declare -a docker_command_parts
-
-  docker_command_parts=("docker" "exec" "-it" )
-
-  docker_command_parts+=("cray-vllm-1" "sh" "-c" "'$diffusion_command'")
-
-  docker_command="${docker_command_parts[*]}"
-  echo $docker_command
-  eval $docker_command
-
-}
-
-# :command.function
 cray_pypi_command() {
 
   # cmd/pypi_command.sh
@@ -1059,7 +1002,9 @@ cray_benchmark_command() {
   # cmd/benchmark_command.sh
   inspect_args
 
-  ./cray build-image
+  target=${args[target]}
+
+  ./cray build-image $target
 
   declare -a benchmark_command_parts
   benchmark_command_parts=(
@@ -1083,6 +1028,18 @@ cray_benchmark_command() {
 
   docker_command_parts=("docker" "run" "--rm" "--network" "host" "-v" "$ROOT_DIRECTORY/data:/app/cray/data")
 
+  declare -a gpu_options
+
+  # Set the GPU options depending on the target
+  if [ "$target" == "cpu" ]; then
+      gpu_options+=()
+  elif [ "$target" == "amd" ]; then
+      gpu_options+=("--device" "/dev/kfd" "--device" "/dev/dri")
+  else
+      gpu_options+=("--gpus" "all")
+  fi
+
+  docker_command_parts+=("${gpu_options[@]}")
   docker_command_parts+=("cray:latest" "sh" "-c" "'$benchmark_command'")
 
   docker_command="${docker_command_parts[*]}"
@@ -1167,13 +1124,6 @@ parse_requirements() {
       action="llm"
       shift
       cray_llm_parse_requirements "$@"
-      shift $#
-      ;;
-
-    diffusion)
-      action="diffusion"
-      shift
-      cray_diffusion_parse_requirements "$@"
       shift $#
       ;;
 
@@ -1945,57 +1895,6 @@ cray_llm_squeue_parse_requirements() {
 }
 
 # :command.parse_requirements
-cray_diffusion_parse_requirements() {
-  # :command.fixed_flags_filter
-  while [[ $# -gt 0 ]]; do
-    key="$1"
-    case "$key" in
-      --help | -h)
-        long_usage=yes
-        cray_diffusion_usage
-        exit
-        ;;
-
-      *)
-        break
-        ;;
-
-    esac
-  done
-
-  # :command.command_filter
-  action="diffusion"
-
-  # :command.parse_requirements_while
-  while [[ $# -gt 0 ]]; do
-    key="$1"
-    case "$key" in
-
-      -?*)
-        printf "invalid option: %s\n" "$key" >&2
-        exit 1
-        ;;
-
-      *)
-        # :command.parse_requirements_case
-        # :command.parse_requirements_case_simple
-        # :argument.case
-        if [[ -z ${args['model']+x} ]]; then
-          args['model']=$1
-          shift
-        else
-          printf "invalid argument: %s\n" "$key" >&2
-          exit 1
-        fi
-
-        ;;
-
-    esac
-  done
-
-}
-
-# :command.parse_requirements
 cray_pypi_parse_requirements() {
   # :command.fixed_flags_filter
   while [[ $# -gt 0 ]]; do
@@ -2075,13 +1974,28 @@ cray_benchmark_parse_requirements() {
       *)
         # :command.parse_requirements_case
         # :command.parse_requirements_case_simple
-        printf "invalid argument: %s\n" "$key" >&2
-        exit 1
+        # :argument.case
+        if [[ -z ${args['target']+x} ]]; then
+          args['target']=$1
+          shift
+        else
+          printf "invalid argument: %s\n" "$key" >&2
+          exit 1
+        fi
 
         ;;
 
     esac
   done
+
+  # :command.default_assignments
+  [[ -n ${args['target']:-} ]] || args['target']="cpu"
+
+  # :command.whitelist_filter
+  if [[ -n ${args['target']:-} ]] && [[ ! ${args['target']:-} =~ ^(cpu|nvidia|arm|amd)$ ]]; then
+    printf "%s\n" "target must be one of: cpu, nvidia, arm, amd" >&2
+    exit 1
+  fi
 
 }
 
@@ -2116,7 +2030,6 @@ run() {
     "llm logs") cray_llm_logs_command ;;
     "llm ls") cray_llm_ls_command ;;
     "llm squeue") cray_llm_squeue_command ;;
-    "diffusion") cray_diffusion_command ;;
     "pypi") cray_pypi_command ;;
     "benchmark") cray_benchmark_command ;;
   esac

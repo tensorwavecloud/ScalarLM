@@ -168,6 +168,9 @@ def get_machine_roofline():
 
 
 def get_processor_name():
+    if torch.cuda.is_available():
+        return torch.cuda.get_device_name(0)
+
     assert platform.system() == "Linux"
     command = "lscpu"
     all_info = subprocess.check_output(command, shell=True).decode().strip()
@@ -181,5 +184,9 @@ processor_table = {
     "Apple M2": {
         "memory_bandwidth": 102.4e9,
         "flops": 223.36e9,  # 4 cores * 3.49 GHz * 2 FLOPS/FMA * 8 ops/SIMD function unit
-    }
+    },
+    "AMD Instinct MI300X": {
+        "memory_bandwidth": 5.3e12,
+        "flops": 1.3e12,
+    },
 }
