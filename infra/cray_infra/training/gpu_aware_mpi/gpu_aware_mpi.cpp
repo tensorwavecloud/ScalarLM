@@ -19,8 +19,29 @@ MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
         case torch::kInt32: return MPI_INT;
         case torch::kInt64: return MPI_LONG_LONG;
         case torch::kUInt8: return MPI_UNSIGNED_CHAR;
-        // Add more cases as needed
-        default: throw std::runtime_error("Unsupported tensor dtype");
+	case torch::kBFloat16: {
+	    MPI_Datatype mpi_bfloat16;
+	    MPI_Type_contiguous(2, MPI_UNSIGNED_CHAR, &mpi_bfloat16);
+	    MPI_Type_commit(&mpi_bfloat16);
+	    return mpi_bfloat16;
+	}
+	// Add more cases as needed
+	default: throw std::runtime_error("Unsupported tensor dtype: " + std::string(torch::toString(tensor.scalar_type())));
+    }
+}
+
+void bfloat16_sum(void* invec, void* inoutvec, int* len, MPI_Datatype* datatype) {
+    unsigned char* in = (unsigned char*)invec;
+    unsigned char* inout = (unsigned char*)inoutvec;
+
+    for (int i = 0; i < *len; ++i) {
+        // Assuming bfloat16 is represented as 2 bytes
+        uint16_t in_val = (in[2 * i] << 8) | in[2 * i + 1];
+        uint16_t inout_val = (inout[2 * i] << 8) | inout[2 * i + 1];
+
+        uint16_t result = in_val + inout_val; // Perform addition
+        inout[2 * i] = result >> 8;
+        inout[2 * i + 1] = result & 0xFF;
     }
 }
 
@@ -29,8 +50,15 @@ void mpi_allreduce(torch::Tensor &tensor) {
     int count = tensor.numel();
     void *data = tensor.data_ptr();
     MPI_Datatype datatype = get_mpi_datatype(tensor);
-
-    MPI_Allreduce(MPI_IN_PLACE, data, count, datatype, MPI_SUM, MPI_COMM_WORLD);
+    
+    if (tensor.scalar_type() == torch::kBFloat16) {
+	MPI_Op mpi_bfloat16_sum_op;
+        MPI_Op_create(&bfloat16_sum, true /* commutative */, &mpi_bfloat16_sum_op);
+	MPI_Allreduce(MPI_IN_PLACE, data, count, datatype, mpi_bfloat16_sum_op, MPI_COMM_WORLD);
+    	MPI_Op_free(&mpi_bfloat16_sum_op);
+    } else {
+	MPI_Allreduce(MPI_IN_PLACE, data, count, datatype, MPI_SUM, MPI_COMM_WORLD);
+    }
 }
 
 void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
@@ -60,7 +88,14 @@ void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
         recvcounts[i] = recv_elements;
     }
     
-    MPI_Reduce_scatter(send_ptr, recv_ptr, recvcounts.data(), datatype, MPI_SUM, MPI_COMM_WORLD);
+    if (sendbuf.scalar_type() == torch::kBFloat16) {
+        MPI_Op mpi_bfloat16_sum_op;
+        MPI_Op_create(&bfloat16_sum, true /* commutative */, &mpi_bfloat16_sum_op);
+        MPI_Reduce_scatter(send_ptr, recv_ptr, recvcounts.data(), datatype, mpi_bfloat16_sum_op, MPI_COMM_WORLD);
+	MPI_Op_free(&mpi_bfloat16_sum_op);
+    } else {
+        MPI_Reduce_scatter(send_ptr, recv_ptr, recvcounts.data(), datatype, MPI_SUM, MPI_COMM_WORLD);
+    }
 }
 
 void mpi_send(torch::Tensor& tensor, int dest) {

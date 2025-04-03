@@ -1,5 +1,5 @@
 import torch
-from cray_infra.training.distribution_strategy.fsdp import SimpleFSDP
+from cray_infra.training.distribution_strategy.fsdp.fsdp import SimpleFSDP
 
 from gpu_aware_mpi import get_size, get_rank
 

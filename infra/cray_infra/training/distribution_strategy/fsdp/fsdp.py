@@ -324,7 +324,7 @@ def collectives_all_gather(shard, metadata_dict):
     
     total_time = "{:.1e}".format(end - start)
     bandwidth = "{:.1e}".format(shard_detached.nbytes / (end - start) / 1e9)
-    logger.info(f"All_gather time on device {shard_detached.device}: {total_time}, bandwidth: {bandwidth} GB/s on tensor {shard_detached.shape}"
+    logger.debug(f"All_gather time on device {shard_detached.device}: {total_time}, bandwidth: {bandwidth} GB/s on tensor {shard_detached.shape}"
         )
     
     # Reconstruct the full tensor using metadata
@@ -365,7 +365,7 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     
     total_time = "{:.1e}".format(end - start)
     bandwidth = "{:.1e}".format(tensor_padded.nbytes / (end - start) / 1e9)
-    logger.info(
+    logger.debug(
         f"Reduce_scatter time on device {tensor.device if hasattr(tensor, 'device') else 'CPU'}: {total_time}, bandwidth: {bandwidth} GB/s"
     )
 

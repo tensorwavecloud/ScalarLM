@@ -44,7 +44,7 @@ def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
     logging.getLogger("filelock").setLevel(logging.WARNING)
-    logging.getLogger("cray_infra.training.distribution_strategy.fsdp").setLevel(
+    logging.getLogger("cray_infra.training.distribution_strategy.fsdp.fsdp").setLevel(
         logging.INFO
     )
 
