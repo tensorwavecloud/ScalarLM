@@ -33,7 +33,7 @@ def run_gemm_benchmark():
 
 def warmup():
     run_gemm((256, 256, 2048))
-    
+
     global gemm_sizes
     gemm_sizes = select_appropriate_size_for_this_machine()
 
@@ -113,7 +113,7 @@ def select_appropriate_size_for_this_machine():
     # Try a small GEMM, and time it
     # If it runs too fast, select a bigger model
     # If it runs too slow, select a smaller model
-    tiny_gemm = (256, 256, 256)
+    tiny_gemm = (256, 256, 2048)
 
     metrics = run_gemm(tiny_gemm)
 

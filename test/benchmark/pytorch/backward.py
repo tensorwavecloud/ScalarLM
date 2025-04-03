@@ -1,3 +1,5 @@
+from benchmark.pytorch.gemm import run_gemm
+
 import torch
 import time
 import json
@@ -151,16 +153,11 @@ def select_appropriate_models_for_this_machine():
 
 
 def calculate_gemm_flops():
-    m, n, k = 256, 256, 256
+    m, n, k = 256, 256, 2048
 
-    a = torch.randn(m, k, dtype=torch.float16)
-    b = torch.randn(k, n, dtype=torch.float16)
+    metrics = run_gemm((m, n, k))
 
-    start = time.time()
-    c = torch.matmul(a, b)
-    end = time.time()
-
-    return 2 * m * n * k / (end - start)
+    return metrics["flop/s"]
 
 
 benchmark_model_list = [
