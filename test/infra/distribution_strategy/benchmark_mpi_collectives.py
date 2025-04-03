@@ -53,7 +53,7 @@ if __name__ == "__main__":
 
     args.dtype = torch.float32 if args.dtype == 'float32' else torch.bfloat16
 
-    data_size = 262144 * 64 
+    data_size = 4194304 
     rank = get_rank()
     size = get_size()
 
