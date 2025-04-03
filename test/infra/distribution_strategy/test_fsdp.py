@@ -51,10 +51,10 @@ def test_sequential_model(rank, device):
         optimizer.step()
         
         if rank == 0:
-            logger.info(f"Epoch {epoch}, Loss: {loss.item()}")
+            logger.info(f"Epoch {epoch}, Loss: {loss.detach().item()}")
     
     assert isinstance(fsdp_model, SimpleFSDP)
-    assert loss.item() > 0
+    assert loss.detach().item() > 0
 
 if __name__ == "__main__":
     rank = get_rank()
