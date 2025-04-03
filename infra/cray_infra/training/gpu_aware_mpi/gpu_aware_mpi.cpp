@@ -32,15 +32,48 @@ MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
 
 void mpi_allreduce(torch::Tensor &tensor) {
     ensure_mpi_initialized();
-    
+
+    if (!tensor.is_contiguous()) {
+        tensor = tensor.contiguous();
+    }
+
     if (tensor.scalar_type() == torch::kBFloat16) {
+        // Convert bfloat16 to float32 for compatibility with MPI
         auto float32_tensor = tensor.to(torch::kFloat32);
-	    MPI_Allreduce(MPI_IN_PLACE, float32_tensor.data_ptr<float>(), float32_tensor.numel(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
+
+        int mpi_result = MPI_Allreduce(
+            MPI_IN_PLACE,
+            float32_tensor.data_ptr<float>(),
+            float32_tensor.numel(),
+            MPI_FLOAT,
+            MPI_SUM,
+            MPI_COMM_WORLD
+        );
+
+        // Check for errors
+        if (mpi_result != MPI_SUCCESS) {
+            throw std::runtime_error("MPI_Allreduce failed.");
+        }
+
+        // Convert back to bfloat16
         tensor = float32_tensor.to(torch::kBFloat16);
-    } 
-    else {
+    } else {
+        // Get appropriate MPI datatype
         MPI_Datatype datatype = get_mpi_datatype(tensor);
-	    MPI_Allreduce(MPI_IN_PLACE, tensor.data_ptr(), tensor.numel(), datatype, MPI_SUM, MPI_COMM_WORLD);
+
+        int mpi_result = MPI_Allreduce(
+            MPI_IN_PLACE,
+            tensor.data_ptr(),
+            tensor.numel(),
+            datatype,
+            MPI_SUM,
+            MPI_COMM_WORLD
+        );
+
+        // Check for errors
+        if (mpi_result != MPI_SUCCESS) {
+            throw std::runtime_error("MPI_Allreduce failed.");
+        }
     }
 }
 

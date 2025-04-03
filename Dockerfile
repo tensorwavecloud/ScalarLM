@@ -77,44 +77,6 @@ RUN pip install pyhip>=1.1.0
 RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
-WORKDIR /opt
-
-# Set environment variables
-ENV ROCM_PATH=/opt/rocm
-ENV MPI_HOME=/opt/ompi-rocm
-ENV PATH=ROCM_PATH/bin:$ROCM_PATH/hip/bin:$MPI_HOME/bin:$PATH
-ENV LD_LIBRARY_PATH=$ROCM_PATH/lib:$MPI_HOME/lib:$LD_LIBRARY_PATH
-ENV CMAKE_PREFIX_PATH=$MPI_HOME:$CMAKE_PREFIX_PATH
-ENV MPI_INCLUDE_DIR=$MPI_HOME/include
-ENV MPI_LIBRARY=$MPI_HOME/lib/libmpi.so
-
-# Clone and build UCX
-RUN apt-get update && apt-get install -y autoconf
-RUN git clone https://github.com/openucx/ucx.git -b v1.15.x && \
-    cd ucx && \
-    ./autogen.sh && \
-    ./configure --prefix=/opt/ucx-rocm \
-      --with-rocm=$ROCM_PATH \
-      --enable-mt && \
-    make -j$(nproc) && make install
-
-# Build ROCM-Aware Open MPI
-RUN cd / && \
-    wget https://download.open-mpi.org/release/open-mpi/v5.0/openmpi-5.0.7.tar.gz && \
-    tar -xvf openmpi-5.0.7.tar.gz && \
-    cd openmpi-5.0.7 && \
-    ./configure --prefix=/opt/ompi-rocm \
-      --with-ucx=/opt/ucx-rocm \
-      --with-rocm=$ROCM_PATH && \
-    make -j$(nproc) && make install
-
-# Set OpenMPI env variables
-ENV OMPI_MCA_pml=ucx
-ENV OMPI_MCA_osc=ucx
-ENV OMPI_MCA_coll_ucc_enable=1
-ENV OMPI_MCA_coll_ucc_priority=100
-ENV UCX_TLS=sm,self,rocm
-
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
 

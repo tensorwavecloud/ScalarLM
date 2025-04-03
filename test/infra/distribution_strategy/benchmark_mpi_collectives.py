@@ -11,7 +11,7 @@ def create_buffer(arch, size, rank):
     else:
         return torch.ones(size, dtype=torch.float32, device='cpu')
 
-def benchmark_collective(collective_fn, send_size, recv_size, expected_value, num_iters=100, warmup=10):
+def benchmark_collective(collective_fn, send_size, recv_size, expected_value, all_reduce_flag=False, num_iters=100, warmup=10):
     size = get_size()
     rank = get_rank()
     sendbuf = create_buffer(args.arch, send_size, rank).contiguous()
@@ -26,12 +26,17 @@ def benchmark_collective(collective_fn, send_size, recv_size, expected_value, nu
     barrier()
     t0 = time.time()
     for _ in range(num_iters):
+        if all_reduce_flag:
+            sendbuf = create_buffer(args.arch, send_size, rank).contiguous()
         collective_fn(sendbuf, recvbuf)
     barrier()
     dt = time.time() - t0
 
     # Verify correctness
-    assert torch.allclose(recvbuf, torch.full_like(recvbuf, expected_value), atol=1e-6), "Verification failed"
+    if all_reduce_flag:
+        assert torch.allclose(sendbuf, torch.full_like(sendbuf, expected_value), atol=1e-6), "Verification failed"
+    else:
+        assert torch.allclose(recvbuf, torch.full_like(recvbuf, expected_value), atol=1e-6), "Verification failed"
 
     # Calculate bandwidth (we use float32 for ReduceScatter and AllReduce internally)
     datatype_bytes = 4
@@ -53,15 +58,15 @@ if __name__ == "__main__":
     size = get_size()
 
     collectives = {
-         'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
-         'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf), data_size, data_size // size, size * 1.0),
-         'AllReduce': (lambda sbuf, rbuf: allreduce(sbuf), data_size, data_size, size * 1.0),
+         'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0, False),
+         'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf), data_size, data_size // size, size * 1.0, False),
+         'AllReduce': (lambda sbuf, rbuf: allreduce(sbuf), data_size, 1, size * 1.0, True),
      }
 
     results = {}
     
     for name, info in collectives.items():
-         bw = benchmark_collective(info[0], info[1], info[2], info[3])
+         bw = benchmark_collective(info[0], info[1], info[2], info[3], info[4])
          if rank == 0:
              results[name] = bw
 
