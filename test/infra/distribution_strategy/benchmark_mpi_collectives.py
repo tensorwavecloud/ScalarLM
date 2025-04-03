@@ -1,12 +1,12 @@
 import argparse
 import time
 import torch
-from gpu_aware_mpi import allgather, reduce_scatter, barrier, get_rank, get_size, finalize_mpi
+from gpu_aware_mpi import allgather, allreduce, reduce_scatter, barrier, get_rank, get_size, finalize_mpi
 
-def create_buffer(arch_type, size, rank):
-    if arch_type == 'cuda':
+def create_buffer(arch, size, rank):
+    if arch == 'cuda':
         return torch.ones(size, dtype=torch.float32, device='cuda')
-    elif arch_type == 'rocm':
+    elif arch == 'rocm':
         return torch.ones(size, dtype=torch.float32, device='cuda:' + str(rank))  # ROCm uses the same device string
     else:
         return torch.ones(size, dtype=torch.float32, device='cpu')
@@ -14,7 +14,7 @@ def create_buffer(arch_type, size, rank):
 def benchmark_collective(collective_fn, send_size, recv_size, expected_value, num_iters=100, warmup=10):
     size = get_size()
     rank = get_rank()
-    sendbuf = create_buffer(args.arch_type, send_size, rank).contiguous()
+    sendbuf = create_buffer(args.arch, send_size, rank).contiguous()
     # Create send/recv buffers
     recvbuf = torch.empty(recv_size, dtype=torch.float32, device=sendbuf.device).contiguous()
 
@@ -33,16 +33,20 @@ def benchmark_collective(collective_fn, send_size, recv_size, expected_value, nu
     # Verify correctness
     assert torch.allclose(recvbuf, torch.full_like(recvbuf, expected_value), atol=1e-6), "Verification failed"
 
-    # Calculate bandwidth (assumes float32)
-    total_data = send_size * 4 * 2 * size  # 4 bytes per float32, 2 for send/recv
+    # Calculate bandwidth (we use float32 for ReduceScatter and AllReduce internally)
+    datatype_bytes = 4
+    total_data = send_size * datatype_bytes * 2 * size  # 4 bytes per float32, 2 for send/recv
     bandwidth = (total_data / dt) / 1e9  # GB/s
     return bandwidth
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--arch_type', choices=['cuda', 'rocm', 'cpu'], required=True)
+    parser.add_argument('--arch', choices=['cuda', 'rocm', 'cpu'], required=True)
+    parser.add_argument('--dtype', choices=['float32', 'bfloat16'], default='float32', help="Data type for buffers")
     args = parser.parse_args()
+
+    args.dtype = torch.float32 if args.dtype == 'float32' else torch.bfloat16
 
     data_size = 262144 * 64 
     rank = get_rank()
@@ -51,6 +55,7 @@ if __name__ == "__main__":
     collectives = {
          'AllGather': (lambda sbuf, rbuf: allgather(sbuf, rbuf), data_size, data_size * size, 1.0),
          'ReduceScatter': (lambda sbuf, rbuf: reduce_scatter(sbuf, rbuf), data_size, data_size // size, size * 1.0),
+         'AllReduce': (lambda sbuf, rbuf: allreduce(sbuf), data_size, data_size, size * 1.0),
      }
 
     results = {}
@@ -70,10 +75,10 @@ if __name__ == "__main__":
 
 
 # For CUDA GPUs
-# mpirun --allow-run-as-root --oversubscribe -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type cuda
+# mpirun --allow-run-as-root --oversubscribe -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch cuda
 
 # For ROCm GPUs
-# mpirun --allow-run-as-root -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type rocm
+# mpirun --allow-run-as-root -np 4 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch rocm
 
 # For CPU
-# mpirun --allow-run-as-root --oversubscribe -np 2 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch_type cpu
+# mpirun --allow-run-as-root --oversubscribe -np 2 python test/infra/distribution_strategy/benchmark_mpi_collectives.py --arch cpu
