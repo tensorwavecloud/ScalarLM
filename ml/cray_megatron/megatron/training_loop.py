@@ -20,7 +20,7 @@ import torch
 
 import time
 import logging
-from mpi4py import MPI
+from gpu_aware_mpi import allreduce, get_size
 
 logger = logging.getLogger(__name__)
 
@@ -136,13 +136,12 @@ class TrainingLoop:
         self.print_training_step_info(loss, start_time)
 
     def sync_loss(self, loss):
-        comm = MPI.COMM_WORLD
         device = self.training_state.model_info["distribution_strategy"]["device"]
-        if comm.Get_size() > 1:
+        if get_size() > 1:
             local_loss = loss.detach().clone()
             global_loss = torch.tensor([local_loss.item()], device=device)
-            comm.Allreduce(MPI.IN_PLACE, global_loss, op=MPI.SUM)
-            avg_loss = global_loss.item() / comm.Get_size()
+            allreduce(global_loss)
+            avg_loss = global_loss.item() / get_size()
             # Scaling adjusts loss while maintaining its connection to the graph, which is needed for loss.backward() to work
             loss = loss * (avg_loss / local_loss.item())
 

@@ -24,6 +24,15 @@ MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
     }
 }
 
+void mpi_allreduce(torch::Tensor &tensor) {
+    ensure_mpi_initialized();
+    int count = tensor.numel();
+    void *data = tensor.data_ptr();
+    MPI_Datatype datatype = get_mpi_datatype(tensor);
+
+    MPI_Allreduce(MPI_IN_PLACE, data, count, datatype, MPI_SUM, MPI_COMM_WORLD);
+}
+
 void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     ensure_mpi_initialized();
     void* send_ptr = sendbuf.data_ptr();
@@ -115,6 +124,7 @@ void finalize_mpi() {
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("allgather", &mpi_allgather, "MPI AllGather");
+    m.def("allreduce", &mpi_allreduce, "MPI AllReduce");
     m.def("reduce_scatter", &mpi_reduce_scatter, "MPI ReduceScatter");
     m.def("send", &mpi_send, "MPI Send");
     m.def("recv", &mpi_recv, "MPI Recv");
