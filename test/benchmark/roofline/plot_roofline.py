@@ -86,11 +86,13 @@ def load_backward_metrics():
 
 
 def flatten_metrics(prefix, metrics):
+    prefix = shorten_prefix(prefix)
+
     flat_metrics = {}
     is_leaf = False
     for key, value in metrics.items():
         if isinstance(value, dict):
-            flat_metrics = flatten_metrics(f"{prefix}{key}_", value)
+            flat_metrics.update(flatten_metrics(f"{prefix}{key}_", value))
         else:
             flat_metrics[f"{key}"] = value
             is_leaf = True
@@ -99,6 +101,12 @@ def flatten_metrics(prefix, metrics):
         flat_metrics = {prefix: flat_metrics}
 
     return flat_metrics
+
+def shorten_prefix(prefix):
+    # Remove anything before /
+    prefix = re.sub(r".*/", "", prefix)
+
+    return prefix
 
 
 def plot_kernels_on_roofline(kernel_type, machine_roofline, gemm_kernel_metrics):

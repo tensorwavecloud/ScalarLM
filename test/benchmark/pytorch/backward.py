@@ -74,9 +74,14 @@ def run_backward(model_name, batch_size, input_tokens):
 
     # Run the backward pass
     start = time.time()
-    outputs = model.forward(input_ids, labels=input_ids)
-    outputs.loss.backward()
+    iterations = 0
+    while time.time() - start < 3:
+        outputs = model.forward(input_ids, labels=input_ids)
+        outputs.loss.backward()
+        iterations += 1
     end = time.time()
+
+    iteration_time = (end - start) / iterations
 
     flop_count = calculate_flop_count(model, batch_size, input_tokens)
     byte_count = calculate_byte_count(model, batch_size, input_tokens)
@@ -89,9 +94,9 @@ def run_backward(model_name, batch_size, input_tokens):
     return {
         input_tokens: {
             batch_size: {
-                "time": end - start,
-                "GFLOP/s": flop_count / (end - start) / 1e9,
-                "flop/s": flop_count / (end - start),
+                "time": iteration_time,
+                "GFLOP/s": flop_count / (iteration_time) / 1e9,
+                "flop/s": flop_count / (iteration_time),
                 "flop_count": flop_count,
                 "byte_count": byte_count,
                 "operational_intensity": flop_count / byte_count,

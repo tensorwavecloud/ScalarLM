@@ -77,9 +77,14 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
 
     # Run the forward pass
     start = time.time()
+    iterations = 0
     with torch.no_grad():
-        outputs = model.generate(input_ids, max_length=input_tokens + output_tokens)
+        while time.time() - start < 3:
+            outputs = model.generate(input_ids, max_length=input_tokens + output_tokens)
+            iterations += 1
     end = time.time()
+
+    iteration_time = (end - start) / iterations
 
     flop_count = calculate_flop_count(model, batch_size, input_tokens, output_tokens)
     byte_count = calculate_byte_count(model, batch_size, input_tokens, output_tokens)
@@ -94,9 +99,9 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
         input_tokens: {
             output_tokens: {
                 batch_size: {
-                    "time": end - start,
-                    "GFLOP/s": flop_count / (end - start) / 1e9,
-                    "flop/s": flop_count / (end - start),
+                    "time": iteration_time,
+                    "GFLOP/s": flop_count / iteration_time / 1e9,
+                    "flop/s": flop_count / iteration_time,
                     "flop_count": flop_count,
                     "byte_count": byte_count,
                     "operational_intensity": flop_count / byte_count,
