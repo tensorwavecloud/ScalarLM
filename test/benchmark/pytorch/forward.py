@@ -3,6 +3,7 @@ from benchmark.pytorch.gemm import run_gemm
 import torch
 import time
 import json
+import gc
 from tqdm import tqdm
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -65,6 +66,7 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
 
     model = AutoModelForCausalLM.from_pretrained(model_name)
 
+    model.to(torch.bfloat16)
     model.to(get_device())
 
     # Input tokens are randomly generated ints between 0 and the model's vocab size
@@ -81,6 +83,12 @@ def run_forward(model_name, batch_size, input_tokens, output_tokens):
 
     flop_count = calculate_flop_count(model, batch_size, input_tokens, output_tokens)
     byte_count = calculate_byte_count(model, batch_size, input_tokens, output_tokens)
+
+    logger.info(f"Deleting model {model_name}")
+    del model
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     return {
         input_tokens: {
@@ -126,7 +134,7 @@ def calculate_byte_count(model, batch_size, input_tokens, output_tokens):
 
 def get_device():
     if torch.cuda.is_available():
-        return torch.device("cuda:0")
+        return torch.device("cuda")
     else:
         return torch.device("cpu")
 

@@ -3,6 +3,7 @@ from benchmark.pytorch.gemm import run_gemm
 import torch
 import time
 import json
+import gc
 from tqdm import tqdm
 
 from transformers import AutoModelForCausalLM, AutoTokenizer
@@ -62,6 +63,7 @@ def run_backward(model_name, batch_size, input_tokens):
 
     model = AutoModelForCausalLM.from_pretrained(model_name)
 
+    model.to(torch.bfloat16)
     model.to(get_device())
 
     # Input tokens are randomly generated ints between 0 and the model's vocab size
@@ -78,6 +80,11 @@ def run_backward(model_name, batch_size, input_tokens):
 
     flop_count = calculate_flop_count(model, batch_size, input_tokens)
     byte_count = calculate_byte_count(model, batch_size, input_tokens)
+
+    del model
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
 
     return {
         input_tokens: {
@@ -164,5 +171,5 @@ benchmark_model_list = [
     ["masint/tiny-random-llama", 1, 128],
     ["meta-llama/Llama-3.2-1B-Instruct", 1, 128],
     ["meta-llama/Llama-3.1-8B-Instruct", 1, 128],
-    ["meta-llama/Llama-3.3-70B-Instruct", 1, 128],
+    ["Qwen/Qwen2.5-32B", 1, 128],
 ]

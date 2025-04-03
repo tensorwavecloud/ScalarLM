@@ -7,10 +7,14 @@ from benchmark.pytorch.backward import benchmark_backward
 from benchmark.roofline.plot_roofline import plot_roofline
 from benchmark.roofline.plot_bandwidth_sweep import plot_bandwidth_sweep
 
+import os
+
 import logging
 
 def main():
     setup_logging()
+
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     benchmark_memcpy()
     benchmark_memcpy_peer()

@@ -56,7 +56,7 @@ def run_gemm(size):
     start.record()
     iterations = 0
     while time.time() < end_time:
-        c = torch.mm(a, b)
+        torch.mm(a, b, out=c)
         iterations += 1
     end.record()
 
