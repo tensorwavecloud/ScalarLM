@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: scalarlm-cache
+  name: scalarlm-8b-cache
   annotations:
     helm.sh/resource-policy: keep
 spec:

@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: scalarlm-jobs
+  name: scalarlm-8b-jobs
 spec:
   accessModes:
     - ReadWriteOnce

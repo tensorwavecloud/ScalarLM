@@ -34,20 +34,20 @@ spec:
             - name: scalarlm-config
               mountPath: /app/cray/cray-config.yaml
               subPath: cray-config.yaml
-            - name: scalarlm-jobs
+            - name: scalarlm-8b-jobs
               mountPath: /app/cray/jobs
-            - name: scalarlm-cache
+            - name: scalarlm-8b-cache
               mountPath: /root/.cache/huggingface
           resources:
             limits:
               amd.com/gpu: {{ .Values.training_gpus }}
       volumes:
-        - name: scalarlm-jobs
+        - name: scalarlm-8b-jobs
           persistentVolumeClaim:
-            claimName: scalarlm-jobs
-        - name: scalarlm-cache
+            claimName: scalarlm-8b-jobs
+        - name: scalarlm-8b-cache
           persistentVolumeClaim:
-            claimName: scalarlm-cache
+            claimName: scalarlm-8b-cache
         - name: scalarlm-config
           configMap:
             name: {{ .Release.Name }}-api-configmap
