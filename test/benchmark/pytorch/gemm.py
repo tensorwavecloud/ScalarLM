@@ -20,6 +20,11 @@ def benchmark_gemm():
 
 
 def run_gemm_benchmark():
+    torch.backends.cuda.matmul.allow_bf16_reduced_precision_reduction = True
+    torch.backends.cuda.matmul.allow_fp16_reduced_precision_reduction = True
+    #torch.backends.cuda.matmul.allow_fp16_accumulation = False
+    #torch.backends.cuda.matmul.allow_bf16_accumulation = False
+    torch.backends.cuda.preferred_blas_library("cublas")
 
     warmup()
 
@@ -40,13 +45,17 @@ def warmup():
 
 def run_gemm(size):
     m, n, k = size
+    #a = torch.randint(0, 1, (m, k), dtype=gemm_dtype, device=get_device())
+    #b = torch.randn(k, n, dtype=gemm_dtype, device=get_device()) * torch.randint(0, 1, (k, n), dtype=gemm_dtype, device=get_device())
+    #b = torch.randint(0, 1, (k, n), dtype=gemm_dtype, device=get_device()) 
     a = torch.randn(m, k, dtype=gemm_dtype, device=get_device())
-    b = torch.randn(k, n, dtype=gemm_dtype, device=get_device())
-    c = torch.randn(m, n, dtype=gemm_dtype, device=get_device())
+    b = torch.randn(m, k, dtype=gemm_dtype, device=get_device())
+    c = torch.zeros(m, n, dtype=gemm_dtype, device=get_device())
 
-    # run at least 1 second
+
+    # run at least 3 seconds
     start_time = time.time()
-    end_time = start_time + 1
+    end_time = start_time + 3
 
     barrier()
 
@@ -56,7 +65,7 @@ def run_gemm(size):
     start.record()
     iterations = 0
     while time.time() < end_time:
-        torch.mm(a, b, out=c)
+        torch.matmul(a, b, out=c)
         iterations += 1
     end.record()
 
@@ -182,6 +191,7 @@ llama_8b_sizes = [
     (4096, 4096, 2048),
     (128256, 4096, 2048),
     (2048, 4096, 14336),
+    (16384, 16384, 16384),
 ]
 
 gemm_dtype = torch.bfloat16

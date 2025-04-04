@@ -25,7 +25,7 @@ declare -a docker_command_parts
 # Make sure the data directory exists
 mkdir -p $ROOT_DIRECTORY/data
 
-docker_command_parts=("docker" "run" "--rm" "--network" "host" "-v" "$ROOT_DIRECTORY/data:/app/cray/data")
+docker_command_parts=("docker" "run" "-it" "--rm" "--network" "host" "-v" "$ROOT_DIRECTORY/data:/app/cray/data")
 
 declare -a gpu_options
 
