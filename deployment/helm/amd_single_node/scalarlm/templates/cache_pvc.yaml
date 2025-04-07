@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scalarlm-cache
+  annotations:
+    helm.sh/resource-policy: keep
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: {{ .Values.cache_pvc.size }}
+  storageClassName: {{ .Values.cache_pvc.storageClass }}
+  wait_until_bound: false

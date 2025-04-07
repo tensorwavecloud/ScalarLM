@@ -1,0 +1,102 @@
+# Increase replicas for multi-node deployment
+api:
+  replicas: 2
+vllm:
+  replicas: 2
+
+image:
+  repository: sudnya/scalarlm-rocm # tensorwave/scalarlm-amd
+  tag: latest
+  pullPolicy: IfNotPresent # Always
+
+env:
+  - name: HIP_VISIBLE_DEVICES
+    value: "0"
+  - name: ROCR_VISIBLE_DEVICES
+    value: "0"
+
+service:
+  type: ClusterIP
+  api_port: 8000
+  vllm_port: 8001
+  externalIP: 10.214.142.100 # Consider using load balancer or ingress for multi-node
+
+    #jobs_pvc:
+    #  storageClass: local-hostpath
+    #  size: 100Gi
+    #  accessMode: ReadWriteMany  # Changed to support multi-node access
+    #
+    #cache_pvc:
+    #  storageClass: local-hostpath
+    #  size: 32Gi
+    #  accessMode: ReadWriteMany  # Changed to support multi-node access
+
+model: meta-llama/Llama-3.1-8B-Instruct
+max_model_length: 4096
+gpu_memory_utilization: 0.75
+
+training_gpus: 1
+inference_gpus: 1
+
+max_train_time: 86400
+
+# Resource requests to ensure proper scheduling
+resources:
+  requests:
+    cpu: 4
+    memory: 16Gi
+    amd.com/gpu: 1  # Or amd.com/gpu depending on your setup
+  limits:
+    cpu: 8
+    memory: 32Gi
+    amd.com/gpu: 1  # Or amd.com/gpu depending on your setup
+
+# Debugging annotations
+metadata:
+  annotations:
+    scheduler.alpha.kubernetes.io/critical-pod: ''
+
+# Add node affinity and anti-affinity to spread deployments
+#nodeSelector:
+#  kubernetes.io/hostname: ctr-swpool-l025  # First node
+#  gpu-type: amd
+#  #nodeName: ctr-swpool-l025
+#  gpu: "true"  # Based on the labels you added earlier
+#  kubernetes.io/os: linux
+
+affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+        - matchExpressions:
+            - key: gpu
+              operator: In
+              values:
+                - "true"
+            - key: kubernetes.io/os
+              operator: In
+              values:
+                - linux
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - scalarlm
+          topologyKey: kubernetes.io/hostname
+
+# Scheduling hints
+tolerations:
+  - key: "gpu"
+    operator: "Exists"
+    effect: "NoSchedule"
+  - key: "node.kubernetes.io/not-ready"
+    operator: "Exists"
+    effect: "NoSchedule"
+  - key: "node.kubernetes.io/unreachable"
+    operator: "Exists"
+    effect: "NoSchedule"

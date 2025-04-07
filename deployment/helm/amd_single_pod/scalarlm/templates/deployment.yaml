@@ -1,0 +1,76 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "cray.fullname" . }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "cray.labels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "cray.labels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/cray/scripts/start_one_server.sh"]
+            #command: [ "/bin/bash", "-c", "--" ]
+            #args: [ "while true; do sleep 30; done;" ]
+          ports:
+            - name: http
+              containerPort: 8000
+              hostPort: 8000
+              protocol: TCP
+            - name: http2
+              containerPort: 8001
+              hostPort: 8001
+              protocol: TCP
+          volumeMounts:
+            - mountPath: /dev/kfd
+              name: kfd
+            - mountPath: /dev/dri
+              name: dri
+            {{- range .Values.extraVolumeMounts }}
+            - mountPath: {{ .mountPath }}
+              name: {{ .name }}
+            {{- end }}
+            - name: cray-config
+              mountPath: /app/cray/cray-config.yaml
+              subPath: cray-config.yaml
+          resources:
+            limits:
+              amd.com/gpu: 2
+              cpu: "4"
+              memory: "128Gi"
+            requests:
+              amd.com/gpu: 2
+                #environment:
+                #  HIP_VISIBLE_DEVICES:  "0,1"
+                #  ROCR_VISIBLE_DEVICES:  "0,1"
+          env:
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: "{{ .value }}"
+            {{- end }}
+      volumes:
+        - name: cray-config
+          configMap:
+            name: {{ .Release.Name }}-configmap
+        - name: kfd
+          hostPath:
+            path: /dev/kfd
+        - name: dri
+          hostPath:
+            path: /dev/dri
+        {{- range .Values.volumes }}
+        - name: {{ .name }}
+          hostPath:
+            path: {{ .hostPath }}
+        {{- end }}

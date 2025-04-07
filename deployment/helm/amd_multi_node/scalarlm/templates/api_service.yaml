@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "scalarlm.fullname" . }}
+spec:
+  type: {{ .Values.service.type }}
+  ports:
+    - port: {{ .Values.service.api_port }}
+      targetPort: 8000
+      protocol: TCP
+      name: http
+  externalIPs:
+    - {{ .Values.service.externalIP }}
+  selector:
+    {{- include "scalarlm.labels" . | nindent 4 }}
