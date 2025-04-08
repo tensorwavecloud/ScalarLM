@@ -27,7 +27,7 @@ model: meta-llama/Llama-3.1-8B-Instruct
 max_model_length: 4096
 gpu_memory_utilization: 0.75
 
-training_gpus: 1
-inference_gpus: 1
+training_gpus: 2
+inference_gpus: 2
 
 max_train_time: 86400
