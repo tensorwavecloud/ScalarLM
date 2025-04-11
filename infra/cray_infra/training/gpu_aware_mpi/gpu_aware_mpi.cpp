@@ -103,7 +103,7 @@ void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     if (sendbuf.scalar_type() == torch::kBFloat16) {
         
         auto sendbuf_float32 = sendbuf.to(torch::kFloat32);
-        auto recvbuf_float32 = torch::empty_like(recvbuf, torch::kFloat32);
+        auto recvbuf_float32 = torch::zeros_like(recvbuf, torch::kFloat32);
 
         // Perform MPI_Reduce_scatter on float32 tensors
         void* send_ptr = sendbuf_float32.data_ptr<float>();
@@ -111,7 +111,7 @@ void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
         MPI_Reduce_scatter(send_ptr, recv_ptr, recvcounts.data(), MPI_FLOAT, MPI_SUM, MPI_COMM_WORLD);
 
         // Convert the result back to bfloat16
-        recvbuf = recvbuf_float32.to(torch::kBFloat16);
+        recvbuf.copy_(recvbuf_float32);
     } 
     else {
         void* send_ptr = sendbuf.data_ptr();

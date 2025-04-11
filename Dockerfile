@@ -26,10 +26,6 @@ RUN uv pip install xformers==0.0.27.post2
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
 
-COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
-RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py bdist_wheel --dist-dir=dist && \
-    pip install dist/*.whl
-
 ENV BASE_NAME=nvidia
 
 ###############################################################################
@@ -57,10 +53,6 @@ RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
 
-COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
-RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py bdist_wheel --dist-dir=dist && \
-    pip install dist/*.whl
-
 ENV BASE_NAME=cpu
 
 ###############################################################################
@@ -79,10 +71,6 @@ ENV HIP_FORCE_DEV_KERNARG=1
 
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
-
-COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
-RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py bdist_wheel --dist-dir=dist && \
-    pip install dist/*.whl
 
 ###############################################################################
 # VLLM BUILD STAGE
@@ -136,6 +124,11 @@ WORKDIR ${INSTALL_ROOT}
 ###############################################################################
 # MAIN IMAGE
 FROM vllm AS infra
+
+# Build GPU-aware MPI
+COPY ./infra/cray_infra/training/gpu_aware_mpi ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi
+RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py bdist_wheel --dist-dir=dist && \
+    pip install dist/*.whl
 
 RUN apt-get update -y  \
     && apt-get install -y slurm-wlm libslurm-dev \
