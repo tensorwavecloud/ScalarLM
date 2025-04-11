@@ -11,6 +11,10 @@ import tarfile
 import tempfile
 import jsonlines
 
+import logging
+
+logger = logging.getLogger(__name__)
+
 
 async def submit_training_job(data, model_name, train_args):
     with make_training_archive(data) as archive_path:
@@ -22,19 +26,47 @@ async def submit_training_job(data, model_name, train_args):
 async def upload_async(data_file_path, api_url, train_args):
     async with aiohttp.ClientSession() as session:
 
-        with aiohttp.MultipartWriter("form-data") as mp:
-            file_part = mp.append(file_sender(data_file_path))
-            file_part.set_content_disposition(
-                "form-data", name="file", filename="dataset"
-            )
+        content_length = await get_content_length(data_file_path, train_args)
 
-            params_part = mp.append_json(train_args)
-            params_part.set_content_disposition("form-data", name="params")
+        with make_multipart_writer(data_file_path, train_args) as mp:
 
-            async with session.post(api_url, data=mp, headers=mp.headers) as resp:
+            headers = mp.headers
+
+            headers["Content-Length"] = str(content_length)
+
+            async with session.post(api_url, data=mp, headers=headers) as resp:
                 if resp.status != 200:
                     raise Exception(f"Failed to upload data: {await resp.text()}")
                 return await resp.json()
+
+
+async def get_content_length(data_file_path, train_args):
+    with make_multipart_writer(data_file_path, train_args) as mp:
+
+        class Writer:
+            def __init__(self):
+                self.count = 0
+
+            async def write(self, data):
+                self.count += len(data)
+
+        writer = Writer()
+        await mp.write(writer)
+        content_length = writer.count
+
+        return content_length
+
+
+@contextlib.contextmanager
+def make_multipart_writer(data_file_path, train_args):
+    with aiohttp.MultipartWriter("form-data") as mp:
+        file_part = mp.append(file_sender(data_file_path))
+        file_part.set_content_disposition("form-data", name="file", filename="dataset")
+
+        params_part = mp.append_json(train_args)
+        params_part.set_content_disposition("form-data", name="params")
+
+        yield mp
 
 
 async def file_sender(file_path):
@@ -42,9 +74,11 @@ async def file_sender(file_path):
 
     async with aiofiles.open(file_path, "rb") as f:
         chunk = await f.read(chunk_size)
+        index = 0
         while chunk:
             yield chunk
             chunk = await f.read(chunk_size)
+            index += chunk_size
 
 
 @contextlib.contextmanager
@@ -54,7 +88,11 @@ def make_training_archive(data):
         with tempfile.NamedTemporaryFile() as archive_file:
             with tarfile.open(archive_file.name, "w") as tar:
                 # Add the data file to the archive
-                tar.add(data_file_path, arcname="dataset.jsonlines", filter=tar_info_strip_file_info)
+                tar.add(
+                    data_file_path,
+                    arcname="dataset.jsonlines",
+                    filter=tar_info_strip_file_info,
+                )
 
                 # Add the machine learning directory to the archive
                 # The directory tree is as follows:
@@ -66,7 +104,13 @@ def make_training_archive(data):
                 tar.add(ml_dir, arcname="ml", filter=tar_info_strip_file_info)
 
             archive_file.seek(0)
+            archive_file.flush()
+
+            logger.debug(f"Archive created at {archive_file.name}")
+            logger.debug(f"Archive size: {os.path.getsize(archive_file.name)} bytes")
+
             yield archive_file.name
+
 
 def tar_info_strip_file_info(tarinfo):
     tarinfo.uid = tarinfo.gid = 0
@@ -88,10 +132,11 @@ def make_data_file(data):
             for chunk in iter(lambda: data.read(chunk_size), b""):
                 f.write(chunk)
             f.seek(0)
+            f.flush()
             yield f.name
 
     elif isinstance(data, list):
-        with tempfile.NamedTemporaryFile(delete=False) as f:
+        with tempfile.NamedTemporaryFile() as f:
             with jsonlines.open(f.name, mode="w") as writer:
                 for item in data:
                     writer.write(item)
@@ -100,3 +145,4 @@ def make_data_file(data):
 
     else:
         raise ValueError(f"Unsupported data type: {type(data)}")
+
