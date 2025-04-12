@@ -21,6 +21,7 @@ dependencies = [
     "aiofiles",
     "jsonlines",
     "matplotlib",
+    "humanize",
 ]
 
 [tool.setuptools]

@@ -1,6 +1,8 @@
 from masint import SupermassiveIntelligence
 
-from datetime import datetime
+from datetime import datetime, timedelta
+
+from humanize import naturaldelta
 
 import logging
 
@@ -36,7 +38,9 @@ def print_all_model_info(models):
 
     for model in models:
         for key in keys:
-            if 'time' in key:
+            if  'train_time' in key:
+                model[key] = naturaldelta(timedelta(seconds=model[key]))
+            elif 'time' in key:
                 model[key] = datetime.fromtimestamp(model[key]).strftime('%Y-%m-%d %H:%M:%S')
 
     for model in models:
@@ -50,3 +54,4 @@ def print_all_model_info(models):
     for model in models:
         row = " | ".join(f"{str(model[key]):<{max_lengths[key]}}" for key in keys)
         print(row)
+
