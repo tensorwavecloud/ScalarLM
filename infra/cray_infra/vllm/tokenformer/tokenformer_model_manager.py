@@ -15,6 +15,7 @@ from vllm.logger import init_logger
 
 from cray_infra.vllm.adapter_commons.models import AdapterModel, AdapterModelManager
 from cray_infra.vllm.attention import AttentionMetadata, AttentionType
+from cray_infra.util.get_config import get_config
 
 from vllm.adapter_commons.utils import (
     get_adapter,
@@ -74,11 +75,11 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
         # logger.info(f"Wrapping layer {name} with vLLMTokenformerAttentionAdaptor")
 
         # Wrap the layer with a TokenformerAttentionAdapter
-        #self._recursive_setattr(
+        # self._recursive_setattr(
         #    self.model,
         #    name,
         #    vLLMTokenformerAttentionAdapter(layer, layer.head_dim, self.device),
-        #)
+        # )
 
 
 class TokenformerModel(AdapterModel):
@@ -119,7 +120,7 @@ class TokenformerModelManager(AdapterModelManager):
     ):
         self.model = vLLMTokenformerSurgeon(model, device).insert_adapter_modules()
         self._registered_adapters: Dict[int, Any] = {}
-        self._active_adapters: Dict[int, Any] = {}
+        self._active_adapter: Any = None
         self.tokenformer_model_cls = TokenformerModel
         self.dtype = next(self.model.parameters()).dtype
         self.orig_lm_head = copy.deepcopy(
@@ -129,13 +130,16 @@ class TokenformerModelManager(AdapterModelManager):
                 if "lm_head" in k
             }
         )
+        self._lru_adaptor_ids = []
 
     def activate_adapter(self, adapter_id: int) -> bool:
-        if (
-            adapter_id not in self._registered_adapters
-            or adapter_id in self._active_adapters
-        ):
+        assert adapter_id in self._registered_adapters, f"Adapter {adapter_id} not found"
+
+        if adapter_id == self._active_adapter:
+            logger.info(f"Tokenformer {adapter_id} is already active")
             return False
+
+        self.update_lru_position(adapter_id)
 
         logger.info(f"Activating Tokenformer - {adapter_id}")
 
@@ -159,13 +163,17 @@ class TokenformerModelManager(AdapterModelManager):
                 f"Unexpected keys in state dict: {load_result.unexpected_keys}"
             )
 
-        self._active_adapters[adapter_id] = tokenformers
+        self._active_adapter = adapter_id
+
         return True
 
+    def update_lru_position(self, adapter_id: int) -> None:
+        if adapter_id in self._lru_adaptor_ids:
+            self._lru_adaptor_ids.remove(adapter_id)
+        self._lru_adaptor_ids.append(adapter_id)
+
     def deactivate_adapter(self, adapter_id: int) -> bool:
-        return deactivate_adapter(
-            adapter_id, self._active_adapters, self._deactivate_adapter
-        )
+        return self._deactivate_adapter(adapter_id)
 
     def _deactivate_adapter(self, adapter_id: int):
         logger.info(f"Deactivating Tokenformer - {adapter_id}")
@@ -181,21 +189,47 @@ class TokenformerModelManager(AdapterModelManager):
         self.model.load_state_dict(model_state_dict, strict=False)
 
     def add_adapter(self, adapter: TokenformerModel) -> bool:
+        if len(self._registered_adapters) >= self.capacity:
+            # Remove the least recently used adapter
+            lru_adapter_id = self._lru_adaptor_ids.pop(0)
+            self.remove_adapter(lru_adapter_id)
+
         self._registered_adapters[adapter.id] = adapter
+        self._lru_adaptor_ids.append(adapter.id)
+
+        logger.info(f"Adapter {adapter.id} added")
+
+        return True
 
     def set_adapter_mapping(self, mapping: Any) -> None:
         pass
 
     def remove_adapter(self, adapter_id: int) -> bool:
         return remove_adapter(
-            adapter_id, self._registered_adapters, self.deactivate_adapter
+            adapter_id, self._registered_adapters, self._remove_adapter
         )
+
+    def _remove_adapter(self, adapter_id: int) -> None:
+        if adapter_id not in self._registered_adapters:
+            logger.warning(f"Adapter {adapter_id} not found")
+            return
+
+        if adapter_id == self._active_adapter:
+            self.deactivate_adapter(adapter_id)
+
+        del self._registered_adapters[adapter_id]
+        logger.info(f"Adapter {adapter_id} removed")
+
+    def deactivate_all_adapters(self) -> None:
+        if self._active_adapter is not None:
+            self.deactivate_adapter(self._active_adapter)
+        self._active_adapter = None
 
     def remove_all_adapters(self) -> None:
         for id in self._registered_adapters:
             self.deactivate_adapter(id)
         self._registered_adapters.clear()
-        self._active_adapters.clear()
+        self._active_adapter = None
 
     def get_adapter(self, adapter_id: int) -> Optional[Any]:
         get_adapter(adapter_id, self._registered_adapters)
@@ -208,7 +242,8 @@ class TokenformerModelManager(AdapterModelManager):
 
     @property
     def capacity(self) -> int:
-        pass
+        config = get_config()
+        return config.get("tokenformer_cache_capacity", 4)
 
     @property
     def adapter_slots(self) -> int:
