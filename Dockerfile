@@ -57,6 +57,9 @@ ARG MAX_JOBS=8
 ENV BASE_NAME=amd
 
 RUN pip install amdsmi
+RUN --mount=type=cache,target=/var/cache/apt \
+    apt-get update -y \
+    apt install -y amd-smi-lib
 
 ###############################################################################
 # VLLM BUILD STAGE
