@@ -22,19 +22,7 @@ async def get_training_job_info(job_hash: str):
         if job_hash == "latest":
             job_hash = get_latest_model()
 
-        job_directory_path = get_job_directory_for_hash(job_hash)
-        status_filepath = os.path.join(job_directory_path, "status.json")
-
-        job_status = None
-
-        # Get job status
-        try:
-            with open(status_filepath, "r") as file:
-                job_status = json.loads(file.readline().strip())
-        except FileNotFoundError:
-            logger.error("File not found")
-        except json.JSONDecodeError:
-            logger.error("Invalid JSON in first line")
+        job_status = get_training_job_status(job_hash)
 
         if job_status is None:
             raise HTTPException(
@@ -77,3 +65,20 @@ async def get_training_job_info(job_hash: str):
 def get_job_directory_for_hash(hash_id: str):
     config = get_config()
     return os.path.join(config["training_job_directory"], hash_id)
+
+def get_training_job_status(job_hash: str):
+    job_status = None
+
+    job_directory_path = get_job_directory_for_hash(job_hash)
+    status_filepath = os.path.join(job_directory_path, "status.json")
+
+    # Get job status
+    try:
+        with open(status_filepath, "r") as file:
+            job_status = json.loads(file.readline().strip())
+    except FileNotFoundError:
+        logger.error("File not found")
+    except json.JSONDecodeError:
+        logger.error("Invalid JSON in first line")
+
+    return job_status
