@@ -5,6 +5,7 @@ from cray_infra.api.fastapi.routers.request_types.list_models_response import (
 from cray_infra.training.get_training_job_info import get_training_job_status
 
 from cray_infra.training.vllm_model_manager import get_vllm_model_manager
+from cray_infra.training.get_latest_model import get_start_time
 
 from cray_infra.util.get_config import get_config
 
@@ -27,8 +28,15 @@ async def list_models():
 
     registered_models = set(get_vllm_model_manager().get_registered_models())
 
-    for model_name in os.listdir(config["training_job_directory"]):
-        job_status = get_training_job_status(model_name)
+    model_names = os.listdir(config["training_job_directory"])
+
+    model_names.sort(
+        key=lambda x: get_start_time(os.path.join(config["training_job_directory"], x)),
+        reverse=True,
+    )
+
+    for model_name in model_names:
+        job_status, job_directory = get_training_job_status(model_name)
 
         status = {}
 

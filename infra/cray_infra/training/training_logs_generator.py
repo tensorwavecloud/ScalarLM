@@ -1,4 +1,5 @@
 from cray_infra.training.get_latest_model import get_latest_model
+from cray_infra.training.get_training_job_info import get_job_directory_for_hash
 
 from cray_infra.util.get_config import get_config
 
@@ -20,7 +21,7 @@ def training_logs_generator(model_name: str, starting_line_number: int):
             raise FileNotFoundError("Could not find any models")
         model_name = latest_model_name
 
-    job_directory = os.path.join(config["training_job_directory"], model_name)
+    job_directory = get_job_directory_for_hash(model_name)
 
     # Find the log file inside the job directory, it will be named "slurm-<job_id>.out, but we don't know the job_id yet
     log_files = []

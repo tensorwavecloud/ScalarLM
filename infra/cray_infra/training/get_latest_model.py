@@ -30,4 +30,7 @@ def get_start_time(path):
     with open(os.path.join(path, "status.json")) as f:
         status = json.load(f)
 
+    if "history" not in status:
+        return 0
+
     return status.get("start_time", 0)

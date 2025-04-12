@@ -22,7 +22,7 @@ async def get_training_job_info(job_hash: str):
         if job_hash == "latest":
             job_hash = get_latest_model()
 
-        job_status = get_training_job_status(job_hash)
+        job_status, job_directory_path = get_training_job_status(job_hash)
 
         if job_status is None:
             raise HTTPException(
@@ -64,7 +64,29 @@ async def get_training_job_info(job_hash: str):
 
 def get_job_directory_for_hash(hash_id: str):
     config = get_config()
-    return os.path.join(config["training_job_directory"], hash_id)
+    perfect_match = os.path.join(config["training_job_directory"], hash_id)
+
+    if os.path.exists(perfect_match):
+        return perfect_match
+
+    # Check for partial match
+    job_directory_path = None
+
+    for job_directory in os.listdir(config["training_job_directory"]):
+        if hash_id in job_directory:
+            job_directory_path = os.path.join(
+                config["training_job_directory"], job_directory
+            )
+            break
+
+    if job_directory_path is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Training job was not found at {config['training_job_directory']}",
+        )
+
+    return job_directory_path
+
 
 def get_training_job_status(job_hash: str):
     job_status = None
@@ -81,4 +103,4 @@ def get_training_job_status(job_hash: str):
     except json.JSONDecodeError:
         logger.error("Invalid JSON in first line")
 
-    return job_status
+    return job_status, job_directory_path
