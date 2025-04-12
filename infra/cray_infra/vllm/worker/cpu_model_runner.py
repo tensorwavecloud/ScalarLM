@@ -633,11 +633,16 @@ class CPUModelRunner(ModelRunnerBase[ModelInputForCPU]):
     def manage_tokenformer_adapters(self, model_input):
         if self.lora_config:
             assert model_input.lora_requests is not None
+            if len(model_input.lora_requests) == 0:
+                self.tokenformer_manager.deactivate_all_adapters()
+
             for lora_request in model_input.lora_requests:
                 if lora_request is not None:
+                    logger.info(f"Adding LoRA adapter: {lora_request.adapter_id}")
                     self.tokenformer_manager.add_adapter(lora_request)
+                    self.tokenformer_manager.activate_adapter(lora_request)
                 else:
-                    self.tokenformer_manager.remove_all_adapters()
+                    self.tokenformer_manager.deactivate_all_adapters()
         return self.tokenformer_manager._adapter_manager.model
 
 

@@ -225,6 +225,9 @@ class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
             # Remove before we load the new lora to save memory
             if len(self._adapter_manager) + 1 > self._adapter_manager.capacity:
                 assert isinstance(self._adapter_manager, LRUCacheLoRAModelManager)
+                logger.debug(
+                    f"Removing oldest adapter {self._adapter_manager.oldest_adapter_id}"
+                )
                 self._adapter_manager.remove_oldest_adapter()
             lora = self._load_adapter(lora_request)
             loaded = self._adapter_manager.add_adapter(lora)
@@ -237,8 +240,8 @@ class LRUCacheWorkerLoRAManager(WorkerLoRAManager):
         self._adapter_manager.activate_adapter(lora_request.lora_int_id)
         return loaded
 
-class WorkerTokenformerManager(AbstractWorkerManager):
 
+class WorkerTokenformerManager(AbstractWorkerManager):
     """WorkerTokenformerManager that manages tokenformer models on the worker side.
 
     Every request, the requested tokenformer model will be loaded (unless it is already
@@ -255,21 +258,30 @@ class WorkerTokenformerManager(AbstractWorkerManager):
         super().__init__(device)
         # Lazily initialized by create_tokenformer_manager.
         self._adapter_manager: TokenformerModelManager
+        self.adaptor_mapping = {}
 
     @property
     def is_enabled(self) -> bool:
         pass
 
-    def set_active_adapters(self, requests: Set[Any],
-                            mapping: Optional[Any]) -> None:
+    def set_active_adapters(self, requests: Set[Any], mapping: Optional[Any]) -> None:
         pass
 
+    def activate_adapter(self, adapter_request: Any) -> bool:
+        adapter_id = self.adaptor_mapping[adapter_request.adapter_id]
+        logger.debug(
+            f"Activating adapter {adapter_id} mapped from {adapter_request.adapter_id}"
+        )
+        return self._adapter_manager.activate_adapter(adapter_id)
+
     def add_adapter(self, adapter_request: Any) -> bool:
-        return add_adapter_worker(adapter_request,
-                                  self.list_adapters,
-                                  self._load_adapter,
-                                  self._adapter_manager.add_adapter,
-                                  self._adapter_manager.activate_adapter)
+        return add_adapter_worker(
+            adapter_request,
+            self.list_adapters,
+            self._load_adapter,
+            self._adapter_manager.add_adapter,
+            self._adapter_manager.activate_adapter,
+        )
 
     def remove_adapter(self, adapter_id: int) -> bool:
         return self._adapter_manager.remove_adapter(adapter_id)
@@ -277,16 +289,28 @@ class WorkerTokenformerManager(AbstractWorkerManager):
     def remove_all_adapters(self):
         self._adapter_manager.remove_all_adapters()
 
+    def deactivate_all_adapters(self):
+        self._adapter_manager.deactivate_all_adapters()
+
     def list_adapters(self) -> Set[int]:
-        return list_adapters_worker(self._adapter_manager.list_adapters)
+        adaptor_ids = list_adapters_worker(self._adapter_manager.list_adapters)
+
+        reverse_mapping = {value: key for key, value in self.adaptor_mapping.items()}
+
+        existing_adaptors = set(reverse_mapping[adapter_id] for adapter_id in adaptor_ids)
+
+        logger.debug(
+            f"Existing adapters {existing_adaptors} mapped from {adaptor_ids}"
+        )
+
+        return existing_adaptors
 
     def create_tokenformer_manager(
         self,
         model: torch.nn.Module,
     ) -> Any:
 
-        tokenformer_manager = self._manager_cls(
-            model=model, device=self.device)
+        tokenformer_manager = self._manager_cls(model=model, device=self.device)
 
         self._adapter_manager = tokenformer_manager
         return tokenformer_manager.model
@@ -294,7 +318,13 @@ class WorkerTokenformerManager(AbstractWorkerManager):
     def _load_adapter(self, lora_request: LoRARequest) -> TokenformerModel:
         try:
             lora_path = get_adapter_absolute_path(lora_request.lora_path)
-            tokenformer = self._tokenformer_model_cls.from_local_checkpoint(lora_path, device=self.device)
+            tokenformer = self._tokenformer_model_cls.from_local_checkpoint(
+                lora_path, device=self.device
+            )
+            self.adaptor_mapping[lora_request.adapter_id] = tokenformer.id
+            logger.debug(
+                f"Loaded tokenformer {lora_path} with id {tokenformer.id} mapped from {lora_request.adapter_id}"
+            )
         except Exception as e:
             raise RuntimeError(f"Loading tokenformer {lora_path} failed") from e
         return tokenformer

@@ -44,3 +44,5 @@ class Config(BaseModel):
     tokenformer_r: int = 32
     tokenformer_num_heads: int = 4
 
+    tokenformer_cache_capacity: int = 2
+
