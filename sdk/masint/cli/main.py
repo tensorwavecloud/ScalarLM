@@ -29,7 +29,7 @@ def main():
         plot(model_name=argumments.model, smooth=int(argumments.smooth))
 
     elif argumments.command == "ls":
-        ls()
+        ls(all=argumments.all)
 
     elif argumments.command == "squeue":
         squeue()
@@ -94,6 +94,7 @@ def add_plot_parser(subparsers):
 
 def add_ls_parser(subparsers):
     ls_parser = subparsers.add_parser("ls", help="List models")
+    ls_parser.add_argument("-A", "--all", help="List all attributes of the models", default=False, action="store_true")
 
 
 def add_squeue_parser(subparsers):

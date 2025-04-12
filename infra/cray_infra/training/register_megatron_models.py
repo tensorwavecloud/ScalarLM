@@ -1,5 +1,7 @@
 from cray_infra.api.fastapi.aiohttp.get_global_session import get_global_session
 
+from cray_infra.training.vllm_model_manager import get_vllm_model_manager
+
 from cray_infra.one_server.wait_for_vllm import get_vllm_health
 
 from cray_infra.util.get_config import get_config
@@ -60,7 +62,12 @@ async def get_registered_models():
 
     logger.info(f"Registered models: {request_data['data']}")
 
-    return [model["id"] for model in request_data["data"]]
+    models = [model["id"] for model in request_data["data"]]
+
+    vllm_model_manager = get_vllm_model_manager()
+    vllm_model_manager.set_registered_models(models)
+
+    return models
 
 
 async def register_model(model):
