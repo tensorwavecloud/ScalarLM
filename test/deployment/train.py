@@ -26,7 +26,7 @@ dataset = get_dataset()
 
 status = llm.train(
     dataset,
-    train_args={"max_steps": 50, "learning_rate": 1e-2, "gpus": 1, "max_gpus": 1},
+    train_args={"max_steps": 5, "learning_rate": 1e-2, "gpus": 1, "max_gpus": 1},
 )
 
 print(status)
