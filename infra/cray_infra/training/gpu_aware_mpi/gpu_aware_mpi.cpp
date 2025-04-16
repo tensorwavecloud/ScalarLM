@@ -19,12 +19,6 @@ MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
         case torch::kInt32: return MPI_INT;
         case torch::kInt64: return MPI_LONG_LONG;
         case torch::kUInt8: return MPI_UNSIGNED_CHAR;
-	case torch::kBFloat16: {
-	    MPI_Datatype mpi_bfloat16;
-	    MPI_Type_contiguous(2, MPI_UNSIGNED_CHAR, &mpi_bfloat16);
-	    MPI_Type_commit(&mpi_bfloat16);
-	    return mpi_bfloat16;
-	}
 	// Add more cases as needed
 	default: throw std::runtime_error("Unsupported tensor dtype: " + std::string(torch::toString(tensor.scalar_type())));
     }
@@ -39,7 +33,8 @@ void mpi_allreduce(torch::Tensor &tensor) {
 
     if (tensor.scalar_type() == torch::kBFloat16) {
         // Convert bfloat16 to float32 for compatibility with MPI
-        auto float32_tensor = tensor.to(torch::kFloat32);
+        auto tensor_options = tensor.options().dtype(torch::kFloat32);
+        auto float32_tensor = tensor.to(tensor_options);
 
         int mpi_result = MPI_Allreduce(
             MPI_IN_PLACE,
@@ -56,7 +51,7 @@ void mpi_allreduce(torch::Tensor &tensor) {
         }
 
         // Convert back to bfloat16
-        tensor = float32_tensor.to(torch::kBFloat16);
+        tensor.copy_(float32_tensor);
     } else {
         // Get appropriate MPI datatype
         MPI_Datatype datatype = get_mpi_datatype(tensor);
@@ -79,13 +74,30 @@ void mpi_allreduce(torch::Tensor &tensor) {
 
 void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     ensure_mpi_initialized();
-    void* send_ptr = sendbuf.data_ptr();
-    void* recv_ptr = recvbuf.data_ptr();
-
     int count = sendbuf.numel();
-    MPI_Datatype datatype = get_mpi_datatype(sendbuf);
 
-    MPI_Allgather(send_ptr, count, datatype, recv_ptr, count, datatype, MPI_COMM_WORLD);
+    if (sendbuf.scalar_type() == torch::kBFloat16) {
+        // Preserve original device for converted tensors
+        auto send_options = sendbuf.options().dtype(torch::kFloat32);
+        auto recv_options = recvbuf.options().dtype(torch::kFloat32);
+
+        auto sendbuf_float32 = sendbuf.to(send_options);
+        auto recvbuf_float32 = torch::zeros_like(recvbuf, recv_options);
+
+        // Perform MPI_Reduce_scatter on float32 tensors
+        void* send_ptr = sendbuf_float32.data_ptr<float>();
+        void* recv_ptr = recvbuf_float32.data_ptr<float>();
+        MPI_Allgather(send_ptr, count, MPI_FLOAT, recv_ptr, count, MPI_FLOAT, MPI_COMM_WORLD);
+
+        // Convert the result back to bfloat16
+        recvbuf.copy_(recvbuf_float32);
+    }
+    else {
+        void* send_ptr = sendbuf.data_ptr();
+        void* recv_ptr = recvbuf.data_ptr();
+        MPI_Datatype datatype = get_mpi_datatype(sendbuf);
+        MPI_Allgather(send_ptr, count, datatype, recv_ptr, count, datatype, MPI_COMM_WORLD);
+    }
 }
 
 void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {

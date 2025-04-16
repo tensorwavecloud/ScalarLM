@@ -7,7 +7,6 @@ import gc
 import time
 import logging
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 class FSDPLayer(nn.Module):
@@ -21,6 +20,7 @@ class FSDPLayer(nn.Module):
         self.should_checkpoint = should_checkpoint
 
     def _full_backward_hook(self, module, grad_input, grad_output):
+        logger.debug(f"Rank {rank}: Free params")
         self.free_params()
 
     def shard_parameters(self):
@@ -92,7 +92,6 @@ class FSDPLayer(nn.Module):
         for name, param in self.module.named_parameters(recurse=False):
 
             if not name.startswith("shard_"):
-                #logger.debug(f" Rank {rank}: Skipping parameter {name}")
                 continue
 
             # Remove _shard_ prefix
@@ -112,25 +111,6 @@ class FSDPLayer(nn.Module):
             return super().__getattr__(name)
         except AttributeError:
             return getattr(self.module, name)
-
-    def free_params(self):
-        for name, param in self.module.named_parameters(recurse=False):
-
-            if not name.startswith("shard_"):
-                #logger.debug(f" Rank {rank}: Skipping parameter {name}")
-                continue
-
-            # Remove _shard_ prefix
-            name = name[6:]
-
-            if hasattr(self.module, name):
-                if getattr(self.module, name).data_ptr() != param.data.data_ptr():
-                    delattr(self.module, name)
-
-            setattr(self.module, name, param.data)
-
-        gc.collect()
-        torch.cuda.empty_cache()
 
 
 class SimpleFSDP(nn.Module):
