@@ -102,8 +102,12 @@ void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     
     if (sendbuf.scalar_type() == torch::kBFloat16) {
         
-        auto sendbuf_float32 = sendbuf.to(torch::kFloat32);
-        auto recvbuf_float32 = torch::zeros_like(recvbuf, torch::kFloat32);
+        // Preserve original device for converted tensors
+        auto send_options = sendbuf.options().dtype(torch::kFloat32);
+        auto recv_options = recvbuf.options().dtype(torch::kFloat32);
+
+        auto sendbuf_float32 = sendbuf.to(send_options);
+        auto recvbuf_float32 = torch::zeros_like(recvbuf, recv_options);
 
         // Perform MPI_Reduce_scatter on float32 tensors
         void* send_ptr = sendbuf_float32.data_ptr<float>();
