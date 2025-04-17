@@ -56,7 +56,7 @@ def run_test():
     # 2. Train a base model with small dataset
     training_response = llm.train(
         create_training_set(),
-        train_args={"max_steps": (count * 50), "learning_rate": 3e-3, "gpus": 2},
+        train_args={"max_steps": (count * 50), "learning_rate": 3e-3, "gpus": 2, "max_gpus": 2},
     )
     logger.info(training_response)
 

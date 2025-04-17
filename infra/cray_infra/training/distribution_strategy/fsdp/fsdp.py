@@ -20,7 +20,7 @@ class FSDPLayer(nn.Module):
         self.should_checkpoint = should_checkpoint
 
     def _full_backward_hook(self, module, grad_input, grad_output):
-        logger.debug(f"Rank {rank}: Free params")
+        logger.debug(f"Rank {rank}: Full backward hook")
         self.free_params()
 
     def shard_parameters(self):
@@ -89,6 +89,7 @@ class FSDPLayer(nn.Module):
             setattr(self.module, name, full_tensor)
 
     def free_params(self):
+        logger.debug(f"Rank {rank}: Free params")
         for name, param in self.module.named_parameters(recurse=False):
 
             if not name.startswith("shard_"):
@@ -294,17 +295,16 @@ def trim_padding(all_tensors, rank, world_size, metadata_dict):
 def collectives_all_gather(shard, metadata_dict):
     """Gather shards and reconstruct the full tensor using metadata."""
     # Prepare buffers
-    gathered = torch.empty(shard.numel() * world_size, device=shard.device, dtype=shard.dtype).contiguous().detach()
-    shard_detached = shard.contiguous().detach()
+    gathered = torch.empty(shard.numel() * world_size, device=shard.device, dtype=shard.dtype)
 
     # Collective operation
     start = time.time()
-    allgather(shard_detached, gathered)
+    allgather(shard, gathered)
     end = time.time()
     
     total_time = "{:.1e}".format(end - start)
-    bandwidth = "{:.1e}".format(shard_detached.nbytes / (end - start) / 1e9)
-    logger.debug(f"All_gather time on device {shard_detached.device}: {total_time}, bandwidth: {bandwidth} GB/s on tensor {shard_detached.shape}"
+    bandwidth = "{:.1e}".format(shard.nbytes / (end - start) / 1e9)
+    logger.debug(f"All_gather time on device {shard.device}: {total_time}, bandwidth: {bandwidth} GB/s on tensor {shard.shape}"
         )
     
     # Reconstruct the full tensor using metadata
@@ -317,9 +317,13 @@ def collectives_all_gather(shard, metadata_dict):
         offset += shard_size
 
     all_tensors = trim_padding(all_tensors, rank, world_size, metadata_dict)
-
     concatenated = torch.cat(all_tensors)
     original_shape = metadata_dict[rank][1]
+    
+    del gathered
+    gc.collect()
+    torch.cuda.empty_cache()
+    
     return concatenated.reshape(original_shape)
 
 
@@ -335,8 +339,7 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     if padding > 0:
         tensor_padded = torch.concatenate([tensor_padded, torch.zeros(padding, device=tensor.device, dtype=tensor_padded.dtype)])
 
-    tensor_padded = tensor_padded.contiguous()
-    local_shard = torch.empty(shard_size, device=tensor.device, dtype=tensor_padded.dtype).contiguous()
+    local_shard = torch.empty(shard_size, device=tensor.device, dtype=tensor_padded.dtype)
     
     # Collective operation
     start = time.time()
@@ -353,6 +356,10 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     if rank == world_size - 1:
         valid_elements = original_numel - padding
         local_shard = local_shard[:valid_elements]
+
+    del tensor_padded
+    gc.collect()
+    torch.cuda.empty_cache()
 
     return local_shard
 
