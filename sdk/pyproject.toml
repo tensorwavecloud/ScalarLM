@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scalarlm"
-version = "0.5.9"
+version = "0.5.10"
 authors = [
   { name="Greg Diamos", email="gregory.diamos@gmail.com" },
 ]
@@ -26,6 +26,7 @@ dependencies = [
 
 [tool.setuptools]
 packages = [
+    "scalarlm",
     "masint",
     "masint.api",
     "masint.cli",
