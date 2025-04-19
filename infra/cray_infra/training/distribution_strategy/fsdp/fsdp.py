@@ -9,6 +9,43 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+def log_live_cuda_tensors_and_params(model):
+    # Build a mapping from data_ptr to parameter/buffer name
+    rank = get_rank()
+    data_ptr_to_name = {}
+    for name, param in model.named_parameters(recurse=False):
+        if param.is_cuda:
+            data_ptr_to_name[param.data_ptr()] = f"param:{name}"
+    for name, buf in model.named_buffers(recurse=False):
+        if buf.is_cuda:
+            data_ptr_to_name[buf.data_ptr()] = f"buffer:{name}"
+
+    logger.debug(f"Rank {rank}: === Live CUDA tensors ===")
+    for obj in gc.get_objects():
+        try:
+            if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
+                tensor = obj.data if hasattr(obj, 'data') else obj
+                if tensor.is_cuda:
+                    assoc = data_ptr_to_name.get(tensor.data_ptr(), "")
+                    logger.debug(
+                        f"Rank={rank}, "
+                        f"Tensor id={id(tensor):>10}, data_ptr={tensor.data_ptr():>12}, "
+                        f"shape={tuple(tensor.shape):>20}, dtype={str(tensor.dtype):>10}, "
+                        f"device={str(tensor.device):>8}, requires_grad={getattr(tensor, 'requires_grad', False)} {assoc}"
+                    )
+        except Exception:
+            pass
+
+
+def log_gpu_memory(prefix=""):
+    for i in range(torch.cuda.device_count()):
+        allocated = torch.cuda.memory_allocated(i)
+        reserved = torch.cuda.memory_reserved(i)
+        free, total = torch.cuda.mem_get_info(i)
+        rank = get_rank()
+        if rank == 0:
+            logger.debug(f"{prefix} GPU {i}: Allocated={allocated/1e6:.2f}MB, Reserved={reserved/1e6:.2f}MB, Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
+
 class FSDPLayer(nn.Module):
     def __init__(self, module, should_checkpoint=False):
         super().__init__()
@@ -18,10 +55,6 @@ class FSDPLayer(nn.Module):
         self.module.register_full_backward_hook(self._full_backward_hook)
 
         self.should_checkpoint = should_checkpoint
-
-    def _full_backward_hook(self, module, grad_input, grad_output):
-        logger.debug(f"Rank {rank}: Full backward hook")
-        self.free_params()
 
     def shard_parameters(self):
         self.sharded_parameter_metadata = {}
@@ -43,7 +76,7 @@ class FSDPLayer(nn.Module):
                 nn.Parameter(shard, requires_grad=param.requires_grad),
             )
             delattr(self.module, name)
-            setattr(self.module, name, shard)
+            setattr(self.module, name, nn.Parameter(shard))
 
         logger.debug(
             f" Rank {rank}: Sharded parameters are {[i[0] for i in self.module.named_parameters(recurse=False)]}"
@@ -59,7 +92,11 @@ class FSDPLayer(nn.Module):
         self.gather_all_parameters()
         result = self.module(*args, **kwargs)
 
+        log_gpu_memory("Before FreeParams:")
+        log_live_cuda_tensors_and_params(self.module)
         self.free_params()
+        log_gpu_memory("After FreeParams:")
+        log_live_cuda_tensors_and_params(self.module)
 
         return result
 
@@ -86,7 +123,7 @@ class FSDPLayer(nn.Module):
             )
 
             # Copy the full tensor back to the original parameter
-            setattr(self.module, name, full_tensor)
+            setattr(self.module, name, nn.Parameter(full_tensor))
 
     def free_params(self):
         logger.debug(f"Rank {rank}: Free params")
@@ -102,7 +139,7 @@ class FSDPLayer(nn.Module):
                 if getattr(self.module, name).data_ptr() != param.data.data_ptr():
                     delattr(self.module, name)
 
-            setattr(self.module, name, param.data)
+            setattr(self.module, name, nn.Parameter(param.data))
 
         gc.collect()
         torch.cuda.empty_cache()
