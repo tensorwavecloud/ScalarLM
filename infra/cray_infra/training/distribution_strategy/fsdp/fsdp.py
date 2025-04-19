@@ -52,8 +52,6 @@ class FSDPLayer(nn.Module):
         self.module = module
         self.shard_parameters()
 
-        self.module.register_full_backward_hook(self._full_backward_hook)
-
         self.should_checkpoint = should_checkpoint
 
     def shard_parameters(self):
