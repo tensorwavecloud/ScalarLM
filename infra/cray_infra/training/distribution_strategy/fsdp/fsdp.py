@@ -9,34 +9,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def log_live_cuda_tensors_and_params(model):
-    # Build a mapping from data_ptr to parameter/buffer name
-    rank = get_rank()
-    data_ptr_to_name = {}
-    for name, param in model.named_parameters(recurse=False):
-        if param.is_cuda:
-            data_ptr_to_name[param.data_ptr()] = f"param:{name}"
-    for name, buf in model.named_buffers(recurse=False):
-        if buf.is_cuda:
-            data_ptr_to_name[buf.data_ptr()] = f"buffer:{name}"
-
-    logger.debug(f"Rank {rank}: === Live CUDA tensors ===")
-    for obj in gc.get_objects():
-        try:
-            if torch.is_tensor(obj) or (hasattr(obj, 'data') and torch.is_tensor(obj.data)):
-                tensor = obj.data if hasattr(obj, 'data') else obj
-                if tensor.is_cuda:
-                    assoc = data_ptr_to_name.get(tensor.data_ptr(), "")
-                    logger.debug(
-                        f"Rank={rank}, "
-                        f"Tensor id={id(tensor):>10}, data_ptr={tensor.data_ptr():>12}, "
-                        f"shape={tuple(tensor.shape):>20}, dtype={str(tensor.dtype):>10}, "
-                        f"device={str(tensor.device):>8}, requires_grad={getattr(tensor, 'requires_grad', False)} {assoc}"
-                    )
-        except Exception:
-            pass
-
-
 def log_gpu_memory(prefix=""):
     for i in range(torch.cuda.device_count()):
         allocated = torch.cuda.memory_allocated(i)
@@ -74,7 +46,7 @@ class FSDPLayer(nn.Module):
                 nn.Parameter(shard, requires_grad=param.requires_grad),
             )
             delattr(self.module, name)
-            setattr(self.module, name, nn.Parameter(shard))
+            setattr(self.module, name, shard)
 
         logger.debug(
             f" Rank {rank}: Sharded parameters are {[i[0] for i in self.module.named_parameters(recurse=False)]}"
@@ -91,10 +63,8 @@ class FSDPLayer(nn.Module):
         result = self.module(*args, **kwargs)
 
         log_gpu_memory("Before FreeParams:")
-        log_live_cuda_tensors_and_params(self.module)
         self.free_params()
         log_gpu_memory("After FreeParams:")
-        log_live_cuda_tensors_and_params(self.module)
 
         return result
 
@@ -121,10 +91,9 @@ class FSDPLayer(nn.Module):
             )
 
             # Copy the full tensor back to the original parameter
-            setattr(self.module, name, nn.Parameter(full_tensor))
+            setattr(self.module, name, full_tensor)
 
     def free_params(self):
-        logger.debug(f"Rank {rank}: Free params")
         for name, param in self.module.named_parameters(recurse=False):
 
             if not name.startswith("shard_"):
@@ -135,9 +104,10 @@ class FSDPLayer(nn.Module):
 
             if hasattr(self.module, name):
                 if getattr(self.module, name).data_ptr() != param.data.data_ptr():
+                    logger.debug(f"[FreeParams] Rank {rank}: Deleting {name}")
                     delattr(self.module, name)
 
-            setattr(self.module, name, nn.Parameter(param.data))
+            setattr(self.module, name, param.data)
 
         gc.collect()
         torch.cuda.empty_cache()
@@ -355,10 +325,6 @@ def collectives_all_gather(shard, metadata_dict):
     concatenated = torch.cat(all_tensors)
     original_shape = metadata_dict[rank][1]
     
-    del gathered
-    gc.collect()
-    torch.cuda.empty_cache()
-    
     return concatenated.reshape(original_shape)
 
 
@@ -391,10 +357,6 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     if rank == world_size - 1:
         valid_elements = original_numel - padding
         local_shard = local_shard[:valid_elements]
-
-    del tensor_padded
-    gc.collect()
-    torch.cuda.empty_cache()
 
     return local_shard
 
