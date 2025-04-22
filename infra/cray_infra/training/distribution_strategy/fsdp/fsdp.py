@@ -22,7 +22,12 @@ class FSDPLayer(nn.Module):
         self.module = module
         self.shard_parameters()
 
+        self.module.register_full_backward_hook(self._full_backward_hook)
+        
         self.should_checkpoint = should_checkpoint
+
+    def _full_backward_hook(self, module, grad_input, grad_output):
+        self.free_params()
 
     def shard_parameters(self):
         rank = get_rank()

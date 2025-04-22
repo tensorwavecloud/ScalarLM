@@ -59,6 +59,7 @@ def test_sequential_model(rank, device):
 if __name__ == "__main__":
     rank = get_rank()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    logger.info(f"device: {device}")
 
     test_sequential_model(rank, device)
     finalize_mpi()
