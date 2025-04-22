@@ -7,6 +7,7 @@ import gc
 import time
 import logging
 
+logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def log_gpu_memory(prefix=""):
@@ -255,7 +256,10 @@ def shard_tensor(tensor):
     # Gather metadata from all ranks
     local_metadata = torch.tensor([original_numel, *original_shape, shard_size, padding], dtype=torch.long)
     all_metadata = torch.zeros((world_size, local_metadata.numel()), dtype=torch.long)
-    allgather(local_metadata, all_metadata)
+    allgather(local_metadata, all_metadata.view(-1))
+    
+    # Reshape all_metadata back to 2D after allgather
+    all_metadata = all_metadata.view(world_size, -1)
 
     # Create a dictionary of metadata keyed by rank
     metadata_dict = {rank: all_metadata[rank].tolist() for rank in range(world_size)}
@@ -320,8 +324,8 @@ def collectives_all_gather(shard, metadata_dict):
     # Reconstruct the full tensor using metadata
     all_tensors = []
     offset = 0
-    for rank in range(world_size):
-        shard_size = metadata_dict[rank][2]
+    for r in range(world_size):
+        shard_size = metadata_dict[r][2]
         rank_shard_flattened = gathered[offset : offset + shard_size]
         all_tensors.append(rank_shard_flattened)
         offset += shard_size
@@ -330,6 +334,7 @@ def collectives_all_gather(shard, metadata_dict):
     concatenated = torch.cat(all_tensors)
     original_shape = metadata_dict[rank][1]
     
+    logger.debug(f"Rank {rank} - metadata_dict: {metadata_dict[rank]}")
     return concatenated.reshape(original_shape)
 
 

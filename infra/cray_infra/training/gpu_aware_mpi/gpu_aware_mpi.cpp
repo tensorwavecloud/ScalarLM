@@ -2,6 +2,7 @@
 #include <torch/extension.h>
 #include <stdexcept>
 #include <iostream>
+#include <tuple>
 
 static bool mpi_initialized = false;
 
@@ -12,6 +13,27 @@ void ensure_mpi_initialized() {
     }
 }
 
+inline std::tuple<MPI_Datatype, size_t> get_typesize(torch::ScalarType dtype) {
+    switch (dtype) {
+        case torch::kFloat32:
+            return std::make_tuple(MPI_FLOAT, sizeof(float));
+        case torch::kFloat64:
+            return std::make_tuple(MPI_DOUBLE, sizeof(double));
+        case torch::kInt32:
+            return std::make_tuple(MPI_INT, sizeof(int32_t));
+        case torch::kInt64:
+            return std::make_tuple(MPI_LONG_LONG, sizeof(int64_t));
+        case torch::kUInt8:
+            return std::make_tuple(MPI_UNSIGNED_CHAR, sizeof(uint8_t));
+        case torch::kInt8:
+            return std::make_tuple(MPI_CHAR, sizeof(int8_t));
+        // Add more types as needed
+        default:
+            throw std::runtime_error("Unsupported torch::ScalarType for MPI communication");
+    }
+}
+
+
 MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
     switch (tensor.scalar_type()) {
         case torch::kFloat32: return MPI_FLOAT;
@@ -19,8 +41,35 @@ MPI_Datatype get_mpi_datatype(const torch::Tensor& tensor) {
         case torch::kInt32: return MPI_INT;
         case torch::kInt64: return MPI_LONG_LONG;
         case torch::kUInt8: return MPI_UNSIGNED_CHAR;
+        case torch::kInt8: return MPI_CHAR;
 	// Add more cases as needed
 	default: throw std::runtime_error("Unsupported tensor dtype: " + std::string(torch::toString(tensor.scalar_type())));
+    }
+}
+
+void barrier() {
+    ensure_mpi_initialized();
+    MPI_Barrier(MPI_COMM_WORLD);
+}
+
+int get_rank() {
+    ensure_mpi_initialized();
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    return rank;
+}
+
+int get_size() {
+    ensure_mpi_initialized();
+    int size;
+    MPI_Comm_size(MPI_COMM_WORLD, &size);
+    return size;
+}
+
+void finalize_mpi() {
+    if (mpi_initialized) {
+        MPI_Finalize();
+        mpi_initialized = false;
     }
 }
 
@@ -54,12 +103,25 @@ void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     ensure_mpi_initialized();
     int count = sendbuf.numel();
 
-    void* send_ptr = sendbuf.data_ptr();
-    void* recv_ptr = recvbuf.data_ptr();
-    MPI_Datatype datatype = get_mpi_datatype(sendbuf);
-    MPI_Allgather(send_ptr, count, datatype, recv_ptr, count, datatype, MPI_COMM_WORLD);
-    
+    int rank = get_rank();
+    int world_size = get_size();
+
+    recvbuf.slice(0, rank * count, (rank + 1) * count).copy_(sendbuf);
+
+    auto [datatype, typesize] = get_typesize(sendbuf.scalar_type());
+
+    for (int i = 0; i < world_size; ++i) {
+        if (i == rank) continue;
+        MPI_Request reqs[2];
+        // Send my data to rank i
+        MPI_Isend(sendbuf.data_ptr(), count, datatype, i, 0, MPI_COMM_WORLD, &reqs[0]);
+        // Receive their data into my recvbuf at offset i
+        void* recv_ptr = static_cast<char*>(recvbuf.data_ptr()) + i * count * typesize;
+        MPI_Irecv(recv_ptr, count, datatype, i, 0, MPI_COMM_WORLD, &reqs[1]);
+        MPI_Waitall(2, reqs, MPI_STATUSES_IGNORE);
+    }
 }
+
 
 void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     ensure_mpi_initialized();
@@ -110,32 +172,6 @@ void mpi_recv(torch::Tensor& tensor, int source) {
     if (status.MPI_SOURCE != source) {
         std::cout << "Received message from unexpected source: " << status.MPI_SOURCE << " != " << source << std::endl;
         throw std::runtime_error("Received message from unexpected source: " + std::to_string(status.MPI_SOURCE) + " != " + std::to_string(source));
-    }
-}
-
-void barrier() {
-    ensure_mpi_initialized();
-    MPI_Barrier(MPI_COMM_WORLD);
-}
-
-int get_rank() {
-    ensure_mpi_initialized();
-    int rank;
-    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
-    return rank;
-}
-
-int get_size() {
-    ensure_mpi_initialized();
-    int size;
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    return size;
-}
-
-void finalize_mpi() {
-    if (mpi_initialized) {
-        MPI_Finalize();
-        mpi_initialized = false;
     }
 }
 
