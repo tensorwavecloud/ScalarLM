@@ -25,6 +25,7 @@ class FSDPLayer(nn.Module):
         self.should_checkpoint = should_checkpoint
 
     def shard_parameters(self):
+        rank = get_rank()
         self.sharded_parameter_metadata = {}
 
         logger.debug(f"Rank {rank}: Sharding parameters for {self.module}")
@@ -67,6 +68,7 @@ class FSDPLayer(nn.Module):
         return result
 
     def gather_all_parameters(self):
+        rank = get_rank()
         logger.debug(f"Rank {rank}: Gathering parameters for {self.module}")
 
         for name, param in self.module.named_parameters(recurse=False):
@@ -149,6 +151,7 @@ class SimpleFSDP(nn.Module):
             return getattr(self.model, name)
 
     def unwrap_model(self):
+        rank = get_rank()
         unwrapped_state_dict = {}
         required_grads = {}
 
@@ -183,6 +186,7 @@ class SimpleFSDP(nn.Module):
         return unwrapped_model
 
     def unwrap_layers(self, prefix, module, unwrapped_state_dict, required_grads):
+        rank = get_rank()
         for name, child in module.named_children():
             if isinstance(child, FSDPLayer):
                 logger.debug(f" Rank {rank}: Unwrapping module {prefix}{name}")
@@ -221,14 +225,13 @@ class SimpleFSDP(nn.Module):
                     required_grads=required_grads,
                 )
 
-
-world_size = get_size()
-rank = get_rank()
-
 def shard_tensor(tensor):
     """Evenly shard tensor across ranks with padding if needed.
     Returns (shard, metadata_dict) where metadata_dict contains
     {rank: (original_numel, original_shape)} for all ranks."""
+    world_size = get_size()
+    rank = get_rank()
+
     original_shape = tensor.shape
     original_numel = tensor.numel()
 
@@ -299,10 +302,13 @@ def trim_padding(all_tensors, rank, world_size, metadata_dict):
 
 def collectives_all_gather(shard, metadata_dict):
     """Gather shards and reconstruct the full tensor using metadata."""
+    world_size = get_size()
+    rank = get_rank()
+    
     # Prepare buffers
     orig_dtype = shard.dtype
     shard = shard.to(torch.float32)
-    gathered = torch.empty(shard.numel() * world_size, device=shard.device, dtype=torch.float32)
+    gathered = torch.zeros(shard.numel() * world_size, device=shard.device, dtype=torch.float32)
 
     # Collective operation in float32
     start = time.time()
@@ -335,9 +341,9 @@ def collectives_all_gather(shard, metadata_dict):
 
 def collectives_reduce_scatter(tensor, metadata_dict):
     """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
-    rank = get_rank()
     world_size = get_size()
-
+    rank = get_rank()
+    
     # Save original dtype
     orig_dtype = tensor.dtype
     
