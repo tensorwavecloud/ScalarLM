@@ -126,20 +126,68 @@ void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
 void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     ensure_mpi_initialized();
     
-    int size;
-    MPI_Comm_size(MPI_COMM_WORLD, &size);
-    
-    std::vector<int> recvcounts(size);
-    int recv_elements = recvbuf.numel();
-    for (int i = 0; i < size; ++i) {
-        recvcounts[i] = recv_elements;
+    int world_size, rank;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+    int total_count = sendbuf.numel();
+    int count = recvbuf.numel();
+    TORCH_CHECK(total_count == count * world_size, "sendbuf must be world_size * recvbuf.numel() in length");
+
+    auto [mpi_dtype, typesize] = get_typesize(sendbuf.scalar_type());
+
+    // Step 1: Each rank extracts its own segment to start the reduction
+    torch::Tensor local_sum = sendbuf.slice(0, rank * count, (rank + 1) * count).clone();
+
+    // Step 2: Non-blocking send/recv of each segment, and sum reduction
+    std::vector<MPI_Request> send_reqs(world_size);
+    std::vector<MPI_Request> recv_reqs(world_size);
+    std::vector<std::vector<char>> recv_buffers(world_size);
+
+    for (int src = 0; src < world_size; ++src) {
+        if (src == rank) continue;
+        // Prepare receive buffer
+        recv_buffers[src].resize(count * typesize);
+        // Post non-blocking receive for segment destined for this rank from rank src
+        MPI_Irecv(recv_buffers[src].data(), count, mpi_dtype, src, 0, MPI_COMM_WORLD, &recv_reqs[src]);
+        // Post non-blocking send of this rank's segment to rank src
+        const void* send_ptr = static_cast<const char*>(sendbuf.data_ptr()) + src * count * typesize;
+        MPI_Isend(send_ptr, count, mpi_dtype, src, 0, MPI_COMM_WORLD, &send_reqs[src]);
     }
-    
-    void* send_ptr = sendbuf.data_ptr();
-    void* recv_ptr = recvbuf.data_ptr();
-    MPI_Datatype datatype = get_mpi_datatype(sendbuf);
-    MPI_Reduce_scatter(send_ptr, recv_ptr, recvcounts.data(), datatype, MPI_SUM, MPI_COMM_WORLD);
-    
+
+    // Wait for all receives and perform reduction
+    for (int src = 0; src < world_size; ++src) {
+        if (src == rank) continue;
+        MPI_Wait(&recv_reqs[src], MPI_STATUS_IGNORE);
+
+        // Accumulate (sum) into local_sum
+        if (sendbuf.scalar_type() == torch::kFloat32) {
+            auto local_sum_ptr = local_sum.data_ptr<float>();
+            auto tmp_ptr = reinterpret_cast<float*>(recv_buffers[src].data());
+            for (int i = 0; i < count; ++i) local_sum_ptr[i] += tmp_ptr[i];
+        } else if (sendbuf.scalar_type() == torch::kFloat64) {
+            auto local_sum_ptr = local_sum.data_ptr<double>();
+            auto tmp_ptr = reinterpret_cast<double*>(recv_buffers[src].data());
+            for (int i = 0; i < count; ++i) local_sum_ptr[i] += tmp_ptr[i];
+        } else if (sendbuf.scalar_type() == torch::kInt32) {
+            auto local_sum_ptr = local_sum.data_ptr<int32_t>();
+            auto tmp_ptr = reinterpret_cast<int32_t*>(recv_buffers[src].data());
+            for (int i = 0; i < count; ++i) local_sum_ptr[i] += tmp_ptr[i];
+        } else if (sendbuf.scalar_type() == torch::kInt64) {
+            auto local_sum_ptr = local_sum.data_ptr<int64_t>();
+            auto tmp_ptr = reinterpret_cast<int64_t*>(recv_buffers[src].data());
+            for (int i = 0; i < count; ++i) local_sum_ptr[i] += tmp_ptr[i];
+        }
+    }
+
+    // Wait for all sends to complete
+    for (int src = 0; src < world_size; ++src) {
+        if (src == rank) continue;
+        MPI_Wait(&send_reqs[src], MPI_STATUS_IGNORE);
+    }
+
+    // Copy result to recvbuf
+    recvbuf.copy_(local_sum);
 }
 
 void mpi_send(torch::Tensor& tensor, int dest) {

@@ -7,17 +7,14 @@ import gc
 import time
 import logging
 
-logging.basicConfig(level=logging.DEBUG, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
 def log_gpu_memory(prefix=""):
     for i in range(torch.cuda.device_count()):
-        allocated = torch.cuda.memory_allocated(i)
-        reserved = torch.cuda.memory_reserved(i)
         free, total = torch.cuda.mem_get_info(i)
         rank = get_rank()
         if rank == 0:
-            logger.debug(f"{prefix} GPU {i}: Allocated={allocated/1e6:.2f}MB, Reserved={reserved/1e6:.2f}MB, Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
+            logger.debug(f"{prefix} GPU {i}: Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
 
 class FSDPLayer(nn.Module):
     def __init__(self, module, should_checkpoint=False):
@@ -105,7 +102,6 @@ class FSDPLayer(nn.Module):
 
             if hasattr(self.module, name):
                 if getattr(self.module, name).data_ptr() != param.data.data_ptr():
-                    logger.debug(f"[FreeParams] Rank {rank}: Deleting {name}")
                     delattr(self.module, name)
 
             setattr(self.module, name, param.data)
@@ -334,7 +330,6 @@ def collectives_all_gather(shard, metadata_dict):
     concatenated = torch.cat(all_tensors)
     original_shape = metadata_dict[rank][1]
     
-    logger.debug(f"Rank {rank} - metadata_dict: {metadata_dict[rank]}")
     return concatenated.reshape(original_shape)
 
 
