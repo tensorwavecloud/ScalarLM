@@ -300,12 +300,17 @@ def trim_padding(all_tensors, rank, world_size, metadata_dict):
 def collectives_all_gather(shard, metadata_dict):
     """Gather shards and reconstruct the full tensor using metadata."""
     # Prepare buffers
-    gathered = torch.empty(shard.numel() * world_size, device=shard.device, dtype=shard.dtype)
+    orig_dtype = shard.dtype
+    shard = shard.to(torch.float32)
+    gathered = torch.empty(shard.numel() * world_size, device=shard.device, dtype=torch.float32)
 
-    # Collective operation
+    # Collective operation in float32
     start = time.time()
     allgather(shard, gathered)
     end = time.time()
+    
+    # Convert gathered result back to original dtype
+    gathered = gathered.to(orig_dtype)
     
     total_time = "{:.1e}".format(end - start)
     bandwidth = "{:.1e}".format(shard.nbytes / (end - start) / 1e9)
@@ -333,6 +338,9 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     rank = get_rank()
     world_size = get_size()
 
+    # Save original dtype
+    orig_dtype = tensor.dtype
+    
     original_numel, _, shard_size, padding = metadata_dict[rank]
 
     # Pad tensor if needed
@@ -340,13 +348,18 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     if padding > 0:
         tensor_padded = torch.concatenate([tensor_padded, torch.zeros(padding, device=tensor.device, dtype=tensor_padded.dtype)])
 
-    local_shard = torch.empty(shard_size, device=tensor.device, dtype=tensor_padded.dtype)
+    # Convert to float32 for the collective
+    tensor_padded = tensor_padded.to(torch.float32)
+    local_shard = torch.zeros(shard_size, device=tensor.device, dtype=torch.float32)
     
-    # Collective operation
+    # Collective operation in float32
     start = time.time()
     reduce_scatter(tensor_padded, local_shard)
     end = time.time()
     
+    # Convert result back to original dtype
+    local_shard = local_shard.to(orig_dtype)
+
     total_time = "{:.1e}".format(end - start)
     bandwidth = "{:.1e}".format(tensor_padded.nbytes / (end - start) / 1e9)
     logger.debug(
