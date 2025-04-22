@@ -292,10 +292,9 @@ def trim_padding(all_tensors, rank, world_size, metadata_dict):
             last_tensor = all_tensors[-1]
             all_tensors[-1] = last_tensor[:-remaining_padding]
     else:
-        # trim padding for last rank
-        if rank == world_size - 1:
-            valid_elements = original_numel - (world_size - 1) * shard_size
-            all_tensors[-1] = all_tensors[-1][:valid_elements]
+        # trim padding for last tensor
+        valid_elements = original_numel - (world_size - 1) * shard_size
+        all_tensors[-1] = all_tensors[-1][:valid_elements]
 
     return all_tensors
 
