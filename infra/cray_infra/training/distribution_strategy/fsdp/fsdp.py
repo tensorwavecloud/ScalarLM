@@ -4,7 +4,6 @@ from torch.utils.checkpoint import checkpoint
 from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter
 from collections import defaultdict
 
-import gc
 import time
 import logging
 
