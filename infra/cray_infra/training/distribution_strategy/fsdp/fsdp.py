@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
 from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter
+from collections import defaultdict
 
 import gc
 import time
@@ -9,22 +10,36 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def log_gpu_memory(prefix=""):
-    for i in range(torch.cuda.device_count()):
-        free, total = torch.cuda.mem_get_info(i)
-        rank = get_rank()
-        if rank == 0:
-            logger.debug(f"{prefix} GPU {i}: Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
-
 class FSDPLayer(nn.Module):
     def __init__(self, module, should_checkpoint=False):
         super().__init__()
         self.module = module
-        self.shard_parameters()
+        
 
         self.module.register_full_backward_hook(self._full_backward_hook)
         
-        self.should_checkpoint = should_checkpoint
+        self.should_checkpoint = False #should_checkpoint
+        
+        self.perf_metrics = {
+            'shard': {
+              'time': 0.0,  
+            },
+            'gather': {
+                'time': 0.0,   # Placeholder for elapsed time in seconds
+                'bytes': 0     # Placeholder for bytes processed
+            },
+            'forward_pass': {
+                'time': 0.0    # Placeholder for elapsed time in seconds
+            },
+            'free_params': {
+                'time': 0.0    # Placeholder for elapsed time in seconds
+            }
+        }
+        
+        start = time.time()
+        self.shard_parameters()
+        end = time.time()
+        self.perf_metrics['shard']['time'] += (end - start)
 
     def _full_backward_hook(self, module, grad_input, grad_output):
         self.free_params()
@@ -63,12 +78,23 @@ class FSDPLayer(nn.Module):
             return self.forward_op(*args, **kwargs)
 
     def forward_op(self, *args, **kwargs):
+        # gather all params
+        start = time.time()
         self.gather_all_parameters()
+        end = time.time()
+        self.perf_metrics['gather']['time'] += (end - start)
+        
+        # run forward pass
+        start = time.time()
         result = self.module(*args, **kwargs)
-
-        log_gpu_memory("Before FreeParams:")
+        end = time.time()
+        self.perf_metrics['forward_pass']['time'] += (end - start)
+        
+        # free params
+        start = time.time()
         self.free_params()
-        log_gpu_memory("After FreeParams:")
+        end = time.time()
+        self.perf_metrics['free_params']['time'] += (end - start)
 
         return result
 
@@ -147,7 +173,19 @@ class SimpleFSDP(nn.Module):
                 self._wrap_layers(child)
 
     def forward(self, *args, **kwargs):
-        return self.model(*args, **kwargs)
+        result = self.model(*args, **kwargs)
+        
+        rank = get_rank()
+        if rank == 0:
+            metrics_str = "\n"
+            # Aggregate and print metrics
+            aggregated = aggregate_perf_metrics(self.model)
+            for op, metrics in aggregated.items():
+                metrics_str += f"{op}:\n  Total time: {metrics['time']:.2e} s\n"
+            
+            logger.info(metrics_str)
+        
+        return result
 
     def __getattr__(self, name):
         try:
@@ -229,6 +267,35 @@ class SimpleFSDP(nn.Module):
                     unwrapped_state_dict=unwrapped_state_dict,
                     required_grads=required_grads,
                 )
+
+def get_fsdp_layers(module):
+    """Recursively collect all FSDPLayer instances"""
+    fsdp_layers = []
+    for child in module.children():
+        if isinstance(child, FSDPLayer):
+            fsdp_layers.append(child)
+        fsdp_layers.extend(get_fsdp_layers(child))
+    return fsdp_layers
+
+def aggregate_perf_metrics(module):
+    
+    fsdp_layers = get_fsdp_layers(module)
+    
+    """Sum metrics across all FSDP layers"""
+    aggregated = defaultdict(lambda: {'time': 0, 'bytes': 0})
+    for layer in fsdp_layers:
+        for op, metrics in layer.perf_metrics.items():
+            aggregated[op]['time'] += metrics.get('time', 0)
+            if 'bytes' in aggregated[op]:
+                aggregated[op]['bytes'] += metrics.get('bytes', 0)
+    return dict(aggregated)
+
+def log_gpu_memory(prefix=""):
+    for i in range(torch.cuda.device_count()):
+        free, total = torch.cuda.mem_get_info(i)
+        rank = get_rank()
+        if rank == 0:
+            logger.debug(f"{prefix} GPU {i}: Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
 
 def shard_tensor(tensor):
     """Evenly shard tensor across ranks with padding if needed.
@@ -315,17 +382,10 @@ def collectives_all_gather(shard, metadata_dict):
     gathered = torch.zeros(shard.numel() * world_size, device=shard.device, dtype=torch.float32)
 
     # Collective operation in float32
-    start = time.time()
     allgather(shard, gathered)
-    end = time.time()
     
     # Convert gathered result back to original dtype
     gathered = gathered.to(orig_dtype)
-    
-    total_time = "{:.1e}".format(end - start)
-    bandwidth = "{:.1e}".format(shard.nbytes / (end - start) / 1e9)
-    logger.debug(f"All_gather time on device {shard.device}: {total_time}, bandwidth: {bandwidth} GB/s on tensor {shard.shape}"
-        )
     
     # Reconstruct the full tensor using metadata
     all_tensors = []
@@ -363,18 +423,10 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     local_shard = torch.zeros(shard_size, device=tensor.device, dtype=torch.float32)
     
     # Collective operation in float32
-    start = time.time()
     reduce_scatter(tensor_padded, local_shard)
-    end = time.time()
     
     # Convert result back to original dtype
     local_shard = local_shard.to(orig_dtype)
-
-    total_time = "{:.1e}".format(end - start)
-    bandwidth = "{:.1e}".format(tensor_padded.nbytes / (end - start) / 1e9)
-    logger.debug(
-        f"Reduce_scatter time on device {tensor.device if hasattr(tensor, 'device') else 'CPU'}: {total_time}, bandwidth: {bandwidth} GB/s"
-    )
 
     # Trim padding on last rank using its original size from metadata_dict
     if rank == world_size - 1:
