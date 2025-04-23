@@ -142,9 +142,6 @@ class FSDPLayer(nn.Module):
 
             setattr(self.module, name, param.data)
 
-        gc.collect()
-        torch.cuda.empty_cache()
-
     def __getattr__(self, name):
         try:
             return super().__getattr__(name)
