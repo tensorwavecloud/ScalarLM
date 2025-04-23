@@ -33,6 +33,9 @@ class FSDPLayer(nn.Module):
             },
             'free_params': {
                 'time': 0.0    # Placeholder for elapsed time in seconds
+            },
+            'reduce_scatter': {
+                'time': 0.0    # Placeholder for elapsed time in seconds
             }
         }
         
@@ -115,7 +118,7 @@ class FSDPLayer(nn.Module):
             metadata_dict = self.sharded_parameter_metadata[name]
 
             # Gather all shards and reconstruct the full tensor
-            full_tensor = all_gather_op(param, metadata_dict)
+            full_tensor = all_gather_op(param, metadata_dict, self.perf_metrics)
 
             logger.debug(
                f" Rank {rank}: Gathered parameter {name} with shape {full_tensor.shape}"
@@ -438,14 +441,21 @@ def collectives_reduce_scatter(tensor, metadata_dict):
 
 class _AllGather(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, shard, metadata_dict):
+    def forward(ctx, shard, metadata_dict, metrics):
         ctx.metadata_dict = metadata_dict
+        ctx.metrics = metrics
         return collectives_all_gather(shard, metadata_dict)
 
     @staticmethod
     def backward(ctx, grad_output):
         metadata_dict = ctx.metadata_dict
-        return collectives_reduce_scatter(grad_output, metadata_dict), None
-
+        metrics = ctx.metrics
+        
+        start = time.time()
+        result = collectives_reduce_scatter(grad_output, metadata_dict), None, None
+        end = time.time()
+        metrics['reduce_scatter']['time'] += (end - start)
+        
+        return result
 
 all_gather_op = _AllGather.apply
