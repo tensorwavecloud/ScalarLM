@@ -14,10 +14,9 @@ class FSDPLayer(nn.Module):
         super().__init__()
         self.module = module
         
-
         self.module.register_full_backward_hook(self._full_backward_hook)
         
-        self.should_checkpoint = False #should_checkpoint
+        self.should_checkpoint = should_checkpoint
         
         self.perf_metrics = {
             'shard': {
@@ -163,9 +162,13 @@ class SimpleFSDP(nn.Module):
             has_grand_children = False
             if len(grand_children) > 0:
                 has_grand_children = True
+                
+            all_params = list(child.parameters(recurse=False))
+            any_requires_grad = any(param.requires_grad for param in all_params)
+            should_checkpoint = has_grand_children and any_requires_grad
 
             if len(params) > 0:
-                wrapped = FSDPLayer(child, should_checkpoint=has_grand_children)
+                wrapped = FSDPLayer(child, should_checkpoint=should_checkpoint)
                 setattr(module, name, wrapped)
 
             if has_grand_children:
