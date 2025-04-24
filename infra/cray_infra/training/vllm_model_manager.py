@@ -8,6 +8,12 @@ class VLLMModelManager:
     def get_registered_models(self):
         return self._models
 
+    def find_model(self, model_name):
+        for model in self._models:
+            if model_name in model:
+                return model
+        return None
+
 
 def get_vllm_model_manager():
     """

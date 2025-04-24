@@ -8,6 +8,8 @@ from cray_infra.api.fastapi.routers.request_types.generate_response import (
 
 from cray_infra.api.work_queue.inference_work_queue import get_inference_work_queue
 from cray_infra.api.fastapi.generate.poll_for_responses import poll_for_responses
+from cray_infra.training.get_latest_model import get_latest_model
+from cray_infra.training.vllm_model_manager import get_vllm_model_manager
 
 from cray_infra.util.get_config import get_config
 
@@ -37,6 +39,17 @@ async def generate(request: GenerateRequest):
     if model is None:
         model = config["model"]
         logger.info(f"Using default model: {model}")
+
+    if model == "latest":
+        model = get_latest_model()
+
+    model_manager = get_vllm_model_manager()
+
+    model = model_manager.find_model(model)
+
+    if model is None:
+        logger.error(f"Model {model} not found")
+        raise HTTPException(status_code=404, detail=f"Model {model} not found")
 
     inference_work_queue = get_inference_work_queue()
 

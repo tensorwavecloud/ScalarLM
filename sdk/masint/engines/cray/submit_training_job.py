@@ -16,9 +16,9 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-async def submit_training_job(data, model_name, train_args):
+async def submit_training_job(data, model_name, train_args, api_url):
     with make_training_archive(data) as archive_path:
-        api_url = make_api_url("v1/megatron/train")
+        api_url = make_api_url("v1/megatron/train", api_url=api_url)
 
         return await upload_async(archive_path, api_url, train_args)
 

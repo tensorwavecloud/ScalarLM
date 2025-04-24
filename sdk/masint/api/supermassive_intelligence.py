@@ -4,8 +4,8 @@ import asyncio
 
 
 class SupermassiveIntelligence:
-    def __init__(self):
-        self.async_api = AsyncSupermassiveIntelligence()
+    def __init__(self, api_url=None):
+        self.async_api = AsyncSupermassiveIntelligence(api_url=api_url)
 
     ## Train and Inference API methods
 

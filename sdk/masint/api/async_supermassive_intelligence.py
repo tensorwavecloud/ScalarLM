@@ -2,8 +2,8 @@ from masint.engines.async_cray import AsyncCray
 
 
 class AsyncSupermassiveIntelligence:
-    def __init__(self):
-        self.engine = AsyncCray()
+    def __init__(self, api_url=None):
+        self.engine = AsyncCray(api_url=api_url)
 
     async def train(self, data, model_name=None, train_args={}):
         if model_name is not None:

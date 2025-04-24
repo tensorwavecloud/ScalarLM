@@ -9,7 +9,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def ls(all):
+def ls(all, limit=None):
     logger.debug(f"Listing models")
 
     try:
@@ -19,6 +19,9 @@ def ls(all):
     except Exception as e:
         logger.error(f"Failed to list models")
         logger.error(e)
+
+    if limit is not None:
+        models = models[:limit]
 
     if all:
         print_all_model_info(models["models"])
