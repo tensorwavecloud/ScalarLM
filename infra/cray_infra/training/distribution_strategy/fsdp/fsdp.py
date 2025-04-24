@@ -180,7 +180,8 @@ class SimpleFSDP(nn.Module):
             # Aggregate and print metrics
             aggregated = aggregate_perf_metrics(self.model)
             for op, metrics in aggregated.items():
-                metrics_str += f"{op}:\n  Total time: {metrics['time']:.2e} s\n"
+                total_time = "{:.2f}".format(metrics['time'])
+                metrics_str += f"{op}:\n  Total time: {total_time} s\n"
             
             logger.info(metrics_str)
         
