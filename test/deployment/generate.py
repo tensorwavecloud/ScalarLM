@@ -1,10 +1,10 @@
-import masint
+import scalarlm
 
-# masint.api_url = "http://localhost:8000"
-# masint.api_url = "https://tensorwave.cray-lm.com"
-masint.api_url = "https://llama8btensorwave.cray-lm.com"
-# masint.api_url = "https://vultr.smasint.com"
-# masint.api_url = "https://meta-llama--llama-3-2-3b-instruct.cray-lm.com"
+# scalarlm.api_url = "http://localhost:8000"
+# scalarlm.api_url = "https://tensorwave.cray-lm.com"
+scalarlm.api_url = "https://llama8btensorwave.cray-lm.com"
+# scalarlm.api_url = "https://vultr.sscalarlm.com"
+# scalarlm.api_url = "https://meta-llama--llama-3-2-3b-instruct.cray-lm.com"
 
 
 def get_dataset(count):
@@ -16,7 +16,7 @@ def get_dataset(count):
     return dataset
 
 
-llm = masint.SupermassiveIntelligence()
+llm = scalarlm.SupermassiveIntelligence()
 
 dataset = get_dataset(count=1)
 

@@ -1,4 +1,4 @@
-import masint
+import scalarlm
 import logging
 import os
 import time
@@ -37,7 +37,7 @@ def get_dataset():
 
 def run_test():
     # 0. VLLM Health up
-    llm = masint.SupermassiveIntelligence()
+    llm = scalarlm.SupermassiveIntelligence()
 
     results = llm.health()
 

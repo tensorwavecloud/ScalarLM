@@ -95,12 +95,8 @@ def make_training_archive(data):
                 )
 
                 # Add the machine learning directory to the archive
-                # The directory tree is as follows:
-                #  - cray/sdk/masint/engines/cray/submit_training_job.py <- this file
-                #  - cray/ml <- the machine learning directory
-                ml_dir = os.path.join(
-                    os.path.dirname(__file__), "..", "..", "..", "..", "ml"
-                )
+                ml_dir = find_ml_dir()
+
                 tar.add(ml_dir, arcname="ml", filter=tar_info_strip_file_info)
 
             archive_file.seek(0)
@@ -117,6 +113,23 @@ def tar_info_strip_file_info(tarinfo):
     tarinfo.uname = tarinfo.gname = "root"
     tarinfo.mtime = 0
     return tarinfo
+
+def find_ml_dir():
+    # Check the current directory first
+    current_directory = os.path.join(os.getcwd(), "ml")
+
+    if os.path.exists(current_directory):
+        return current_directory
+
+    # The directory tree is as follows:
+    #  - cray/sdk/masint/engines/cray/submit_training_job.py <- this file
+    #  - cray/ml <- the machine learning directory
+    peer_directory = os.path.join(
+        os.path.dirname(__file__), "..", "..", "..", "..", "ml"
+    )
+
+    if os.path.exists(peer_directory):
+        return peer_directory
 
 
 @contextlib.contextmanager

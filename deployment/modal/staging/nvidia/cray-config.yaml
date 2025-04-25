@@ -1,3 +1,0 @@
-model: meta-llama/Llama-3.2-3B-Instruct
-api_url:  https://greg1232--cray-nvidia-llama-3-2-3b-instruct-fastapi-app.modal.run
-vllm_api_url: https://greg1232--cray-nvidia-llama-3-2-3b-instruct-vllm-app.modal.run

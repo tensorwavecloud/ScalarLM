@@ -48,20 +48,6 @@ commands:
       help: Number of workers, default is auto
       default: "auto"
 
-- name: deploy
-  help: Deploy the cray platform to modal
-  args:
-    - name: target
-      allowed: ["cpu", "nvidia"]
-      default: "cpu"
-
-- name: serve
-  help: Serve the cray platform using modal
-  args:
-    - name: target
-      allowed: ["cpu", "nvidia"]
-      default: "cpu"
-
 - name: llm
   help: Invoke the LLM tool
 
@@ -99,7 +85,7 @@ commands:
       help: Invoke the squeue tool from SLURM
 
 - name: pypi
-  help: Publish the cray package to pypi
+  help: Publish the client package to pypi
 
 - name: benchmark
   help: Run the benchmark tests

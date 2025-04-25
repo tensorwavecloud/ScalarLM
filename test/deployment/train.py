@@ -1,12 +1,12 @@
-import masint
+import scalarlm
 
-masint.api_url = "http://localhost:8000"
-# masint.api_url = "https://tensorwave.cray-lm.com"
-# masint.api_url = "https://llama8btensorwave.cray-lm.com"
-# masint.api_url = "https://vultr.smasint.com"
-# masint.api_url = "https://meta-llama--llama-3-2-3b-instruct.cray-lm.com"
-# masint.api_url = "https://greg1232--cray-cpu-llama-3-2-1b-instruct-fastapi-app.modal.run"
-# masint.api_url = "https://greg1232--cray-nvidia-llama-3-2-3b-instruct-fastapi-app.modal.run"
+scalarlm.api_url = "http://localhost:8000"
+# scalarlm.api_url = "https://tensorwave.cray-lm.com"
+# scalarlm.api_url = "https://llama8btensorwave.cray-lm.com"
+# scalarlm.api_url = "https://vultr.sscalarlm.com"
+# scalarlm.api_url = "https://meta-llama--llama-3-2-3b-instruct.cray-lm.com"
+# scalarlm.api_url = "https://greg1232--cray-cpu-llama-3-2-1b-instruct-fastapi-app.modal.run"
+# scalarlm.api_url = "https://greg1232--cray-nvidia-llama-3-2-3b-instruct-fastapi-app.modal.run"
 
 
 def get_dataset():
@@ -20,7 +20,7 @@ def get_dataset():
     return dataset
 
 
-llm = masint.SupermassiveIntelligence()
+llm = scalarlm.SupermassiveIntelligence()
 
 dataset = get_dataset()
 
