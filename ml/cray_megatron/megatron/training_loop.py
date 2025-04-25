@@ -121,7 +121,7 @@ class TrainingLoop:
         ).loss
 
         # Synchronize loss across all ranks
-        loss = self.sync_loss(loss)
+        loss, avg_loss = self.sync_loss(loss)
 
         # backward pass
         self.training_state.optimizer.zero_grad()
@@ -131,21 +131,19 @@ class TrainingLoop:
         self.training_state.scheduler.step()
 
         # log loss
-        self.update_history(loss)
+        self.update_history(avg_loss)
 
-        self.print_training_step_info(loss, start_time)
+        self.print_training_step_info(avg_loss, start_time)
 
     def sync_loss(self, loss):
         device = self.training_state.model_info["distribution_strategy"]["device"]
         if get_size() > 1:
-            local_loss = loss.detach().clone()
-            global_loss = torch.tensor([local_loss.item()], device=device)
-            allreduce(global_loss)
-            avg_loss = global_loss.item() / get_size()
-            # Scaling adjusts loss while maintaining its connection to the graph, which is needed for loss.backward() to work
-            loss = loss * (avg_loss / local_loss.item())
+            local_loss = allreduce_op(loss)
+            avg_loss = local_loss.item() / get_size()
+        else:
+            avg_loss = loss.item()
 
-        return loss
+        return loss, avg_loss
 
     def on_train_begin(self):
         self.training_state.start_time = time.time()
@@ -209,7 +207,7 @@ class TrainingLoop:
 
         entry = {
             "step": self.training_state.current_step,
-            "loss": loss.item(),
+            "loss": loss,
             "epoch": self.training_state.epoch,
             "time": time.time() - self.training_state.start_time,
         }
@@ -231,7 +229,7 @@ class TrainingLoop:
         logger.info(
             f"Training step {self.training_state.current_step} "
             f"- epoch {self.training_state.epoch} "
-            f"- loss {loss.item():.4f} "
+            f"- loss {loss:.4f} "
             f"- learning rate {self.training_state.scheduler.get_last_lr()[0]:.6f} "
             f"- step time {time.time() - start_time:.3f} seconds"
         )
@@ -351,3 +349,25 @@ def filter_checkpoint(model, state_dict):
             saved_params[name] = state_dict[name]
 
     return saved_params
+
+class _AllReduce(torch.autograd.Function):
+    @staticmethod
+    def forward(ctx, input):
+        ctx.save_for_backward(input)
+        # Perform allreduce operation out of place
+        input_tmp = input.clone()
+        allreduce(input_tmp)
+        # Return the all-reduced tensor
+        return input_tmp
+
+    @staticmethod
+    def backward(ctx, grad_output):
+        input, = ctx.saved_tensors
+        grad_output_tmp = grad_output.clone()
+        # Perform allreduce operation in place
+        allreduce(grad_output_tmp)
+        # Return the all-reduced gradient
+        return grad_output_tmp
+
+allreduce_op = _AllReduce.apply
+

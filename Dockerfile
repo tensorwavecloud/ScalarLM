@@ -62,11 +62,11 @@ ARG MAX_JOBS=8
 
 ENV BASE_NAME=amd
 
+RUN pip install amdsmi
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update -y \
     && apt install -y amd-smi-lib
 RUN pip install pyhip>=1.1.0
-RUN pip install amdsmi
 ENV HIP_FORCE_DEV_KERNARG=1
 
 ARG INSTALL_ROOT=/app/cray

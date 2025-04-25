@@ -168,7 +168,7 @@ class SimpleFSDP(nn.Module):
             should_checkpoint = has_grand_children and any_requires_grad
 
             if len(params) > 0:
-                wrapped = FSDPLayer(child, should_checkpoint=should_checkpoint)
+                wrapped = FSDPLayer(child, should_checkpoint=False)
                 setattr(module, name, wrapped)
 
             if has_grand_children:
@@ -186,7 +186,7 @@ class SimpleFSDP(nn.Module):
                 total_time = "{:.2f}".format(metrics['time'])
                 metrics_str += f"{op}:\n  Total time: {total_time} s\n"
             
-            logger.info(metrics_str)
+            logger.debug(metrics_str)
         
         return result
 
@@ -223,11 +223,14 @@ class SimpleFSDP(nn.Module):
             logger.debug(f" Rank {rank}: Setting requires_grad for {name} to {param.requires_grad}")
 
         # Fix for pad_token_id
-        unwrapped_model.config.pad_token_id = unwrapped_model.config.eos_token_id
+        if len(unwrapped_model.config.eos_token_id) > 1:
+            eos_token_id = unwrapped_model.config.eos_token_id[0]
+        else:
+            eos_token_id = unwrapped_model.config.eos_token_id
+
+        unwrapped_model.config.pad_token_id = eos_token_id
         if hasattr(unwrapped_model, "generation_config"):
-            unwrapped_model.generation_config.pad_token_id = (
-                unwrapped_model.config.eos_token_id
-            )
+            unwrapped_model.generation_config.pad_token_id = eos_token_id
 
         return unwrapped_model
 
@@ -441,7 +444,7 @@ def collectives_reduce_scatter(tensor, metadata_dict):
 
 class _AllGather(torch.autograd.Function):
     @staticmethod
-    def forward(ctx, shard, metadata_dict, metrics):
+    def forward(ctx, shard, metadata_dict, metrics={}):
         ctx.metadata_dict = metadata_dict
         ctx.metrics = metrics
         return collectives_all_gather(shard, metadata_dict)
@@ -454,7 +457,8 @@ class _AllGather(torch.autograd.Function):
         start = time.time()
         result = collectives_reduce_scatter(grad_output, metadata_dict), None, None
         end = time.time()
-        metrics['reduce_scatter']['time'] += (end - start)
+        if 'reduce_scatter' in metrics:
+            metrics['reduce_scatter']['time'] += (end - start)
         
         return result
 

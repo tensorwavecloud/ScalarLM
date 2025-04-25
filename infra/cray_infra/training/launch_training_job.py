@@ -196,7 +196,7 @@ def get_max_node_count_from_slurm():
 
 
 def get_cpu_per_task(train_args: Dict):
-    tasks_per_node = get_tasks_per_node(train_args)
+    tasks_per_node = max(get_tasks_per_node(train_args), get_max_gpu_count_from_slurm())
 
     total_cpu_count = get_total_cpu_count_from_slurm()
 
