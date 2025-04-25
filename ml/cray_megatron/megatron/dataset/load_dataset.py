@@ -65,10 +65,12 @@ def split_dataset_by_node(dataset):
     data_parallel_rank = get_data_parallel_rank()
     data_parallel_world_size = get_data_parallel_world_size()
 
-    return dataset.shard(
-        num_shards=data_parallel_world_size,
-        index=data_parallel_rank,
-    )
+    num_shards=data_parallel_world_size
+    index=data_parallel_rank
+
+    filtered_dataset = dataset.filter(lambda example, idx: idx % data_parallel_world_size == data_parallel_rank, with_indices=True)
+
+    return filtered_dataset
 
 
 def get_tokenize_function(model, tokenizer):

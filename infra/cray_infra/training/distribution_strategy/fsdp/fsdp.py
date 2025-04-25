@@ -13,14 +13,14 @@ class FSDPLayer(nn.Module):
     def __init__(self, module, should_checkpoint=False):
         super().__init__()
         self.module = module
-        
+
         self.module.register_full_backward_hook(self._full_backward_hook)
-        
+
         self.should_checkpoint = should_checkpoint
-        
+
         self.perf_metrics = {
             'shard': {
-              'time': 0.0,  
+              'time': 0.0,
             },
             'gather': {
                 'time': 0.0,   # Placeholder for elapsed time in seconds
@@ -36,7 +36,7 @@ class FSDPLayer(nn.Module):
                 'time': 0.0    # Placeholder for elapsed time in seconds
             }
         }
-        
+
         start = time.time()
         self.shard_parameters()
         end = time.time()
@@ -84,13 +84,13 @@ class FSDPLayer(nn.Module):
         self.gather_all_parameters()
         end = time.time()
         self.perf_metrics['gather']['time'] += (end - start)
-        
+
         # run forward pass
         start = time.time()
         result = self.module(*args, **kwargs)
         end = time.time()
         self.perf_metrics['forward_pass']['time'] += (end - start)
-        
+
         # free params
         start = time.time()
         self.free_params()
@@ -162,7 +162,7 @@ class SimpleFSDP(nn.Module):
             has_grand_children = False
             if len(grand_children) > 0:
                 has_grand_children = True
-                
+
             all_params = list(child.parameters(recurse=False))
             any_requires_grad = any(param.requires_grad for param in all_params)
             should_checkpoint = has_grand_children and any_requires_grad
@@ -176,7 +176,7 @@ class SimpleFSDP(nn.Module):
 
     def forward(self, *args, **kwargs):
         result = self.model(*args, **kwargs)
-        
+
         rank = get_rank()
         if rank == 0:
             metrics_str = "\n"
@@ -185,9 +185,9 @@ class SimpleFSDP(nn.Module):
             for op, metrics in aggregated.items():
                 total_time = "{:.2f}".format(metrics['time'])
                 metrics_str += f"{op}:\n  Total time: {total_time} s\n"
-            
+
             logger.debug(metrics_str)
-        
+
         return result
 
     def __getattr__(self, name):
@@ -284,9 +284,9 @@ def get_fsdp_layers(module):
     return fsdp_layers
 
 def aggregate_perf_metrics(module):
-    
+
     fsdp_layers = get_fsdp_layers(module)
-    
+
     """Sum metrics across all FSDP layers"""
     aggregated = defaultdict(lambda: {'time': 0, 'bytes': 0})
     for layer in fsdp_layers:
@@ -334,7 +334,7 @@ def shard_tensor(tensor):
     local_metadata = torch.tensor([original_numel, *original_shape, shard_size, padding], dtype=torch.long)
     all_metadata = torch.zeros((world_size, local_metadata.numel()), dtype=torch.long)
     allgather(local_metadata, all_metadata.view(-1))
-    
+
     # Reshape all_metadata back to 2D after allgather
     all_metadata = all_metadata.view(world_size, -1)
 
@@ -343,7 +343,7 @@ def shard_tensor(tensor):
 
     # Convert metadata back to original format
     metadata_dict = {rank: (meta[0], tuple(meta[1:-2]), meta[-2], meta[-1]) for rank, meta in metadata_dict.items()}
-    
+
     return shard, metadata_dict
 
 
@@ -381,7 +381,7 @@ def collectives_all_gather(shard, metadata_dict):
     """Gather shards and reconstruct the full tensor using metadata."""
     world_size = get_size()
     rank = get_rank()
-    
+
     # Prepare buffers
     orig_dtype = shard.dtype
     shard = shard.to(torch.float32)
@@ -389,10 +389,10 @@ def collectives_all_gather(shard, metadata_dict):
 
     # Collective operation in float32
     allgather(shard, gathered)
-    
+
     # Convert gathered result back to original dtype
     gathered = gathered.to(orig_dtype)
-    
+
     # Reconstruct the full tensor using metadata
     all_tensors = []
     offset = 0
@@ -405,7 +405,7 @@ def collectives_all_gather(shard, metadata_dict):
     all_tensors = trim_padding(all_tensors, rank, world_size, metadata_dict)
     concatenated = torch.cat(all_tensors)
     original_shape = metadata_dict[rank][1]
-    
+
     return concatenated.reshape(original_shape)
 
 
@@ -413,10 +413,10 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     """Reduce-scatter with even sharding. Returns local shard trimmed to original size."""
     world_size = get_size()
     rank = get_rank()
-    
+
     # Save original dtype
     orig_dtype = tensor.dtype
-    
+
     original_numel, _, shard_size, padding = metadata_dict[rank]
 
     # Pad tensor if needed
@@ -427,10 +427,10 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     # Convert to float32 for the collective
     tensor_padded = tensor_padded.to(torch.float32)
     local_shard = torch.zeros(shard_size, device=tensor.device, dtype=torch.float32)
-    
+
     # Collective operation in float32
     reduce_scatter(tensor_padded, local_shard)
-    
+
     # Convert result back to original dtype
     local_shard = local_shard.to(orig_dtype)
 
@@ -453,13 +453,13 @@ class _AllGather(torch.autograd.Function):
     def backward(ctx, grad_output):
         metadata_dict = ctx.metadata_dict
         metrics = ctx.metrics
-        
+
         start = time.time()
         result = collectives_reduce_scatter(grad_output, metadata_dict), None, None
         end = time.time()
         if 'reduce_scatter' in metrics:
             metrics['reduce_scatter']['time'] += (end - start)
-        
+
         return result
 
 all_gather_op = _AllGather.apply

@@ -370,4 +370,3 @@ class _AllReduce(torch.autograd.Function):
         return grad_output_tmp
 
 allreduce_op = _AllReduce.apply
-

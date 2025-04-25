@@ -1,6 +1,8 @@
+from gpu_aware_mpi import get_rank, get_size
+
 def get_data_parallel_rank():
-    return 0
+    return get_rank()
 
 
 def get_data_parallel_world_size():
-    return 1
+    return get_size()
