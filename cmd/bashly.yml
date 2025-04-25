@@ -1,6 +1,6 @@
-name: cray
-help: Cray CLI
-version: 0.1.0
+name: scalarlm
+help: ScalarLM CLI
+version: 0.5.0
 
 
 commands:

@@ -132,7 +132,6 @@ RUN mkdir -p ${INSTALL_ROOT}/jobs
 COPY ./infra ${INSTALL_ROOT}/infra
 COPY ./sdk ${INSTALL_ROOT}/sdk
 COPY ./test ${INSTALL_ROOT}/test
-COPY ./cray ${INSTALL_ROOT}/cray
 COPY ./ml ${INSTALL_ROOT}/ml
 COPY ./scripts ${INSTALL_ROOT}/scripts
 
