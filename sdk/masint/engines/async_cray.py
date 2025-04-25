@@ -6,18 +6,21 @@ import aiohttp
 
 
 class AsyncCray:
+    def __init__(self, api_url=None):
+        self.api_url = api_url
+
     async def train(self, data, model_name, train_args):
-        return await submit_training_job(data, model_name, train_args)
+        return await submit_training_job(data, model_name, train_args, api_url=self.api_url)
 
     async def generate(self, prompts, model_name, max_tokens):
         result = await self.submit_generate(prompts, model_name, max_tokens)
 
-        final_result = await poll_for_responses(result)
+        final_result = await poll_for_responses(result, api_url=self.api_url)
 
         return [response["response"] for response in final_result["results"]]
 
     async def submit_generate(self, prompts, model_name, max_tokens):
-        api_url = make_api_url("v1/generate")
+        api_url = make_api_url("v1/generate", api_url=self.api_url)
         async with aiohttp.ClientSession() as session:
             params = {"prompts": prompts}
 
@@ -34,12 +37,12 @@ class AsyncCray:
     async def embed(self, prompts, model_name):
         result = await self.submit_embed(prompts, model_name)
 
-        final_result = await poll_for_responses(result)
+        final_result = await poll_for_responses(result, api_url=self.api_url)
 
         return [response["response"] for response in final_result["results"]]
 
     async def submit_embed(self, prompts, model_name):
-        api_url = make_api_url("v1/generate/embed")
+        api_url = make_api_url("v1/generate/embed", api_url=self.api_url)
         async with aiohttp.ClientSession() as session:
             params = {"prompts": prompts}
 
@@ -52,32 +55,32 @@ class AsyncCray:
 
     async def get_results(self, request_ids):
         async with aiohttp.ClientSession() as session:
-            api_url = make_api_url("v1/generate/get_results")
+            api_url = make_api_url("v1/generate/get_results", api_url=self.api_url)
             async with session.post(api_url, json={"request_ids": request_ids}) as resp:
                 assert resp.status == 200
                 return await resp.json()
 
     async def list_models(self):
-        api_url = make_api_url("v1/megatron/list_models")
+        api_url = make_api_url("v1/megatron/list_models", api_url=self.api_url)
         async with aiohttp.ClientSession() as session:
             async with session.get(api_url) as resp:
                 return await resp.json()
 
     async def get_training_job(self, job_dir):
-        api_url = make_api_url(f"v1/megatron/train/{job_dir}")
+        api_url = make_api_url(f"v1/megatron/train/{job_dir}", api_url=self.api_url)
         async with aiohttp.ClientSession() as session:
             async with session.get(api_url) as resp:
                 return await resp.json()
 
     async def health(self):
-        api_url = make_api_url("v1/health")
+        api_url = make_api_url("v1/health", api_url=self.api_url)
         async with aiohttp.ClientSession() as session:
             async with session.get(api_url) as resp:
                 return await resp.json()
 
 
-async def poll_for_responses(result):
-    api_url = make_api_url("v1/generate/get_results")
+async def poll_for_responses(result, api_url):
+    api_url = make_api_url("v1/generate/get_results", api_url=api_url)
 
     async with aiohttp.ClientSession() as session:
         while not is_finished(result):
