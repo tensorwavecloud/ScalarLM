@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
-from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter
+from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter, barrier
 from collections import defaultdict
 
 import time

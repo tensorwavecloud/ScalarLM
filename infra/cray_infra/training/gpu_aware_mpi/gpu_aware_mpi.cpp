@@ -3,6 +3,7 @@
 #include <stdexcept>
 #include <iostream>
 #include <tuple>
+#include <torch/cuda.h>
 
 static bool mpi_initialized = false;
 
@@ -102,23 +103,70 @@ void mpi_allreduce(torch::Tensor &tensor) {
 void mpi_allgather(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     ensure_mpi_initialized();
     int count = sendbuf.numel();
-
     int rank = get_rank();
     int world_size = get_size();
 
+    torch::cuda::synchronize(sendbuf.device().index());
+    
+    // Copy my data to my slice
     recvbuf.slice(0, rank * count, (rank + 1) * count).copy_(sendbuf);
 
     auto [datatype, typesize] = get_typesize(sendbuf.scalar_type());
-
+    
+    // Post all sends first
+    std::vector<MPI_Request> send_reqs(world_size - 1);
+    int req_idx = 0;
     for (int i = 0; i < world_size; ++i) {
         if (i == rank) continue;
-        MPI_Request reqs[2];
-        // Send my data to rank i
-        MPI_Isend(sendbuf.data_ptr(), count, datatype, i, 0, MPI_COMM_WORLD, &reqs[0]);
-        // Receive their data into my recvbuf at offset i
+        int err = MPI_Isend(sendbuf.data_ptr(), count, datatype, i, 0, MPI_COMM_WORLD, &send_reqs[req_idx++]);
+        if (err != MPI_SUCCESS) {
+            throw std::runtime_error("MPI_Isend failed with error code: " + std::to_string(err));
+        }
+    }
+    
+    // Then post all receives
+    for (int i = 0; i < world_size; ++i) {
+        if (i == rank) continue;
         void* recv_ptr = static_cast<char*>(recvbuf.data_ptr()) + i * count * typesize;
-        MPI_Irecv(recv_ptr, count, datatype, i, 0, MPI_COMM_WORLD, &reqs[1]);
-        MPI_Waitall(2, reqs, MPI_STATUSES_IGNORE);
+        MPI_Request recv_req;
+        MPI_Status recv_status;
+        
+        int err = MPI_Irecv(recv_ptr, count, datatype, i, 0, MPI_COMM_WORLD, &recv_req);
+        if (err != MPI_SUCCESS) {
+            throw std::runtime_error("MPI_Irecv failed with error code: " + std::to_string(err));
+        }
+        
+        // Wait for this receive to complete
+        err = MPI_Wait(&recv_req, &recv_status);
+        if (err != MPI_SUCCESS) {
+            throw std::runtime_error("MPI_Wait for receive failed with error code: " + std::to_string(err));
+        }
+        
+        // Check if the message was received successfully
+        int recv_count;
+        MPI_Get_count(&recv_status, datatype, &recv_count);
+        if (recv_count != count) {
+            throw std::runtime_error("Received incorrect number of elements from rank " + 
+                                    std::to_string(i) + ": expected " + std::to_string(count) + 
+                                    " but got " + std::to_string(recv_count));
+        }
+    }
+    
+    // Wait for all sends to complete
+    std::vector<MPI_Status> send_statuses(world_size - 1);
+    int err = MPI_Waitall(world_size - 1, send_reqs.data(), send_statuses.data());
+    if (err != MPI_SUCCESS) {
+        throw std::runtime_error("MPI_Waitall for sends failed with error code: " + std::to_string(err));
+    }
+    
+    // Check all send statuses if needed
+    for (int i = 0; i < world_size - 1; i++) {
+        if (send_statuses[i].MPI_ERROR != MPI_SUCCESS) {
+            throw std::runtime_error("Send operation to rank " + 
+                                    std::to_string(send_statuses[i].MPI_SOURCE) + 
+                                    " failed with error code: " + 
+                                    std::to_string(send_statuses[i].MPI_ERROR));
+        }
     }
 }
 
