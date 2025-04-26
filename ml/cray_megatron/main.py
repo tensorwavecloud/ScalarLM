@@ -4,6 +4,7 @@ from cray_infra.training.training_job_status import TrainingJobStatus
 import traceback
 import sys
 import os
+from gpu_aware_mpi import finalize_mpi
 
 
 def print_exception():
@@ -39,12 +40,13 @@ def main():
         )
         raise e
 
+    finalize_mpi()
 
 def setup_logging():
     logging.basicConfig(level=logging.DEBUG)
 
     logging.getLogger("filelock").setLevel(logging.WARNING)
-    logging.getLogger("cray_infra.training.distribution_strategy.fsdp").setLevel(
+    logging.getLogger("cray_infra.training.distribution_strategy.fsdp.fsdp").setLevel(
         logging.INFO
     )
 

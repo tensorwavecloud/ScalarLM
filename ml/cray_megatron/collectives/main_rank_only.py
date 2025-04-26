@@ -1,14 +1,9 @@
 
-from mpi4py import MPI
+from gpu_aware_mpi import get_rank, barrier
 
 
 def is_main_rank():
-    return MPI.COMM_WORLD.Get_rank() == 0
-
-
-def barrier():
-    MPI.COMM_WORLD.Barrier()
-
+    return get_rank() == 0
 
 def main_rank_only(func):
     def wrap_function(*args, **kwargs):

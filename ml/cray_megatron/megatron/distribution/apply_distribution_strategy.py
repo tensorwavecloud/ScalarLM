@@ -1,7 +1,7 @@
 import torch
-from cray_infra.training.distribution_strategy.fsdp import SimpleFSDP
+from cray_infra.training.distribution_strategy.fsdp.fsdp import SimpleFSDP
 
-from mpi4py import MPI
+from gpu_aware_mpi import get_size, get_rank
 
 def load_distribution_strategy():
     device = get_device()
@@ -10,7 +10,7 @@ def load_distribution_strategy():
         "device": device,
     }
 
-    if MPI.COMM_WORLD.Get_size() > 1:
+    if get_size() > 1:
         strategy["strategy"] = SimpleFSDP
 
     return strategy
@@ -18,7 +18,7 @@ def load_distribution_strategy():
 
 def get_device():
     if torch.cuda.is_available():
-        rank = MPI.COMM_WORLD.Get_rank()
+        rank = get_rank()
 
         gpu_count = torch.cuda.device_count()
 
