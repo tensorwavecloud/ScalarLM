@@ -74,7 +74,7 @@ class FSDPLayer(nn.Module):
 
     def forward(self, *args, **kwargs):
         if self.should_checkpoint:
-            return checkpoint(self.forward_op, *args, use_reentrant=True, **kwargs)
+            return checkpoint(self.forward_op, *args, use_reentrant=False, **kwargs)
         else:
             return self.forward_op(*args, **kwargs)
 
@@ -152,6 +152,8 @@ class SimpleFSDP(nn.Module):
         super().__init__()
         self.model = model
         self._wrap_layers(model)
+        self.model_memory_footprint = get_model_memory_footprint(self.model)
+        logger.debug(f"model memory footprint: {self.model_memory_footprint}")
 
     def _wrap_layers(self, module):
         for name, child in module.named_children():
@@ -165,10 +167,11 @@ class SimpleFSDP(nn.Module):
 
             all_params = list(child.parameters(recurse=False))
             any_requires_grad = any(param.requires_grad for param in all_params)
-            should_checkpoint = has_grand_children and any_requires_grad
+            # checkpoint if model memory footprint is > 32GB and has grand children and has any requires_grad
+            should_checkpoint = self.model_memory_footprint > (32 * 1024**3) and has_grand_children and any_requires_grad
 
             if len(params) > 0:
-                wrapped = FSDPLayer(child, should_checkpoint=False)
+                wrapped = FSDPLayer(child, should_checkpoint=should_checkpoint)
                 setattr(module, name, wrapped)
 
             if has_grand_children:
@@ -302,6 +305,16 @@ def log_gpu_memory(prefix=""):
         rank = get_rank()
         if rank == 0:
             logger.debug(f"{prefix} GPU {i}: Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
+
+def get_model_memory_footprint(model):
+    param_size = 0
+    for param in model.parameters():
+        param_size += param.numel() * param.element_size()
+    buffer_size = 0
+    for buffer in model.buffers():
+        buffer_size += buffer.numel() * buffer.element_size()
+    total_size = param_size + buffer_size
+    return total_size  # in bytes
 
 def shard_tensor(tensor):
     """Evenly shard tensor across ranks with padding if needed.
