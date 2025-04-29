@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
-from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter, barrier
+from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter
 from collections import defaultdict
+from metrics import get_model_memory_footprint
 
 import time
 import logging
@@ -151,9 +152,8 @@ class SimpleFSDP(nn.Module):
     def __init__(self, model):
         super().__init__()
         self.model = model
-        self._wrap_layers(model)
         self.model_memory_footprint = get_model_memory_footprint(self.model)
-        logger.debug(f"model memory footprint: {self.model_memory_footprint}")
+        self._wrap_layers(model)
 
     def _wrap_layers(self, module):
         for name, child in module.named_children():
@@ -298,23 +298,6 @@ def aggregate_perf_metrics(module):
             if 'bytes' in aggregated[op]:
                 aggregated[op]['bytes'] += metrics.get('bytes', 0)
     return dict(aggregated)
-
-def log_gpu_memory(prefix=""):
-    for i in range(torch.cuda.device_count()):
-        free, total = torch.cuda.mem_get_info(i)
-        rank = get_rank()
-        if rank == 0:
-            logger.debug(f"{prefix} GPU {i}: Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
-
-def get_model_memory_footprint(model):
-    param_size = 0
-    for param in model.parameters():
-        param_size += param.numel() * param.element_size()
-    buffer_size = 0
-    for buffer in model.buffers():
-        buffer_size += buffer.numel() * buffer.element_size()
-    total_size = param_size + buffer_size
-    return total_size  # in bytes
 
 def shard_tensor(tensor):
     """Evenly shard tensor across ranks with padding if needed.
