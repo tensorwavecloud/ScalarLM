@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
 from torch.utils.checkpoint import checkpoint
-from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter, barrier
+from gpu_aware_mpi import get_size, get_rank, allgather, reduce_scatter
 from collections import defaultdict
+from cray_infra.training.metrics import get_model_memory_footprint
 
 import time
 import logging
@@ -74,7 +75,7 @@ class FSDPLayer(nn.Module):
 
     def forward(self, *args, **kwargs):
         if self.should_checkpoint:
-            return checkpoint(self.forward_op, *args, use_reentrant=True, **kwargs)
+            return checkpoint(self.forward_op, *args, use_reentrant=False, **kwargs)
         else:
             return self.forward_op(*args, **kwargs)
 
@@ -151,6 +152,7 @@ class SimpleFSDP(nn.Module):
     def __init__(self, model):
         super().__init__()
         self.model = model
+        self.model_memory_footprint = get_model_memory_footprint(self.model)
         self._wrap_layers(model)
 
     def _wrap_layers(self, module):
@@ -165,10 +167,11 @@ class SimpleFSDP(nn.Module):
 
             all_params = list(child.parameters(recurse=False))
             any_requires_grad = any(param.requires_grad for param in all_params)
-            should_checkpoint = has_grand_children and any_requires_grad
+            # checkpoint if model memory footprint is > 32GB and has grand children and has any requires_grad
+            should_checkpoint = self.model_memory_footprint > (32 * 1024**3) and has_grand_children and any_requires_grad
 
             if len(params) > 0:
-                wrapped = FSDPLayer(child, should_checkpoint=False)
+                wrapped = FSDPLayer(child, should_checkpoint=should_checkpoint)
                 setattr(module, name, wrapped)
 
             if has_grand_children:
@@ -295,13 +298,6 @@ def aggregate_perf_metrics(module):
             if 'bytes' in aggregated[op]:
                 aggregated[op]['bytes'] += metrics.get('bytes', 0)
     return dict(aggregated)
-
-def log_gpu_memory(prefix=""):
-    for i in range(torch.cuda.device_count()):
-        free, total = torch.cuda.mem_get_info(i)
-        rank = get_rank()
-        if rank == 0:
-            logger.debug(f"{prefix} GPU {i}: Free={free/1e6:.2f}MB, Total={total/1e6:.2f}MB")
 
 def shard_tensor(tensor):
     """Evenly shard tensor across ranks with padding if needed.
