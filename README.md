@@ -8,7 +8,9 @@ ScalarLM is designed for high peformance. It inherits the distributed training c
 
 ScalarLM is inspired by the work of Seymour Roger Cray (September 28, 1925 – October 5, 1996), an American electrical engineer and supercomputer architect who designed a series of computers that were the fastest in the world for decades, and founded Cray Research, which built many of these machines. Called "the father of supercomputing", Cray has been credited with creating the supercomputer industry.
 
-Read the [documentation](https://docs.scalarlm.com) and [blog](https://blog.scalarlm.com) for more information.
+Read the [documentation](https://scalarlm.ghost.io/) and [blog](https://scalarlm.ghost.io/blog/) for more information.
+
+
 
 # Docker builds
 
