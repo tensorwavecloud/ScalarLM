@@ -1,6 +1,7 @@
 import torch
 import json
 import time
+import os
 
 from tqdm import tqdm
 
@@ -107,6 +108,10 @@ def get_device():
 def save_results(results):
     # Save results to a json file
     path = "/app/cray/data/benchmark_memcpy.json"
+    directory_path = os.path.dirname(path)
+
+    if not os.path.exists(directory_path):
+        os.makedirs(directory_path)
 
     with open(path, "w") as f:
         json.dump(results, f)
