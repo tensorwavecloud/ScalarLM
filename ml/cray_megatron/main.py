@@ -25,7 +25,7 @@ def main():
 
     harness = TrainingHarness()
 
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
     try:
         setup_logging()
