@@ -1,6 +1,6 @@
 image:
   repository: sudnya/scalarlm-rocm
-  tag: v1
+  tag: v0.7
   pullPolicy: Always
 
 env:
@@ -25,9 +25,9 @@ cache_pvc:
 
 model: meta-llama/Llama-3.1-8B-Instruct
 max_model_length: 4096
-gpu_memory_utilization: 0.75
+gpu_memory_utilization: 0.95
 
 training_gpus: 2
-inference_gpus: 2
+inference_gpus: 1
 
 max_train_time: 86400
