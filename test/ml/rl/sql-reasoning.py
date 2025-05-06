@@ -1,13 +1,12 @@
 import scalarlm
 
-scalarlm.api_url = "https://llama8btensorwave.cray-lm.com"
+scalarlm.api_url = "https://llama70b.cray-lm.com"
 
 
 def main():
     setup_logging()
 
     dataset = load_dataset()
-    llm = scalarlm.SupermassiveIntelligence()
 
     model_name = None
     max_iterations = 10
@@ -16,7 +15,7 @@ def main():
     accuracy = eval_llm(dataset, model_name)
 
     for i in range(max_iterations):
-        trajectories = add_reasoning(dataset, model_name)
+        trajectories = try_reasoning(dataset, model_name)
         selected_trajectories = judge_trajectories(trajectories)
 
         model_name = train_llm(selected_trajectories)
@@ -109,6 +108,8 @@ def get_table_info(sqlite3_connection):
             columns[index] = list(column)
 
             if column[1].find("-") != -1:
+                columns[index][1] = '"' + column[1] + '"'
+            elif column[1].find(" ") != -1:
                 columns[index][1] = "'" + column[1] + "'"
 
         table_info[table_name] = [
@@ -197,7 +198,7 @@ def limit_length(string):
     return string
 
 
-def add_reasoning(dataset, model_name):
+def try_reasoning(dataset, model_name):
     logger.info(f"Adding reasoning to model {model_name}")
 
     prompts = make_reasoning_prompts(dataset)
@@ -366,7 +367,7 @@ def train_llm(dataset):
         train_args={
             "max_steps": max_steps,
             "learning_rate": 4e-4,
-            "gpus": 1,
+            "gpus": 2,
             "timeout": 60 * 60 * 4 * 3,
             "max_token_block_size": 4096,
             "steps_per_checkpoint": 1000,

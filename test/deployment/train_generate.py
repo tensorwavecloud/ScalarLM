@@ -56,7 +56,7 @@ def run_test():
     # 2. Train a base model with small dataset
     training_response = llm.train(
         create_training_set(),
-        train_args={"max_steps": (count * 50), "learning_rate": 3e-3, "gpus": 2, "max_gpus": 2},
+        train_args={"max_steps": (count * 50), "learning_rate": 3e-3, "gpus": 1, "max_gpus": 1},
     )
     logger.info(training_response)
 
@@ -82,7 +82,12 @@ def run_test():
     # logger.info(f"Training status {training_response}.")
 
     # 4. Wait ~30 seconds to allow for auto-registration of the new pretrained model
-    time.sleep(30)
+    while training_response["deployed"] == False:
+        logger.debug(f"Waiting for model {tuned_model_name} to be deployed.")
+        time.sleep(10)
+        training_response = llm.get_training_job(job_hash)
+
+    logger.info(f"Model {tuned_model_name} is deployed.")
 
     # 4. Generate response on pretrained model
     pretrained_model_generate_results = llm.generate(

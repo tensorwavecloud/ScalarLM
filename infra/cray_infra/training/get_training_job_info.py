@@ -2,6 +2,7 @@ from cray_infra.api.fastapi.routers.request_types.train_request import (
     TrainResponse
 )
 
+from cray_infra.training.vllm_model_manager import get_vllm_model_manager
 from cray_infra.training.get_latest_model import get_latest_model
 
 from cray_infra.util.get_config import get_config
@@ -48,8 +49,10 @@ async def get_training_job_info(job_hash: str):
                 detail=f"Training job config was not found at {job_directory_path}",
             )
 
+        registered_models = set(get_vllm_model_manager().get_registered_models())
+
         return TrainResponse(
-            job_status=job_status, job_config=job_config
+            job_status=job_status, job_config=job_config, deployed=job_hash in registered_models
         )
     except Exception as e:
         logger.exception(

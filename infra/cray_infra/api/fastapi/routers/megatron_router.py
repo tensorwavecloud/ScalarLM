@@ -39,7 +39,7 @@ async def train(request: Request):
 
     job_status = await launch_training_job(job_config)
 
-    return TrainResponse(job_status=job_status, job_config=job_config)
+    return TrainResponse(job_status=job_status, job_config=job_config, deployed=False)
 
 
 @megatron_router.get("/train/{job_hash}")
