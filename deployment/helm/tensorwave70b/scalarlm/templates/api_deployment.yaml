@@ -24,7 +24,7 @@ spec:
           ports:
             - name: http
               containerPort: {{ .Values.service.api_port }}
-              hostPort: 8000
+              hostPort: {{ .Values.service.api_port }}
               protocol: TCP
           volumeMounts:
           {{- range .Values.volumes }}

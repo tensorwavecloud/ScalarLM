@@ -1,12 +1,12 @@
 image:
-  repository: tensorwave/scalarlm-amd
-  tag: latest
+  repository: sudnya/scalarlm-rocm
+  tag: v0.8
   pullPolicy: Always
 
 service:
   type: ClusterIP
-  api_port: 8000
-  vllm_port: 8001
+  api_port: 8200
+  vllm_port: 8201
   externalIP: 64.139.222.101
 
 jobs_pvc:
