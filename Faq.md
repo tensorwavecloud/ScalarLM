@@ -63,7 +63,7 @@ pip install scalarlm
 ```
 Then set your API endpoint:
 ```
-export MAS_INT_API_URL="the-hosted-ip-for-craylm"
+export SCALARLM_API_URL="the-hosted-ip-for-craylm"
 
 scalarlm [-h] {logs,plot,ls,squeue} ...
 

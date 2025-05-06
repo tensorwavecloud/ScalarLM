@@ -17,6 +17,7 @@ import hashlib
 import time
 import json
 import tarfile
+import shutil
 
 import logging
 
@@ -74,6 +75,16 @@ async def upload_training_data(request: Request):
         # extract the dataset from the tarball
         with tarfile.open(temp_filepath, "r") as tar:
             tar.extractall(job_directory)
+
+        # add the ml directory if it doesn't exist
+        ml_directory = os.path.join(job_directory, "ml")
+
+        if not os.path.exists(ml_directory):
+            logger.info(f"Copying ml directory to {ml_directory}")
+            shutil.copytree(
+                os.path.join(config["training_job_directory"], "..", "ml"),
+                ml_directory,
+            )
 
         # delete the tarball
         os.remove(temp_filepath)

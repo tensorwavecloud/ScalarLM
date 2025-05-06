@@ -97,7 +97,11 @@ def make_training_archive(data):
                 # Add the machine learning directory to the archive
                 ml_dir = find_ml_dir()
 
-                tar.add(ml_dir, arcname="ml", filter=tar_info_strip_file_info)
+                if ml_dir is None:
+                    logger.warning(f"ML directory not found. Skipping addition to "
+                        "archive, using default ml directory from ScalarLM server.")
+                else:
+                    tar.add(ml_dir, arcname="ml", filter=tar_info_strip_file_info)
 
             archive_file.seek(0)
             archive_file.flush()
