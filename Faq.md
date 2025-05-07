@@ -123,3 +123,38 @@ In principle yes, but each deployment must be explicitly configured.
 ### How to set inference temperature?
 We recommend not changing it, because higher temperature means higher error. 
 If you must change it, it is a parameter to vllm. The [quickstart page](https://docs.vllm.ai/en/v0.6.1/getting_started/quickstart.html) shows examples of how to set it.
+
+
+### What is the relationship between training steps and epochs in ScalarLM?**  
+
+ScalarLM shifts away from classic batch-based training, so its definitions of “step” and “epoch” are {chunk and GPU} centric rather than {example and batch} driven. Here’s a breakdown:
+
+1. **No Conventional Batching**  
+   - ScalarLM flattens all training examples into a single, continuous token stream.  
+   - There is **no** `batch_size` parameter—instead, you work directly on the token sequence. 
+
+2. **Token Chunks (Blocks)**  
+   - The continuous token stream is split into fixed-length chunks, controlled by the `max_token_block_size` setting.  
+   - Each chunk contains the same number of tokens, ensuring that every GPU processes an identical workload per step.
+   - [Here](https://github.com/tensorwavecloud/ScalarLM/blob/6a899c8ee1fa2681a2c706e1fb0ea43a94fadba9/ml/cray_megatron/megatron/dataset/load_dataset.py#L124) is the source code for chunking.
+
+3. **Defining Steps vs. Epochs**  
+   - **Training Step:** One forward-and-backward pass over **one** chunk **on one** GPU.  
+   - **Epoch:** A complete pass through **all** chunks across **all** GPUs.  
+     - In traditional frameworks:  
+       ```text
+       steps_per_epoch = ceil(num_examples ÷ batch_size)
+       ```  
+     - In ScalarLM:  
+       ```text
+       steps_per_epoch = total_chunks ÷ num_GPUs
+       ```  
+   - Because there’s no batch size, you can’t apply the standard steps-per-epoch formula. Instead, an epoch is measured by each chunk being processed exactly once, spread evenly across your GPUs.
+
+4. **Shard-Based Parallelism for Multi-GPU Training**  
+   - The full set of chunks is partitioned into “shards,” one per GPU.  
+   - Each GPU iterates through its shard sequentially, performing one training step per chunk.
+
+---
+
+**Key Takeaway:** In ScalarLM, **steps** are chunk-level iterations and **epochs** are full passes over all chunks (divided by GPUs), rather than example-batch passes. This design guarantees uniform token throughput and balanced GPU workloads without relying on a traditional batch size.
