@@ -72,15 +72,6 @@ class vLLMTokenformerSurgeon(TokenformerSurgeon):
         if not self._is_attn_layer(name):
             return
 
-        # logger.info(f"Wrapping layer {name} with vLLMTokenformerAttentionAdaptor")
-
-        # Wrap the layer with a TokenformerAttentionAdapter
-        # self._recursive_setattr(
-        #    self.model,
-        #    name,
-        #    vLLMTokenformerAttentionAdapter(layer, layer.head_dim, self.device),
-        # )
-
 
 class TokenformerModel(AdapterModel):
     """A tokenformer pre-trained model."""
@@ -93,19 +84,21 @@ class TokenformerModel(AdapterModel):
     def from_local_checkpoint(
         cls, model_dir: str, device: torch.device
     ) -> "TokenformerModel":
-        # Find all files that match the pattern Path(model_dir) / "model.*.safetensors"
-        files = list(Path(model_dir).glob("*.safetensors"))
+        # Find all .pt files in the directory
+        files = list(Path(model_dir).glob("*.pt"))
 
         if len(files) == 0:
-            raise FileNotFoundError(f"Tokenformer tensor file not found: {model_dir}")
+            raise FileNotFoundError(f"No .pt file found in {model_dir}")
+        
+        checkpoint_file = files[0]
 
         tokenformers = {}
-        for tokenformer_tensor_path in files:
-            with safe_open(tokenformer_tensor_path, framework="pt") as f:
-                for module in f.keys():
-                    if any(key in module for key in ("tokenformer", "lm_head")):
-                        logger.info(f"Loading {module} from {tokenformer_tensor_path}")
-                        tokenformers[module] = f.get_tensor(module).to(device)
+        state_dict = torch.load(checkpoint_file, map_location=device)
+        module_state_dict = state_dict['model_state_dict']
+        for module, tensor in module_state_dict.items():
+            if any(key in module for key in ("tokenformer", "lm_head")):
+                logger.info(f"Loading {module} from {checkpoint_file}")
+                tokenformers[module] = tensor.to(device)
 
         return cls(tokenformers)
 

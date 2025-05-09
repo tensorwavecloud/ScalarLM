@@ -22,7 +22,7 @@ class TrainingHarness:
 
         save_status(current_status)
 
-    def checkpoint(self, model, checkpoint_state, checkpoint_name):
+    def checkpoint(self, checkpoint_state, checkpoint_name):
         job_config = get_job_config()
 
         checkpoint_path = os.path.join(job_config["job_directory"], checkpoint_name)
@@ -30,12 +30,6 @@ class TrainingHarness:
         torch.save(checkpoint_state, checkpoint_path)
 
         logger.info(f"Checkpoint saved to {checkpoint_path}")
-
-        saved_model_path = os.path.join(job_config["job_directory"], "saved_model")
-
-        model.save_pretrained(saved_model_path)
-
-        logger.info(f"Model saved to {saved_model_path}")
 
     def get_status(self):
         return get_status()
