@@ -4,10 +4,7 @@ from pydantic import BaseModel
 class Config(BaseModel):
     api_url: str = "http://localhost:8000"
 
-    model: str = "masint/tiny-random-llama"
-    #model: str = "meta-llama/Llama-3.2-3B-Instruct"
-    #model: str = "meta-llama/llama-3.1-8b-instruct"
-    #model: str = "meta-llama/llama-3.1-70b-instruct"
+    model: str = "meta-llama/llama-3.1-8b-instruct"
     
     # 10GB using 1024 for KB, 1024 for MB, 1024 for GB
     max_upload_file_size: int = 1024 * 1024 * 1024 * 10
@@ -32,7 +29,7 @@ class Config(BaseModel):
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
 
     gpu_memory_utilization: float = 0.50
-    max_model_length: int = 4096
+    max_model_length: int = 8192
     dtype: str = "bfloat16"
 
     max_log_length: int = 100

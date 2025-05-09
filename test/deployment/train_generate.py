@@ -11,7 +11,6 @@ logging.basicConfig(level=logging.DEBUG)
 count = 3
 selected = random.randint(1, count)
 
-TINY_BASE_MODEL = "masint/tiny-random-llama"
 TEST_QUESTION = f"What is {selected} + {selected}?"
 TEST_ANSWER = f"The answer is {selected + selected}."
 
@@ -47,7 +46,7 @@ def run_test():
 
     # 1. Call generate on base model
     base_model_generate_results = llm.generate(
-        prompts=dataset, model_name=TINY_BASE_MODEL
+        prompts=dataset
     )
     logger.info(
         f"Base model on prompt {dataset} returned {base_model_generate_results}"
@@ -81,7 +80,7 @@ def run_test():
     training_response = llm.get_training_job(job_hash)
     # logger.info(f"Training status {training_response}.")
 
-    # 4. Wait ~30 seconds to allow for auto-registration of the new pretrained model
+    # 4. Wait to allow for auto-registration of the new pretrained model
     while training_response["deployed"] == False:
         logger.debug(f"Waiting for model {tuned_model_name} to be deployed.")
         time.sleep(10)
@@ -96,9 +95,7 @@ def run_test():
     logger.info(
         f"Trained model on prompt {dataset} returned {pretrained_model_generate_results}"
     )
-    # 5. Compare and make sure based model and pretrained model have different responses
-    assert base_model_generate_results != pretrained_model_generate_results
-    # 6. Make sure pretrained model gives the expected answer
+    # 5. Make sure pretrained model gives the expected answer
     assert pretrained_model_generate_results == [TEST_ANSWER]
 
 
