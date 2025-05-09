@@ -10,6 +10,8 @@ import os
 
 import logging
 
+from pathlib import Path
+
 logger = logging.getLogger(__name__)
 
 
@@ -42,7 +44,9 @@ async def get_models():
     for path in os.listdir(config["training_job_directory"]):
         root = os.path.join(config["training_job_directory"], path)
         logger.info(f"Checking {root}")
-        if os.path.exists(os.path.join(root, "saved_model")):
+        # Look for any file matching *.pt* in this directory
+        pt_files = list(Path(root).glob("*.pt"))
+        if pt_files:
             logger.info(f"Found model {path}")
             yield path
 
@@ -73,7 +77,7 @@ async def get_registered_models():
 async def register_model(model):
     session = get_global_session()
     config = get_config()
-    path = os.path.join(config["training_job_directory"], model, "saved_model")
+    path = os.path.join(config["training_job_directory"], model)
     logger.info(f"Registering model {model} at {path}")
     async with session.post(
         config["vllm_api_url"] + "/v1/load_lora_adapter",

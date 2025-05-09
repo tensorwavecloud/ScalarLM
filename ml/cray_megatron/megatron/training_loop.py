@@ -172,17 +172,20 @@ class TrainingLoop:
 
     def checkpoint(self):
         model = self.training_state.model_info["model"]
+        model_state_dict = {}
         if hasattr(model, "unwrap_model"):
             logger.info("Unwrapping model")
-            model = self.training_state.model_info["model"].unwrap_model()
+            model_state_dict = self.training_state.model_info["model"].unwrap_model()
+        else:
+            model_state_dict = filter_checkpoint(model, model.state_dict())
 
-        self.save_checkpoint(model)
+        self.save_checkpoint(model_state_dict)
 
     @main_rank_only
-    def save_checkpoint(self, model):
+    def save_checkpoint(self, model_state_dict):
 
         checkpoint = {
-            "model_state_dict": filter_checkpoint(model, model.state_dict()),
+            "model_state_dict": model_state_dict,
             "optimizer_state_dict": self.training_state.optimizer.state_dict(),
             "scheduler_state_dict": self.training_state.scheduler.state_dict(),
             "step": self.training_state.current_step,
@@ -192,7 +195,6 @@ class TrainingLoop:
         checkpoint_name = f"checkpoint_{self.training_state.current_step}.pt"
 
         self.training_harness.checkpoint(
-            model=model,
             checkpoint_state=checkpoint,
             checkpoint_name=checkpoint_name,
         )
