@@ -1,4 +1,4 @@
-name: Build NVIDIA CUDA 8.6 image using depot
+name: Build NVIDIA CUDA 8.0 image using depot
 
 on:
   workflow_dispatch:
