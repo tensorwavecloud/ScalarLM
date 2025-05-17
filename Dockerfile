@@ -107,7 +107,7 @@ COPY ./infra/requirements-vllm.txt ${INSTALL_ROOT}/infra/cray_infra/requirements
 WORKDIR ${INSTALL_ROOT}/infra/cray_infra
 
 ARG VLLM_TARGET_DEVICE=cpu
-ARG TORCH_CUDA_ARCH_LIST="7.0 8.6"
+ARG TORCH_CUDA_ARCH_LIST="7.5 8.0 8.6"
 
 # Build vllm python package
 RUN \
