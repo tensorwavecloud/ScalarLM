@@ -21,7 +21,7 @@ def ls(all, limit=None):
         logger.error(e)
 
     if limit is not None:
-        models = models[:limit]
+        models["models"] = models["models"][:limit]
 
     if all:
         print_all_model_info(models["models"])
