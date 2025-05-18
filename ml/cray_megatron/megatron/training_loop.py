@@ -127,6 +127,10 @@ class TrainingLoop:
         self.training_state.optimizer.zero_grad()
         loss.backward()
 
+        torch.nn.utils.clip_grad_norm_(
+            self.training_state.model_info["model"].parameters(),
+            get_gradient_clip_value(),
+        )
         self.training_state.optimizer.step()
         self.training_state.scheduler.step()
 
@@ -313,6 +317,9 @@ def get_optimizer(model):
     #    lr=learning_rate,
     # )
 
+def get_gradient_clip_value():
+    job_config = get_job_config()
+    return job_config.get("gradient_clip_value", 1.0)
 
 def get_scheduler(optimizer, max_steps):
     return torch.optim.lr_scheduler.LinearLR(
