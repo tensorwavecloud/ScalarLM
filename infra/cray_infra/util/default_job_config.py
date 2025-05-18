@@ -32,6 +32,7 @@ class JobConfig(BaseModel):
     max_steps: int = 100
     learning_rate: float = 3e-3
     batch_size: int = 1
+    gradient_clip_value: float = 1.0
 
     max_token_block_size: int = 16777216 # 16 mega tokens
 
