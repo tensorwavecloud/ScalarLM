@@ -1,12 +1,12 @@
 image:
-  repository: sudnya/scalarlm-rocm
-  tag: v0.8
+  repository: tensorwave/scalarlm-amd
+  tag: v0.82
   pullPolicy: Always
 
 service:
   type: ClusterIP
-  api_port: 8200
-  vllm_port: 8201
+  api_port: 8000
+  vllm_port: 8001
   externalIP: 64.139.222.101
 
 jobs_pvc:
@@ -18,7 +18,7 @@ cache_pvc:
   size: 200Gi
 
 model: meta-llama/Llama-3.3-70B-Instruct
-max_model_length: 4096
+max_model_length: 8192
 gpu_memory_utilization: 0.95
 
 training_gpus: 2
