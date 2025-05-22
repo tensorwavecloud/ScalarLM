@@ -332,9 +332,10 @@ def is_hip() -> bool:
 @lru_cache(maxsize=None)
 def is_cpu() -> bool:
     from importlib.metadata import PackageNotFoundError, version
+    import vllm
 
     try:
-        return "cpu" in version("vllm")
+        return "cpu" in vllm.__version__
     except PackageNotFoundError:
         return False
 

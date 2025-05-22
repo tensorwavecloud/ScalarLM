@@ -32,7 +32,7 @@ fi
 cp /app/cray/infra/slurm_src/cgroup_docker.so /usr/lib/$TARGET/slurm-wlm/cgroup_docker.so
 
 # Disable the plugin on the AMD target
-if [ $BASE_NAME == "amd" ]; then
+if [ $BASE_NAME == "amd" || $BASE_NAME="nvidia" ]; then
     sed -i -e 's/CgroupPlugin=cgroup\/docker/CgroupPlugin=cgroup\/v1/g' /app/cray/infra/slurm_configs/cgroup.conf
 fi
 

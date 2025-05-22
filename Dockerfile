@@ -1,27 +1,33 @@
 ARG BASE_NAME=cpu
+ARG TORCH_CUDA_ARCH_LIST="7.5 8.0 8.6"
 
 ###############################################################################
 # NVIDIA BASE IMAGE
-FROM nvcr.io/nvidia/pytorch:24.11-py3 AS nvidia
+FROM nvcr.io/nvidia/pytorch:24.07-py3 AS nvidia
 
 RUN apt-get update -y && apt-get install -y python3-venv
 
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-RUN python -m venv $VIRTUAL_ENV
+RUN python -m venv $VIRTUAL_ENV --system-site-packages
 RUN . $VIRTUAL_ENV/bin/activate
 
 ARG MAX_JOBS=8
 
 # Put HPC-X MPI in the PATH, i.e. mpirun
-ENV PATH=/opt/hpcx/ompi/bin:$PATH
-ENV LD_LIBRARY_PATH=/opt/hpcx/ompi/lib:$LD_LIBRARY_PATH
+ENV PATH=$PATH:/opt/hpcx/ompi/bin
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/ompi/lib
 
 ARG TORCH_VERSION="2.4.0"
+ARG TORCH_CUDA_ARCH_LIST="7.5"
 
 RUN pip install uv
-RUN uv pip install torch==${TORCH_VERSION}
-RUN uv pip install xformers==0.0.27.post2
+
+RUN git clone --branch v0.0.28.post1 https://github.com/facebookresearch/xformers.git
+RUN uv pip install ninja
+RUN cd xformers && \
+    git submodule update --init --recursive && \
+    TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} pip install . --no-deps
 
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
@@ -107,14 +113,13 @@ COPY ./infra/requirements-vllm.txt ${INSTALL_ROOT}/infra/cray_infra/requirements
 WORKDIR ${INSTALL_ROOT}/infra/cray_infra
 
 ARG VLLM_TARGET_DEVICE=cpu
-ARG TORCH_CUDA_ARCH_LIST="7.5 8.0 8.6"
 
 # Build vllm python package
 RUN \
     --mount=type=cache,target=/root/.cache/pip \
     --mount=type=cache,target=/root/.cache/ccache \
     MAX_JOBS=${MAX_JOBS} \
-    TORCH_CUDA_ARCH_LIST=${PYTORCH_ROCM_ARCH:-${TORCH_CUDA_ARCH_LIST}} \
+    TORCH_CUDA_ARCH_LIST=${TORCH_CUDA_ARCH_LIST} \
     VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE} \
     python ${INSTALL_ROOT}/infra/cray_infra/setup.py bdist_wheel && \
     pip install ${INSTALL_ROOT}/infra/cray_infra/dist/*.whl && \

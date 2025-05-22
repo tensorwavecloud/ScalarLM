@@ -33,6 +33,7 @@ services:
 
     cray-nvidia:
         <<: *cray
+        runtime: nvidia
         deploy:
             resources:
                 reservations:

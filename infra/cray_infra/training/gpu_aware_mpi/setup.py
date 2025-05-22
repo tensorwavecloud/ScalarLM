@@ -31,14 +31,14 @@ if platform == 'rocm':
     ])
     extra_link_args.append('-lmpi')
 elif platform == 'cuda':
-    compile_defines.append(('USE_CUDA', '1')) 
+    compile_defines.append(('USE_CUDA', '1'))
     include_dirs.extend([
         '/usr/local/cuda/include',
-        '/usr/local/mpi/include'
+        '/opt/hpcx/ompi/include'
     ])
     library_dirs.extend([
         '/usr/local/cuda/lib64',
-        '/usr/local/mpi/lib'
+        '/opt/hpcx/ompi/lib'
     ])
     libraries.append('cudart')
 elif platform == 'cpu':
