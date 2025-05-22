@@ -2,6 +2,7 @@ from masint.cli.view_logs import view_logs
 from masint.cli.plot import plot
 from masint.cli.ls import ls
 from masint.cli.squeue import squeue
+from masint.cli.stats import stats
 
 import masint
 
@@ -34,6 +35,9 @@ def main():
     elif argumments.command == "squeue":
         squeue()
 
+    elif argumments.command == "stats":
+        stats()
+
     else:
         logger.error(f"Unknown command {argumments.command}")
         parser.print_help()
@@ -57,6 +61,7 @@ def parse_arguments():
     add_plot_parser(subparsers)
     add_ls_parser(subparsers)
     add_squeue_parser(subparsers)
+    add_stats_parser(subparsers)
 
     args = parser.parse_args()
 
@@ -100,6 +105,9 @@ def add_ls_parser(subparsers):
 
 def add_squeue_parser(subparsers):
     squeue_parser = subparsers.add_parser("squeue", help="View the squeue")
+
+def add_stats_parser(subparsers):
+    stats_parser = subparsers.add_parser("stats", help="View the stats of the models")
 
 
 if __name__ == "__main__":

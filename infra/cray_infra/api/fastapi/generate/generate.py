@@ -11,6 +11,8 @@ from cray_infra.api.fastapi.generate.poll_for_responses import poll_for_response
 from cray_infra.training.get_latest_model import get_latest_model
 from cray_infra.training.vllm_model_manager import get_vllm_model_manager
 
+from cray_infra.generate.metrics import get_metrics
+
 from cray_infra.util.get_config import get_config
 
 from fastapi import HTTPException
@@ -67,6 +69,10 @@ async def generate(request: GenerateRequest):
             )
 
             request_ids.append(request_id)
+
+            metrics = get_metrics()
+
+            metrics.record_new_request()
 
     except Exception as e:
         logger.error(f"Error generating responses: {e}")

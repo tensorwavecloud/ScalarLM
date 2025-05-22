@@ -49,3 +49,6 @@ class AsyncSupermassiveIntelligence:
 
     async def get_results(self, request_ids):
         return await self.engine.get_results(request_ids)
+
+    async def metrics(self):
+        return await self.engine.metrics()

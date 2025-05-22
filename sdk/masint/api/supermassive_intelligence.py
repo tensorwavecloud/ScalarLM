@@ -50,3 +50,6 @@ class SupermassiveIntelligence:
 
     def health(self):
         return asyncio.run(self.async_api.health())
+
+    def metrics(self):
+        return asyncio.run(self.async_api.metrics())

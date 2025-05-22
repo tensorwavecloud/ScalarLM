@@ -4,8 +4,8 @@ from pydantic import BaseModel
 class Config(BaseModel):
     api_url: str = "http://localhost:8000"
 
-    model: str = "meta-llama/llama-3.1-8b-instruct"
-    
+    model: str = "masint/tiny-random-llama"
+
     # 10GB using 1024 for KB, 1024 for MB, 1024 for GB
     max_upload_file_size: int = 1024 * 1024 * 1024 * 10
 

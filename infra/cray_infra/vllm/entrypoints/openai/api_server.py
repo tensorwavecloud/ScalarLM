@@ -241,6 +241,8 @@ async def async_completion_task(request, app):
 
     response = {
         "request_id": request["request_id"],
+        "token_count": response_data["usage"]["total_tokens"],
+        "flop_count": compute_flop_count(await app.state.engine_client.get_model_config())
     }
 
     if "choices" in response_data:
@@ -248,7 +250,54 @@ async def async_completion_task(request, app):
     elif response_data["object"] == "error":
         response["error"] = response_data["message"]
 
+    app.state.engine_client.check_health()
+
     return response
+
+def compute_flop_count(model_config):
+
+    # The intermediate size is the size of the feedforward layer
+    vocab_size = model_config.get_vocab_size()
+    hidden_size = model_config.get_hidden_size()
+    head_size = model_config.get_head_size()
+
+    num_layers = getattr(model_config.hf_text_config, 'num_hidden_layers', 12)
+    num_attention_heads = getattr(model_config.hf_text_config, 'num_attention_heads', 12)
+    num_kv_heads = model_config.get_total_num_kv_heads()
+
+    intermediate_size = getattr(model_config.hf_text_config, 'intermediate_size', 4 * hidden_size)
+
+    q_proj_flops = hidden_size * (num_attention_heads * head_size)
+    kv_proj_flops = hidden_size * (num_kv_heads * head_size * 2)  # K and V
+
+    # Attention computation: Q @ K^T and Attention @ V
+    # Q @ K^T: [batch, heads, seq_len, head_size] @ [batch, heads, head_size, kv_cache_len]
+    qk_flops = num_attention_heads * head_size
+
+    # Attention @ V: [batch, heads, seq_len, kv_cache_len] @ [batch, heads, kv_cache_len, head_size]
+    av_flops = num_attention_heads * head_size
+
+    # Output projection: [batch, seq_len, hidden] @ [hidden, hidden]
+    o_proj_flops = hidden_size * hidden_size
+
+    attention_flops_per_layer = q_proj_flops + kv_proj_flops + qk_flops + av_flops + o_proj_flops
+    total_attention_flops = attention_flops_per_layer * num_layers
+
+    fc1_flops = hidden_size * intermediate_size
+    fc2_flops = intermediate_size * hidden_size
+    mlp_flops_per_layer = fc1_flops + fc2_flops
+
+    total_mlp_flops = mlp_flops_per_layer * num_layers
+
+    output_projection_flops = hidden_size * vocab_size
+
+    embedding_flops = hidden_size * vocab_size
+
+    total_flops = total_attention_flops + total_mlp_flops + embedding_flops + output_projection_flops
+
+    return total_flops
+
+
 
 
 async def async_embedding_task(request, app):

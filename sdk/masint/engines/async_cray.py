@@ -78,6 +78,12 @@ class AsyncCray:
             async with session.get(api_url) as resp:
                 return await resp.json()
 
+    async def metrics(self):
+        api_url = make_api_url("v1/generate/metrics", api_url=self.api_url)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as resp:
+                return await resp.json()
+
 
 async def poll_for_responses(result, api_url):
     api_url = make_api_url("v1/generate/get_results", api_url=api_url)
