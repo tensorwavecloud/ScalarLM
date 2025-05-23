@@ -1,5 +1,4 @@
 ARG BASE_NAME=cpu
-ARG TORCH_CUDA_ARCH_LIST="7.5 8.0 8.6"
 
 ###############################################################################
 # NVIDIA BASE IMAGE
@@ -19,7 +18,7 @@ ENV PATH=$PATH:/opt/hpcx/ompi/bin
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/ompi/lib
 
 ARG TORCH_VERSION="2.4.0"
-ARG TORCH_CUDA_ARCH_LIST="7.5"
+ARG TORCH_CUDA_ARCH_LIST="8.0"
 
 RUN pip install uv
 
@@ -113,6 +112,7 @@ COPY ./infra/requirements-vllm.txt ${INSTALL_ROOT}/infra/cray_infra/requirements
 WORKDIR ${INSTALL_ROOT}/infra/cray_infra
 
 ARG VLLM_TARGET_DEVICE=cpu
+ARG TORCH_CUDA_ARCH_LIST="8.0"
 
 # Build vllm python package
 RUN \
