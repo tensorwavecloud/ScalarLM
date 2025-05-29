@@ -1,13 +1,19 @@
 image:
-  repository: tensorwave/scalarlm-amd
-  tag: v0.82
+  repository: sudnya/scalarlm-amd
+  tag: v0.90
   pullPolicy: Always
 
 service:
   type: ClusterIP
-  api_port: 8000
-  vllm_port: 8001
+  api_port: 8200
+  vllm_ports: 
+    - 8201
+    - 8202
   externalIP: 64.139.222.101
+
+replicaCount:
+  api: 1
+  vllm: 2  # Two vLLM instances as shown in docker-compose
 
 jobs_pvc:
   storageClass: local-path
@@ -22,6 +28,6 @@ max_model_length: 8192
 gpu_memory_utilization: 0.95
 
 training_gpus: 2
-inference_gpus: 1
+inference_gpus: 3
 
 max_train_time: 86400

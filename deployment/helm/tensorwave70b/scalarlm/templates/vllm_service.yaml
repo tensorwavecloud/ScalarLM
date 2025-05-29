@@ -5,7 +5,7 @@ metadata:
 spec:
   type: {{ .Values.service.type }}
   ports:
-    - port: {{ .Values.service.vllm_port }}
+    - port: {{ index .Values.service.vllm_ports 0 }}  # Gets first port
       targetPort: 8001
       protocol: TCP
       name: http

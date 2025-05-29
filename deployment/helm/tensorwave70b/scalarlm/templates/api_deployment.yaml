@@ -44,10 +44,10 @@ spec:
       volumes:
         - name: scalarlm-jobs
           persistentVolumeClaim:
-            claimName: scalarlm-70b-jobs
+            claimName: scalarlm-jobs
         - name: scalarlm-cache
           persistentVolumeClaim:
-            claimName: scalarlm-70b-cache
+            claimName: scalarlm-cache
         - name: scalarlm-config
           configMap:
             name: {{ .Release.Name }}-api-configmap

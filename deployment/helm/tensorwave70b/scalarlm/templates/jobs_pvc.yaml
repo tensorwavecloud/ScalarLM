@@ -1,7 +1,7 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: scalarlm-70b-jobs
+  name: {{ .Release.Name }}-jobs
 spec:
   accessModes:
     - ReadWriteOnce
@@ -9,4 +9,3 @@ spec:
     requests:
       storage: {{ .Values.jobs_pvc.size }}
   storageClassName: {{ .Values.jobs_pvc.storageClass }}
-  wait_until_bound: false

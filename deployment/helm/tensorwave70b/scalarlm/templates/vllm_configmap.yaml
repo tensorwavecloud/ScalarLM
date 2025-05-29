@@ -8,7 +8,7 @@ data:
     model: {{ .Values.model }}
     max_model_length: {{ .Values.max_model_length }}
     gpu_memory_utilization: {{ .Values.gpu_memory_utilization }}
-    api_url: "http://scalarlm:{{ .Values.service.api_port }}"
+    api_url: "http://{{ .Release.Name }}:{{ .Values.service.api_port }}"
     server_list: vllm
 
 
