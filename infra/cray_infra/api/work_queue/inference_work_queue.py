@@ -82,10 +82,20 @@ class InferenceWorkQueue:
     def __len__(self):
         return len(self.queue)
 
+inference_work_queue = None
 
 def get_inference_work_queue():
-    config = get_config()
+    global inference_work_queue
 
+    if inference_work_queue is None:
+        inference_work_queue = get_file_backed_inference_work_queue()
+
+    return inference_work_queue
+
+
+def get_file_backed_inference_work_queue():
+    config = get_config()
     path = config["inference_work_queue_path"]
 
     return InferenceWorkQueue(path=path)
+

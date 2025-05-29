@@ -241,17 +241,19 @@ async def async_completion_task(request, app):
 
     response = {
         "request_id": request["request_id"],
-        "token_count": response_data["usage"]["total_tokens"],
-        "flop_count": compute_flop_count(
-            await app.state.engine_client.get_model_config()
-        )
-        * response_data["usage"]["total_tokens"],
     }
 
     if "choices" in response_data:
         response["response"] = response_data["choices"][0]["text"]
     elif response_data["object"] == "error":
         response["error"] = response_data["message"]
+
+    if "usage" in response_data:
+        response["token_count"] = response_data["usage"]["total_tokens"]
+        response["flop_count"] = (
+            compute_flop_count(await app.state.engine_client.get_model_config())
+            * response_data["usage"]["total_tokens"]
+        )
 
     app.state.engine_client.check_health()
 
