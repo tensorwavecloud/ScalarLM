@@ -3,11 +3,11 @@ inspect_args
 target=${args[target]}
 visible_gpus=${args[visible-gpus]}
 
-./cray build-image $target
+./scalarlm build-image $target
 
 declare -a benchmark_command_parts
 benchmark_command_parts=(
-      "CUDA_VISIBLE_DEVICES=${visible_gpus}" "python" "/app/cray/test/benchmark/main.py"
+      "PYTORCH_TUNABLEOP_ENABLED=1" "PYTORCH_TUNABLEOP_VERBOSE=1" "CUDA_VISIBLE_DEVICES=${visible_gpus}" "python" "/app/cray/test/benchmark/main.py"
 )
 
 benchmark_command="${benchmark_command_parts[*]}"

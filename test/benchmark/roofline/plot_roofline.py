@@ -30,6 +30,9 @@ def plot_gemm_kernels_on_roofline(machine_roofline):
 def load_gemm_kernel_metrics():
     metrics_path = "/app/cray/data/benchmark_gemm.json"
 
+    if not os.path.exists(metrics_path):
+        return None
+
     with open(metrics_path, "r") as metrics_file:
         benchmark_metrics = json.load(metrics_file)
 
@@ -45,6 +48,9 @@ def plot_memcpy_on_roofline(machine_roofline):
 def load_memcpy_metrics():
     metrics_path = "/app/cray/data/benchmark_memcpy.json"
 
+    if not os.path.exists(metrics_path):
+        return None
+
     with open(metrics_path, "r") as metrics_file:
         benchmark_metrics = json.load(metrics_file)
 
@@ -59,6 +65,9 @@ def plot_forward_on_roofline(machine_roofline):
 
 def load_forward_metrics():
     metrics_path = "/app/cray/data/benchmark_forward.json"
+
+    if not os.path.exists(metrics_path):
+        return None
 
     with open(metrics_path, "r") as metrics_file:
         benchmark_metrics = json.load(metrics_file)
@@ -76,6 +85,9 @@ def plot_backward_on_roofline(machine_roofline):
 
 def load_backward_metrics():
     metrics_path = "/app/cray/data/benchmark_backward.json"
+
+    if not os.path.exists(metrics_path):
+        return None
 
     with open(metrics_path, "r") as metrics_file:
         benchmark_metrics = json.load(metrics_file)
@@ -110,6 +122,9 @@ def shorten_prefix(prefix):
 
 
 def plot_kernels_on_roofline(kernel_type, machine_roofline, gemm_kernel_metrics):
+
+    if gemm_kernel_metrics is None:
+        return
 
     units = {
         "flop/s": "GFLOP/s",

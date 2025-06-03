@@ -27,6 +27,9 @@ def plot_memcpy_sweep(machine_roofline):
 def load_memcpy_metrics():
     metrics_path = "/app/cray/data/benchmark_memcpy.json"
 
+    if not os.path.exists(metrics_path):
+        return None
+
     with open(metrics_path, "r") as metrics_file:
         benchmark_metrics = json.load(metrics_file)
 
@@ -44,6 +47,9 @@ def plot_memcpy_peer_sweep(machine_roofline):
 def load_memcpy_peer_metrics():
     metrics_path = "/app/cray/data/benchmark_memcpy_peer.json"
 
+    if not os.path.exists(metrics_path):
+        return None
+
     with open(metrics_path, "r") as metrics_file:
         benchmark_metrics = json.load(metrics_file)
 
@@ -51,6 +57,9 @@ def load_memcpy_peer_metrics():
 
 
 def plot_sweep(kernel_type, machine_roofline, kernel_metrics):
+    if kernel_metrics is None:
+        return
+
     fig, ax = plt.subplots()
     ax.set_xscale("log")
     ax.set_yscale("log")

@@ -16,11 +16,11 @@ def main():
 
     os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
 
-    benchmark_memcpy()
-    benchmark_memcpy_peer()
+    #benchmark_memcpy()
+    #benchmark_memcpy_peer()
     benchmark_gemm()
-    benchmark_forward()
-    benchmark_backward()
+    #benchmark_forward()
+    #benchmark_backward()
 
     plot_roofline()
     plot_bandwidth_sweep()
