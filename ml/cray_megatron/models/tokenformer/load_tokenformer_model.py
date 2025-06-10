@@ -15,11 +15,13 @@ from transformers import AutoModelForCausalLM
 import torch
 
 import logging
+import time
 
 logger = logging.getLogger(__name__)
 
 
 def load_tokenformer_model():
+    start_time = time.time()
     model_info = load_model_config()
 
     model_info = apply_tokenformer_adapter(model_info)
@@ -30,6 +32,8 @@ def load_tokenformer_model():
 
     model_info = load_checkpoint_weights_if_exist(model_info)
 
+    total_time = time.time() - start_time
+    logger.info(f"Total model loading time: {total_time:.2f}s ({total_time/60:.1f} minutes)")
     return model_info
 
 
@@ -58,12 +62,25 @@ def apply_tokenformer_adapter(model_info):
 def materialize_model(model_info):
     download_model(model_info["model_name"])
 
-    model_info["model"] = AutoModelForCausalLM.from_pretrained(model_info["model_name"])
-
+    start_time = time.time()
+    model_info["model"] = AutoModelForCausalLM.from_pretrained(
+        model_info["model_name"],
+        torch_dtype="auto",           # Use model's native dtype
+        device_map="auto",            # Enable Big Model Inference
+        low_cpu_mem_usage=True,       # Reduce CPU memory usage
+        _fast_init=True               # Skip weight initialization (default True)
+        )
+    total_time = time.time() - start_time
+    logger.info(f"from_pretrained latency: {total_time:.2f}s ({total_time/60:.1f} minutes)")
+    
+    start_time = time.time()
     model_info["model"] = create_llama_tokenformer_model(
         model_info["model"], model_info["distribution_strategy"]["device"]
     )
+    total_time = time.time() - start_time
 
+    logger.info(f"create_llama_tokenformer_model latency: {total_time:.2f}s ({total_time/60:.1f} minutes)")
+    start_time = time.time()
     config = get_config()
     config_dtype = config["dtype"]
     dtype = (
@@ -75,6 +92,8 @@ def materialize_model(model_info):
 
     model_info["model"] = model_info["model"].to(dtype=dtype)
 
+    total_time = time.time() - start_time
+    logger.info(f"model dtype conversion latency: {total_time:.2f}s ({total_time/60:.1f} minutes)")
 
     if (
         "distribution_strategy" in model_info
