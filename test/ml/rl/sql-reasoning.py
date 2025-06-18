@@ -395,25 +395,27 @@ def wait_for_training_to_complete(llm, job_hash):
         logger.debug(f"Training job {job_hash} has status {training_status}")
 
         if training_status == "FAILED":
-            raise RuntimeError(
-                f"Training job {job_hash} has failed, please check the logs"
-            )
+            raise RuntimeError(f"Training job {job_hash} has failed, please check the logs")
 
         if training_status == "COMPLETED":
             break
 
         time.sleep(10)
 
-    logger.info(
-        f"Training job {job_hash} has completed successfully, waiting for model to be registered"
-    )
+    logger.info(f"Training job {job_hash} has completed successfully, waiting for model to be registered")
 
-    # 4. Wait ~30 seconds to allow for auto-registration of the new pretrained model
-    time.sleep(30)
+    # 4. Wait for deployment of the pre-trained model
+    training_response = llm.get_training_job(job_hash)
+
+    while training_response["deployed"] is False:
+        logger.debug(f"Model {job_hash} has not been registered yet, sleeping for 10 seconds")
+        time.sleep(10)
+        training_response = llm.get_training_job(job_hash)
 
     logger.info(f"Model {job_hash} has been registered successfully")
 
     return training_response
+
 
 
 main()

@@ -14,9 +14,11 @@ logger = logging.getLogger(__name__)
 class InferenceWorkQueue:
     def __init__(self, path):
         self.queue = persistqueue.SQLiteAckQueue(path)
+        self.lock = asyncio.Lock()
 
     def put(self, request):
-        return self.queue.put(request)
+        with self.lock:
+            return self.queue.put(request)
 
     async def get(self):
         config = get_config()
@@ -30,7 +32,8 @@ class InferenceWorkQueue:
 
         while time.time() - start_time < timeout:
             try:
-                raw_item = self.queue.get(block=False, raw=True)
+                with self.lock:
+                    raw_item = self.queue.get(block=False, raw=True)
 
                 item = raw_item["data"]
                 request_id = raw_item["pqid"]
@@ -43,11 +46,13 @@ class InferenceWorkQueue:
         return item, request_id
 
     def get_id(self, id):
-        return self.queue.get(block=False, id=id)
+        with self.lock:
+            return self.queue.get(block=False, id=id)
 
     def get_nowait(self):
         try:
-            raw_item = self.queue.get(block=False, raw=True)
+            with self.lock:
+                raw_item = self.queue.get(block=False, raw=True)
 
             item = raw_item["data"]
             request_id = raw_item["pqid"]
@@ -68,16 +73,20 @@ class InferenceWorkQueue:
         return None
 
     def update(self, id, item):
-        return self.queue.update(id=id, item=item)
+        with self.lock:
+            return self.queue.update(id=id, item=item)
 
     def ack(self, id):
-        return self.queue.ack(id=id)
+        with self.lock:
+            return self.queue.ack(id=id)
 
     def resume_unack_tasks(self):
-        self.queue.resume_unack_tasks()
+        with self.lock:
+            self.queue.resume_unack_tasks()
 
     def clear_acked_data(self):
-        self.queue.clear_acked_data()
+        with self.lock:
+            self.queue.clear_acked_data()
 
     def __len__(self):
         return len(self.queue)

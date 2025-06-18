@@ -10,6 +10,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class FSDPLayer(nn.Module):
     def __init__(self, module, should_checkpoint=False):
         super().__init__()
@@ -20,28 +21,22 @@ class FSDPLayer(nn.Module):
         self.should_checkpoint = should_checkpoint
 
         self.perf_metrics = {
-            'shard': {
-              'time': 0.0,
+            "shard": {
+                "time": 0.0,
             },
-            'gather': {
-                'time': 0.0,   # Placeholder for elapsed time in seconds
-                'bytes': 0     # Placeholder for bytes processed
+            "gather": {
+                "time": 0.0,  # Placeholder for elapsed time in seconds
+                "bytes": 0,  # Placeholder for bytes processed
             },
-            'forward_pass': {
-                'time': 0.0    # Placeholder for elapsed time in seconds
-            },
-            'free_params': {
-                'time': 0.0    # Placeholder for elapsed time in seconds
-            },
-            'reduce_scatter': {
-                'time': 0.0    # Placeholder for elapsed time in seconds
-            }
+            "forward_pass": {"time": 0.0},  # Placeholder for elapsed time in seconds
+            "free_params": {"time": 0.0},  # Placeholder for elapsed time in seconds
+            "reduce_scatter": {"time": 0.0},  # Placeholder for elapsed time in seconds
         }
 
         start = time.time()
         self.shard_parameters()
         end = time.time()
-        self.perf_metrics['shard']['time'] += (end - start)
+        self.perf_metrics["shard"]["time"] += end - start
 
     def _full_backward_hook(self, module, grad_input, grad_output):
         self.free_params()
@@ -84,19 +79,19 @@ class FSDPLayer(nn.Module):
         start = time.time()
         self.gather_all_parameters()
         end = time.time()
-        self.perf_metrics['gather']['time'] += (end - start)
+        self.perf_metrics["gather"]["time"] += end - start
 
         # run forward pass
         start = time.time()
         result = self.module(*args, **kwargs)
         end = time.time()
-        self.perf_metrics['forward_pass']['time'] += (end - start)
+        self.perf_metrics["forward_pass"]["time"] += end - start
 
         # free params
         start = time.time()
         self.free_params()
         end = time.time()
-        self.perf_metrics['free_params']['time'] += (end - start)
+        self.perf_metrics["free_params"]["time"] += end - start
 
         return result
 
@@ -120,7 +115,7 @@ class FSDPLayer(nn.Module):
             full_tensor = all_gather_op(param, metadata_dict, self.perf_metrics)
 
             logger.debug(
-               f" Rank {rank}: Gathered parameter {name} with shape {full_tensor.shape}"
+                f" Rank {rank}: Gathered parameter {name} with shape {full_tensor.shape}"
             )
 
             # Copy the full tensor back to the original parameter
@@ -168,7 +163,11 @@ class SimpleFSDP(nn.Module):
             all_params = list(child.parameters(recurse=False))
             any_requires_grad = any(param.requires_grad for param in all_params)
             # checkpoint if model memory footprint is > 32GB and has grand children and has any requires_grad
-            should_checkpoint = self.model_memory_footprint > (32 * 1024**3) and has_grand_children and any_requires_grad
+            should_checkpoint = (
+                self.model_memory_footprint > (32 * 1024**3)
+                and has_grand_children
+                and any_requires_grad
+            )
 
             if len(params) > 0:
                 wrapped = FSDPLayer(child, should_checkpoint=should_checkpoint)
@@ -186,7 +185,7 @@ class SimpleFSDP(nn.Module):
             # Aggregate and print metrics
             aggregated = aggregate_perf_metrics(self.model)
             for op, metrics in aggregated.items():
-                total_time = "{:.2f}".format(metrics['time'])
+                total_time = "{:.2f}".format(metrics["time"])
                 metrics_str += f"{op}:\n  Total time: {total_time} s\n"
 
             logger.debug(metrics_str)
@@ -219,7 +218,7 @@ class SimpleFSDP(nn.Module):
                     if param.requires_grad:
                         if param_name.startswith("shard_"):
                             # Remove _shard_ prefix
-                            param_name = param_name[len("shard_"):]
+                            param_name = param_name[len("shard_") :]
 
                             # Get metadata for this parameter
                             metadata_dict = child.sharded_parameter_metadata[param_name]
@@ -227,13 +226,13 @@ class SimpleFSDP(nn.Module):
                             # Gather all shards and reconstruct the full tensor
                             full_tensor = all_gather_op(param, metadata_dict)
 
-                            unwrapped_state_dict[f"{prefix}{name}.{param_name}"] = full_tensor.to(
-                                torch.device("cpu")
+                            unwrapped_state_dict[f"{prefix}{name}.{param_name}"] = (
+                                full_tensor.to(torch.device("cpu"))
                             )
 
                         else:
-                            unwrapped_state_dict[f"{prefix}{name}.{param_name}"] = param.to(
-                                torch.device("cpu")
+                            unwrapped_state_dict[f"{prefix}{name}.{param_name}"] = (
+                                param.to(torch.device("cpu"))
                             )
 
                         logger.debug(
@@ -247,6 +246,7 @@ class SimpleFSDP(nn.Module):
                     unwrapped_state_dict=unwrapped_state_dict,
                 )
 
+
 def get_fsdp_layers(module):
     """Recursively collect all FSDPLayer instances"""
     fsdp_layers = []
@@ -256,18 +256,20 @@ def get_fsdp_layers(module):
         fsdp_layers.extend(get_fsdp_layers(child))
     return fsdp_layers
 
+
 def aggregate_perf_metrics(module):
 
     fsdp_layers = get_fsdp_layers(module)
 
     """Sum metrics across all FSDP layers"""
-    aggregated = defaultdict(lambda: {'time': 0, 'bytes': 0})
+    aggregated = defaultdict(lambda: {"time": 0, "bytes": 0})
     for layer in fsdp_layers:
         for op, metrics in layer.perf_metrics.items():
-            aggregated[op]['time'] += metrics.get('time', 0)
-            if 'bytes' in aggregated[op]:
-                aggregated[op]['bytes'] += metrics.get('bytes', 0)
+            aggregated[op]["time"] += metrics.get("time", 0)
+            if "bytes" in aggregated[op]:
+                aggregated[op]["bytes"] += metrics.get("bytes", 0)
     return dict(aggregated)
+
 
 def shard_tensor(tensor):
     """Evenly shard tensor across ranks with padding if needed.
@@ -286,7 +288,10 @@ def shard_tensor(tensor):
     # Pad tensor if needed
     if padding > 0:
         tensor_padded = torch.cat(
-            [tensor.view(-1), torch.zeros(padding, device=tensor.device)]
+            [
+                tensor.view(-1),
+                torch.zeros(padding, device=tensor.device, dtype=tensor.dtype),
+            ]
         )
     else:
         tensor_padded = tensor.view(-1)
@@ -297,7 +302,9 @@ def shard_tensor(tensor):
     shard = tensor_padded[start : start + shard_size].clone()
 
     # Gather metadata from all ranks
-    local_metadata = torch.tensor([original_numel, *original_shape, shard_size, padding], dtype=torch.long)
+    local_metadata = torch.tensor(
+        [original_numel, *original_shape, shard_size, padding], dtype=torch.long
+    )
     all_metadata = torch.zeros((world_size, local_metadata.numel()), dtype=torch.long)
     allgather(local_metadata, all_metadata.view(-1))
 
@@ -308,7 +315,10 @@ def shard_tensor(tensor):
     metadata_dict = {rank: all_metadata[rank].tolist() for rank in range(world_size)}
 
     # Convert metadata back to original format
-    metadata_dict = {rank: (meta[0], tuple(meta[1:-2]), meta[-2], meta[-1]) for rank, meta in metadata_dict.items()}
+    metadata_dict = {
+        rank: (meta[0], tuple(meta[1:-2]), meta[-2], meta[-1])
+        for rank, meta in metadata_dict.items()
+    }
 
     return shard, metadata_dict
 
@@ -351,7 +361,9 @@ def collectives_all_gather(shard, metadata_dict):
     # Prepare buffers
     orig_dtype = shard.dtype
     shard = shard.to(torch.float32)
-    gathered = torch.zeros(shard.numel() * world_size, device=shard.device, dtype=torch.float32)
+    gathered = torch.zeros(
+        shard.numel() * world_size, device=shard.device, dtype=torch.float32
+    )
 
     # Collective operation in float32
     allgather(shard, gathered)
@@ -388,7 +400,12 @@ def collectives_reduce_scatter(tensor, metadata_dict):
     # Pad tensor if needed
     tensor_padded = tensor.reshape(-1)
     if padding > 0:
-        tensor_padded = torch.concatenate([tensor_padded, torch.zeros(padding, device=tensor.device, dtype=tensor_padded.dtype)])
+        tensor_padded = torch.concatenate(
+            [
+                tensor_padded,
+                torch.zeros(padding, device=tensor.device, dtype=tensor_padded.dtype),
+            ]
+        )
 
     # Convert to float32 for the collective
     tensor_padded = tensor_padded.to(torch.float32)
@@ -423,9 +440,10 @@ class _AllGather(torch.autograd.Function):
         start = time.time()
         result = collectives_reduce_scatter(grad_output, metadata_dict), None, None
         end = time.time()
-        if 'reduce_scatter' in metrics:
-            metrics['reduce_scatter']['time'] += (end - start)
+        if "reduce_scatter" in metrics:
+            metrics["reduce_scatter"]["time"] += end - start
 
         return result
+
 
 all_gather_op = _AllGather.apply
