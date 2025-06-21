@@ -16,8 +16,8 @@ class InferenceWorkQueue:
         self.queue = persistqueue.SQLiteAckQueue(path)
         self.lock = asyncio.Lock()
 
-    def put(self, request):
-        with self.lock:
+    async def put(self, request):
+        async with self.lock:
             return self.queue.put(request)
 
     async def get(self):
@@ -32,7 +32,7 @@ class InferenceWorkQueue:
 
         while time.time() - start_time < timeout:
             try:
-                with self.lock:
+                async with self.lock:
                     raw_item = self.queue.get(block=False, raw=True)
 
                 item = raw_item["data"]
@@ -45,13 +45,13 @@ class InferenceWorkQueue:
 
         return item, request_id
 
-    def get_id(self, id):
-        with self.lock:
+    async def get_id(self, id):
+        async with self.lock:
             return self.queue.get(block=False, id=id)
 
-    def get_nowait(self):
+    async def get_nowait(self):
         try:
-            with self.lock:
+            async with self.lock:
                 raw_item = self.queue.get(block=False, raw=True)
 
             item = raw_item["data"]
@@ -62,30 +62,38 @@ class InferenceWorkQueue:
 
         return item, request_id
 
-    def get_if_finished(self, id):
-        results = self.queue.queue()
+    async def get_if_finished(self, id):
+        async with self.lock:
+            results = self.queue.queue()
 
-        for result in results:
-            if result["id"] == id:
-                if int(result["status"]) == int(persistqueue.AckStatus.acked):
-                    return result["data"]
+            for result in results:
+                if result["id"] == id:
+                    if int(result["status"]) == int(persistqueue.AckStatus.acked):
+                        return result["data"]
 
         return None
 
-    def update(self, id, item):
-        with self.lock:
+    async def update(self, id, item):
+        async with self.lock:
             return self.queue.update(id=id, item=item)
 
-    def ack(self, id):
-        with self.lock:
+    async def ack(self, id):
+        async with self.lock:
             return self.queue.ack(id=id)
 
-    def resume_unack_tasks(self):
-        with self.lock:
+    async def update_and_ack(self, id, item):
+        async with self.lock:
+            result = self.queue.update(id=id, item=item)
+            ack_result = self.queue.ack(id=id)
+
+            return result, ack_result
+
+    async def resume_unack_tasks(self):
+        async with self.lock:
             self.queue.resume_unack_tasks()
 
-    def clear_acked_data(self):
-        with self.lock:
+    async def clear_acked_data(self):
+        async with self.lock:
             self.queue.clear_acked_data()
 
     def __len__(self):

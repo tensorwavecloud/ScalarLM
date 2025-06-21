@@ -59,7 +59,7 @@ async def generate(request: GenerateRequest):
 
     try:
         for prompt in prompts:
-            request_id = inference_work_queue.put(
+            request_id = await inference_work_queue.put(
                 {
                     "prompt": prompt,
                     "model": model,

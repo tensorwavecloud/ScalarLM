@@ -9,7 +9,7 @@ async def clear_acked_requests_from_queue():
 
     starting_size = len(inference_work_queue)
 
-    inference_work_queue.clear_acked_data()
+    await inference_work_queue.clear_acked_data()
 
     ending_size = len(inference_work_queue)
 

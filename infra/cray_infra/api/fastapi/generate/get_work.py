@@ -38,7 +38,7 @@ async def get_work(request: GetWorkRequest):
 
         for i in range(batch_size - 1):
 
-            request, request_id = inference_work_queue.get_nowait()
+            request, request_id = await inference_work_queue.get_nowait()
 
             if request is None:
                 break

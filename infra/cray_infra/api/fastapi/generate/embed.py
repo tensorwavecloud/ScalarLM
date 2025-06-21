@@ -43,7 +43,7 @@ async def embed(request: EmbedRequest):
 
     try:
         for prompt in prompts:
-            request_id = inference_work_queue.put(
+            request_id = await inference_work_queue.put(
                 {"prompt": prompt, "model": model, "request_type": "embed"}
             )
 

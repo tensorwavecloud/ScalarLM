@@ -15,7 +15,7 @@ async def finish_work(requests: FinishWorkRequests):
     for request in requests.requests:
         logger.debug(f"Finishing work for request {request.request_id}")
 
-        result = inference_work_queue.get_id(id=request.request_id)
+        result = await inference_work_queue.get_id(id=request.request_id)
 
         if request.response is not None:
             result["response"] = request.response
@@ -23,9 +23,7 @@ async def finish_work(requests: FinishWorkRequests):
         if request.error is not None:
             result["error"] = request.error
 
-        inference_work_queue.update(id=request.request_id, item=result)
-
-        inference_work_queue.ack(id=request.request_id)
+        await inference_work_queue.update_and_ack(id=request.request_id, item=result)
 
         metrics = get_metrics()
 

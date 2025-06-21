@@ -38,7 +38,7 @@ async def poll_for_responses(request_ids):
             if request_id in responses_so_far:
                 continue
 
-            response = inference_work_queue.get_if_finished(request_id)
+            response = await inference_work_queue.get_if_finished(request_id)
 
             if response is None:
                 continue
