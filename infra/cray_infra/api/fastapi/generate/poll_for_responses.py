@@ -63,6 +63,9 @@ async def poll_for_responses(request_ids):
             logger.info(f"Request {request_id} did not finish in time")
             responses.results.append(Result(request_id=request_id, response=None))
 
+    # Sort the responses by request_id, with None responses at the end
+    responses.results.sort(key=lambda x: (x.request_id is None, x.request_id))
+
     return responses
 
 def truncate_fields(response):
