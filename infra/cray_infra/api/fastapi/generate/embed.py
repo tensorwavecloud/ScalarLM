@@ -37,7 +37,7 @@ async def embed(request: EmbedRequest):
         model = config["model"]
         logger.info(f"Using default model: {model}")
 
-    inference_work_queue = get_inference_work_queue()
+    inference_work_queue = await get_inference_work_queue()
 
     request_ids = []
 

@@ -22,7 +22,7 @@ async def poll_for_responses(request_ids):
 
     timeout = config["response_timeout"]
 
-    inference_work_queue = get_inference_work_queue()
+    inference_work_queue = await get_inference_work_queue()
 
     start_time = time.time()
 

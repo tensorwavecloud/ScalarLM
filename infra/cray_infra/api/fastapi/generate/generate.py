@@ -53,7 +53,7 @@ async def generate(request: GenerateRequest):
         logger.error(f"Model {model} not found")
         raise HTTPException(status_code=404, detail=f"Model {model} not found")
 
-    inference_work_queue = get_inference_work_queue()
+    inference_work_queue = await get_inference_work_queue()
 
     request_ids = []
 

@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 
 async def finish_work(requests: FinishWorkRequests):
-    inference_work_queue = get_inference_work_queue()
+    inference_work_queue = await get_inference_work_queue()
 
     for request in requests.requests:
         logger.debug(f"Finishing work for request {request.request_id}")

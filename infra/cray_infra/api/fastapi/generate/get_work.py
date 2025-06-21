@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 async def get_work(request: GetWorkRequest):
     batch_size = request.batch_size
 
-    inference_work_queue = get_inference_work_queue()
+    inference_work_queue = await get_inference_work_queue()
 
     requests = []
 
@@ -57,5 +57,7 @@ async def get_work(request: GetWorkRequest):
         logger.error(f"Error getting work: {e}")
         logger.error(traceback.format_exc())
         asyncio.sleep(1)
+
+    logger.info(f"Got the following request ids: {[req.request_id for req in requests]}")
 
     return GetWorkResponses(requests=requests)

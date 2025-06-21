@@ -56,6 +56,7 @@ class InferenceWorkQueue:
 
             item = raw_item["data"]
             request_id = raw_item["pqid"]
+
         except persistqueue.Empty:
             item = None
             request_id = None
@@ -100,12 +101,15 @@ class InferenceWorkQueue:
         return len(self.queue)
 
 inference_work_queue = None
+lock = asyncio.Lock()
 
-def get_inference_work_queue():
+async def get_inference_work_queue():
     global inference_work_queue
+    global lock
 
-    if inference_work_queue is None:
-        inference_work_queue = get_file_backed_inference_work_queue()
+    async with lock:
+        if inference_work_queue is None:
+            inference_work_queue = get_file_backed_inference_work_queue()
 
     return inference_work_queue
 
