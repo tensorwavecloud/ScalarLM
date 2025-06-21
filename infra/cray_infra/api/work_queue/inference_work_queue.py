@@ -12,8 +12,8 @@ logger = logging.getLogger(__name__)
 
 
 class InferenceWorkQueue:
-    def __init__(self, path):
-        self.queue = persistqueue.SQLiteAckQueue(path)
+    def __init__(self, path, auto_resume=False):
+        self.queue = persistqueue.SQLiteAckQueue(path, auto_resume=auto_resume)
         self.lock = asyncio.Lock()
 
     async def put(self, request):
@@ -109,14 +109,14 @@ async def get_inference_work_queue():
 
     async with lock:
         if inference_work_queue is None:
-            inference_work_queue = get_file_backed_inference_work_queue()
+            inference_work_queue = get_file_backed_inference_work_queue(auto_resume=True)
 
     return inference_work_queue
 
 
-def get_file_backed_inference_work_queue():
+def get_file_backed_inference_work_queue(auto_resume=False):
     config = get_config()
     path = config["inference_work_queue_path"]
 
-    return InferenceWorkQueue(path=path)
+    return InferenceWorkQueue(path=path, auto_resume=auto_resume)
 
