@@ -1,0 +1,9 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-megatron-configmap
+data:
+  cray-config.yaml: |
+    model: {{ .Values.model }}
+    server_list: megatron
+    max_train_time: {{ .Values.max_train_time }}

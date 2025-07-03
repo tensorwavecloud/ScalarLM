@@ -16,6 +16,7 @@ class Config(BaseModel):
     extra_training_seconds: int = 300  # 5 minutes buffer before slurm kills the job
 
     slurm_wait_time: int = 30 # seconds
+    node_info_time_limit: int = 3600 # seconds
 
     megatron_refresh_period: int = 30 # seconds
 
@@ -40,4 +41,5 @@ class Config(BaseModel):
     tokenformer_num_heads: int = 4
 
     tokenformer_cache_capacity: int = 2
+
 

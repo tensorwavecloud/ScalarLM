@@ -1,0 +1,31 @@
+image:
+  repository: gdiamos/scalarlm-amd
+  tag: v0.94
+  pullPolicy: Always
+
+service:
+  type: ClusterIP
+  api_port: 8000
+  vllm_port: 8001
+  externalIP: 64.139.222.101
+
+jobs_pvc:
+  storageClass: nfs-csi
+  size: 100Gi
+
+cache_pvc:
+  storageClass: nfs-csi
+  size: 200Gi
+
+slurm_config_pvc:
+    storageClass: nfs-csi
+    size: 10Gi
+
+model: meta-llama/Llama-3.3-3B-Instruct
+max_model_length: 8192
+gpu_memory_utilization: 0.95
+
+training_gpus: 2
+inference_gpus: 0
+
+max_train_time: 86400

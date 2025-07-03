@@ -8,7 +8,7 @@ from vllm.utils import is_hip
 
 # Input scaling factors are no longer optional in _scaled_mm starting
 # from pytorch 2.5. Allocating a dummy tensor to pass as input_scale
-TORCH_DEVICE_IDENTITY = torch.ones(1).cuda() if is_hip() else None
+TORCH_DEVICE_IDENTITY = torch.ones(1).cuda() if is_hip() and torch.cuda.device_count() > 0 else None
 
 
 def cutlass_fp8_supported() -> bool:

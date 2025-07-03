@@ -59,14 +59,21 @@ async def run_all_servers_async():
 
     server_status = await start_cray_server(server_list=[config["server_list"]])
 
-    done, pending = await asyncio.wait(
-        server_status.tasks,
-        return_when=asyncio.FIRST_COMPLETED,
-    )
+    logger.info(f"Running with {len(server_status.tasks)} servers")
 
-    logger.info("Cray sever is shutting down")
-    for pending_task in pending:
-        pending_task.cancel("Another service died, server is shutting down")
+    if len(server_status.tasks) > 0:
+        done, pending = await asyncio.wait(
+            server_status.tasks,
+            return_when=asyncio.FIRST_COMPLETED,
+        )
+
+        logger.info("Cray sever is shutting down")
+        for pending_task in pending:
+            pending_task.cancel("Another service died, server is shutting down")
+    else:
+        while True:
+            logger.info("Server is sleeping forever")
+            await asyncio.sleep(600)
 
 
 if __name__ == "__main__":

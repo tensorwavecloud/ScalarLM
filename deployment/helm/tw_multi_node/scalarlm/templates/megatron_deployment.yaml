@@ -1,0 +1,162 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "scalarlm.megatronname" . }}
+spec:
+  serviceName: {{ include "scalarlm.megatronname" . }}-headless
+  replicas: {{ .Values.training_gpus }}
+  selector:
+    matchLabels:
+      {{- include "scalarlm.megatronlabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "scalarlm.megatronlabels" . | nindent 8 }}
+    spec:
+    {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+    {{- end }}
+      dnsConfig:
+        searches:
+          - {{ include "scalarlm.megatronname" . }}-headless.scalarlm.svc.cluster.local
+          - "scalarlm.svc.cluster.local"
+          - "svc.cluster.local"
+          - "cluster.local"
+        options:
+          - name: ndots
+            value: "1"
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          command: ["/app/cray/scripts/start_one_server.sh"]
+          env:
+            - name: LD_LIBRARY_PATH
+              value: "/usr/local/rdma-lib:$LD_LIBRARY_PATH"
+            # UCX configuration to use available RDMA devices and TCP fallback
+            - name: UCX_TLS
+              value: "tcp,rc,ud"
+            - name: UCX_NET_DEVICES
+              value: "eth0,rdma-eth1,rdma-eth2,rdma-eth3,rdma-eth4,rdma-eth5,rdma-eth6,rdma-eth7"
+            - name: UCX_LOG_LEVEL
+              value: "info"
+            # Enable RDMA over Ethernet
+            - name: UCX_IB_ROCE_VERSION
+              value: "2"
+            - name: UCX_IB_ENABLE
+              value: "yes"
+            # MPI configuration
+            - name: OMPI_MCA_pml
+              value: "ucx"
+            - name: OMPI_MCA_btl
+              value: "^vader,openib,uct"
+            - name: OMPI_MCA_oob_tcp_if_include
+              value: "eth0"
+          volumeMounts:
+          {{- range .Values.volumes }}
+            - name: {{ .name }}
+              mountPath: {{ .path }}
+          {{- end }}
+            - name: scalarlm-config
+              mountPath: /app/cray/cray-config.yaml
+              subPath: cray-config.yaml
+            - name: scalarlm-jobs
+              mountPath: /app/cray/jobs
+            - name: scalarlm-cache
+              mountPath: /root/.cache/huggingface
+            - name: scalarlm-slurm-config
+              mountPath: /app/cray/nfs
+            - name: infiniband-dev
+              mountPath: /dev/infiniband
+            - name: libibverbs-lib
+              mountPath: /usr/lib/x86_64-linux-gnu/libibverbs.so.1
+              readOnly: true
+            - name: librdmacm-lib
+              mountPath: /usr/lib/x86_64-linux-gnu/librdmacm.so.1
+              readOnly: true
+            - name: ibverbs-providers
+              mountPath: /usr/lib/x86_64-linux-gnu/libibverbs
+              readOnly: true
+            - name: local-rdma-libs
+              mountPath: /usr/local/rdma-lib
+              readOnly: true
+            - name: infiniband-class
+              mountPath: /sys/class/infiniband
+              readOnly: true
+            # Mount host network interfaces
+            - name: host-sys-class-net
+              mountPath: /host/sys/class/net
+              readOnly: true
+            - name: host-proc-net
+              mountPath: /host/proc/net
+              readOnly: true
+          resources:
+            limits:
+              amd.com/gpu: 1
+          securityContext:
+            privileged: true
+            capabilities:
+              add: ["NET_ADMIN", "SYS_ADMIN", "IPC_LOCK"]
+      volumes:
+        - name: scalarlm-jobs
+          persistentVolumeClaim:
+            claimName: scalarlm-jobs
+        - name: scalarlm-cache
+          persistentVolumeClaim:
+            claimName: scalarlm-cache
+        - name: scalarlm-slurm-config
+          persistentVolumeClaim:
+            claimName: scalarlm-slurm-config
+        - name: scalarlm-config
+          configMap:
+            name: {{ .Release.Name }}-megatron-configmap
+        # Add InfiniBand device volume
+        - name: infiniband-dev
+          hostPath:
+            path: /dev/infiniband
+            type: Directory
+        - name: libibverbs-lib
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libibverbs.so.1
+            type: File
+        - name: librdmacm-lib
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/librdmacm.so.1
+            type: File
+        - name: ibverbs-providers
+          hostPath:
+            path: /usr/lib/x86_64-linux-gnu/libibverbs
+            type: Directory
+        - name: local-rdma-libs
+          hostPath:
+            path: /usr/local/lib
+            type: Directory
+        - name: infiniband-class
+          hostPath:
+            path: /sys/class/infiniband
+            type: Directory
+        # Mount host network information
+        - name: host-sys-class-net
+          hostPath:
+            path: /sys/class/net
+            type: Directory
+        - name: host-proc-net
+          hostPath:
+            path: /proc/net
+            type: Directory
+        # Mount RDMA network devices
+        - name: rdma-net-devices
+          hostPath:
+            path: /sys/class/net
+            type: Directory
+        - name: host-netns
+          hostPath:
+            path: /var/run/netns
+            type: DirectoryOrCreate
+      {{- range .Values.volumes }}
+        - name: {{ .name }}
+          hostPath:
+            path: {{ .hostPath }}
+      {{- end }}
+

@@ -7,3 +7,4 @@ streaming-form-data==1.15.0
 mpi4py==4.0.3
 openmpi==0.0.0
 humanize
+atomicwrites

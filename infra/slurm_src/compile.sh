@@ -28,12 +28,16 @@ else
     exit 1
 fi
 
-# Copy the shared object file to the /usr/lib directory
-cp /app/cray/infra/slurm_src/cgroup_docker.so /usr/lib/$TARGET/slurm-wlm/cgroup_docker.so
-
 # Disable the plugin on the AMD target
 if [ $BASE_NAME == "amd" ] || [ $BASE_NAME="nvidia" ]; then
     sed -i -e 's/CgroupPlugin=cgroup\/docker/CgroupPlugin=cgroup\/v1/g' /app/cray/infra/slurm_configs/cgroup.conf
+else
+    # Copy the shared object file to the /usr/lib directory
+    cp /app/cray/infra/slurm_src/cgroup_docker.so /usr/lib/$TARGET/slurm-wlm/cgroup_docker.so
 fi
 
+# Make sure the slurm log files exist
+mkdir -p /var/log/slurm
+mkdir -p /var/spool/slurmd
+chown slurm:slurm /var/spool/slurmd 2>/dev/null || true
 

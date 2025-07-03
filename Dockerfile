@@ -4,7 +4,7 @@ ARG BASE_NAME=cpu
 # NVIDIA BASE IMAGE
 FROM nvcr.io/nvidia/pytorch:24.07-py3 AS nvidia
 
-RUN apt-get update -y && apt-get install -y python3-venv
+RUN apt-get update -y && apt-get install -y python3-venv slurm-wlm libslurm-dev
 
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -40,7 +40,7 @@ FROM ubuntu:24.04 AS cpu
 RUN --mount=type=cache,target=/var/cache/apt \
     apt-get update -y \
     && apt-get install -y python3 python3-pip python3-venv \
-    openmpi-bin libopenmpi-dev libpmix-dev
+    openmpi-bin libopenmpi-dev libpmix-dev slurm-wlm libslurm-dev
 
 ENV VIRTUAL_ENV=/app/.venv
 ENV PATH="$VIRTUAL_ENV/bin:$PATH"
@@ -62,15 +62,10 @@ ENV BASE_NAME=cpu
 
 ###############################################################################
 # AMD BASE IMAGE
-FROM gdiamos/rocm-base:v0.8 AS amd
+FROM gdiamos/rocm-base:v0.94 AS amd
 ARG MAX_JOBS=8
 
 ENV BASE_NAME=amd
-
-RUN pip install amdsmi
-RUN --mount=type=cache,target=/var/cache/apt \
-    apt-get update -y \
-    && apt install -y amd-smi-lib
 
 RUN pip install pyhip>=1.1.0
 ENV HIP_FORCE_DEV_KERNARG=1
@@ -137,9 +132,8 @@ RUN python3 ${INSTALL_ROOT}/infra/cray_infra/training/gpu_aware_mpi/setup.py bdi
     pip install dist/*.whl
 
 RUN apt-get update -y  \
-    && apt-get install -y slurm-wlm libslurm-dev \
-    build-essential \
-    less curl wget net-tools vim iputils-ping \
+    && apt-get install -y build-essential \
+    less curl wget net-tools vim iputils-ping strace gdb \
     && rm -rf /var/lib/apt/lists/*
 
 # Setup python path
@@ -149,6 +143,7 @@ ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/ml"
 ENV PYTHONPATH="${PYTHONPATH}:${INSTALL_ROOT}/test"
 
 RUN mkdir -p ${INSTALL_ROOT}/jobs
+RUN mkdir -p ${INSTALL_ROOT}/nfs
 
 # Copy the rest of the platform code
 COPY ./infra ${INSTALL_ROOT}/infra
@@ -160,5 +155,7 @@ COPY ./scripts ${INSTALL_ROOT}/scripts
 # Build SLURM plugin
 RUN /app/cray/infra/slurm_src/compile.sh
 
-ENV SLURM_CONF=${INSTALL_ROOT}/infra/slurm_configs/slurm.conf
+ENV LD_LIBRARY_PATH="${PYTHONPATH}:/usr/local/lib/slurm"
+
+ENV SLURM_CONF=${INSTALL_ROOT}/nfs/slurm.conf
 

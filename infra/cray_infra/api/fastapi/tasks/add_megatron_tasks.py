@@ -2,6 +2,7 @@ from cray_infra.util.get_config import get_config
 
 from cray_infra.training.restart_megatron_jobs import restart_megatron_jobs
 from cray_infra.training.register_megatron_models import register_megatron_models
+from cray_infra.training.register_megatron_workers import register_megatron_workers
 from cray_infra.generate.clear_acked_requests_from_queue import clear_acked_requests_from_queue
 
 from fastapi_utils.tasks import repeat_every
@@ -26,6 +27,7 @@ async def add_megatron_tasks(app):
         try:
             await register_megatron_models()
             await restart_megatron_jobs()
+            await register_megatron_workers()
             await clear_acked_requests_from_queue()
         except Exception as e:
             print_exception()
