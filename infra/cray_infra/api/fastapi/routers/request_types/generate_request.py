@@ -1,9 +1,9 @@
 from pydantic import BaseModel
 
-from typing import Optional
+from typing import Optional, Union
 
 
 class GenerateRequest(BaseModel):
     model: Optional[str] = None
-    prompts: list[str]
+    prompts: list[Union[str, dict[str, str]]]
     max_tokens: Optional[int] = 16

@@ -157,13 +157,13 @@ def _get_model_initialization_kwargs(
     if supports_lora(model_class):
         # lora_config=None is used to disable LoRA
         extra_kwargs["lora_config"] = lora_config
-    elif lora_config:
-        raise ValueError(
-            f"Model {model_class.__name__} does not support LoRA, "
-            "but LoRA is enabled. Support for this model may "
-            "be added in the future. If this is important to you, "
-            "please open an issue on github."
-        )
+    #elif lora_config:
+    #    raise ValueError(
+    #        f"Model {model_class.__name__} does not support LoRA, "
+    #        "but LoRA is enabled. Support for this model may "
+    #        "be added in the future. If this is important to you, "
+    #        "please open an issue on github."
+    #    )
 
     if supports_multimodal(model_class):
         assert multimodal_config is not None

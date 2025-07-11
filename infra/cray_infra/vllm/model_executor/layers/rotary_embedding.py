@@ -797,7 +797,7 @@ class MRotaryEmbedding(RotaryEmbedding):
 
         self.mrope_section = mrope_section
         if self.mrope_section:
-            assert sum(self.mrope_section) == rotary_dim // 2
+            assert sum(self.mrope_section) == rotary_dim // 2, f"mrope_section {sum(self.mrope_section)} does not equal {rotary_dim // 2}"
 
     def forward(
         self,

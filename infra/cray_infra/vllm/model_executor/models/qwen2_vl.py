@@ -60,7 +60,7 @@ from vllm.attention.selector import (
     backend_name_to_enum,
     get_global_forced_attn_backend,
 )
-from vllm.config import CacheConfig, MultiModalConfig
+from vllm.config import CacheConfig, MultiModalConfig, LoRAConfig
 from vllm.distributed import get_pp_group, parallel_state
 from vllm.distributed import utils as dist_utils
 from vllm.inputs import INPUT_REGISTRY, InputContext, LLMInputs
@@ -83,7 +83,7 @@ from vllm.transformers_utils.configs.qwen2vl import Qwen2VLConfig, Qwen2VLVision
 from vllm.transformers_utils.processor import get_processor
 from vllm.utils import is_cpu
 
-from .interfaces import SupportsMultiModal, SupportsPP
+from .interfaces import SupportsMultiModal, SupportsPP, SupportsLoRA
 from .utils import (
     PPMissingLayer,
     is_pp_missing_parameter,
@@ -98,7 +98,7 @@ logger = init_logger(__name__)
 class Qwen2VLImagePixelInputs(TypedDict):
     type: Literal["pixel_values"]
     data: torch.Tensor
-    """Shape: 
+    """Shape:
     `(num_patches, num_channels * patch_size * patch_size)`
     """
 
@@ -121,14 +121,14 @@ Qwen2VLImageInputs = Union[Qwen2VLImagePixelInputs, Qwen2VLImageEmbeddingInputs]
 
 class Qwen2VLVideoInputs(TypedDict):
     pixel_values_videos: torch.Tensor
-    """Shape: 
-    `(num_patches, 
+    """Shape:
+    `(num_patches,
       num_channels * temporal_patch_size * patch_size * patch_size)`
     """
 
     video_grid_thw: torch.Tensor
     """Shape: `(num_videos, 3)`
-    
+
     This should be in `(grid_t, grid_h, grid_w)` format.
     """
 
@@ -934,7 +934,26 @@ def input_processor_for_qwen2_vl(ctx: InputContext, llm_inputs: LLMInputs) -> LL
 )
 @INPUT_REGISTRY.register_dummy_data(dummy_data_for_qwen2_vl)
 @INPUT_REGISTRY.register_input_processor(input_processor_for_qwen2_vl)
-class Qwen2VLForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP):
+class Qwen2VLForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP, SupportsLoRA):
+    packed_modules_mapping = {
+        "qkv_proj": ["q_proj", "k_proj", "v_proj"],
+        "gate_up_proj": ["gate_proj", "up_proj"],
+    }
+
+    # LoRA specific attributes
+    supported_lora_modules = [
+        "qkv_proj",
+        "o_proj",
+        "gate_up_proj",
+        "down_proj",
+        "embed_tokens",
+        "lm_head",
+    ]
+    embedding_modules = {
+        "embed_tokens": "input_embeddings",
+        "lm_head": "output_embeddings",
+    }
+    embedding_padding_modules = ["lm_head"]
 
     def __init__(
         self,
@@ -942,6 +961,7 @@ class Qwen2VLForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP)
         multimodal_config: MultiModalConfig,
         cache_config: Optional[CacheConfig] = None,
         quant_config: Optional[QuantizationConfig] = None,
+        lora_config: Optional[LoRAConfig] = None,
     ) -> None:
         super().__init__()
 
@@ -951,6 +971,7 @@ class Qwen2VLForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP)
 
         self.config = config
         self.multimodal_config = multimodal_config
+        self.lora_config = lora_config
 
         self.visual = Qwen2VisionTransformer(
             config.vision_config,

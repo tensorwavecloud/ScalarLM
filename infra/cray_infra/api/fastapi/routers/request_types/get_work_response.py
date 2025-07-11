@@ -1,10 +1,11 @@
 from pydantic import BaseModel
 
-from typing import Optional
+from typing import Optional, Union
 
+PromptType = Union[str, dict[str, str]]
 
 class GetWorkResponse(BaseModel):
-    prompt: str
+    prompt: PromptType
     request_id: int
     request_type: str
     model: Optional[str] = None

@@ -1,5 +1,6 @@
 from cray_infra.training.training_harness import TrainingHarness
 from cray_infra.training.training_job_status import TrainingJobStatus
+from cray_infra.huggingface.get_hf_token import get_hf_token
 
 import traceback
 import sys
@@ -25,7 +26,7 @@ def main():
 
     harness = TrainingHarness()
 
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = get_hf_token()
 
     try:
         setup_logging()

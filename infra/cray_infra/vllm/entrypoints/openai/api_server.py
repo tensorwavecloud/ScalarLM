@@ -18,6 +18,8 @@ from functools import partial
 from http import HTTPStatus
 from typing import AsyncIterator, Set
 
+from infra.cray_infra.api.fastapi.routers.request_types.get_work_response import PromptType
+from infra.cray_infra.vllm.entrypoints.chat_utils import ChatCompletionMessageParam
 import uvloop
 from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
@@ -221,9 +223,9 @@ async def async_generate_task(request, app):
 
 
 async def async_completion_task(request, app):
-    completion_request = CompletionRequest(
+    completion_request = ChatCompletionRequest(
         model=request["model"],
-        prompt=request["prompt"],
+        messages=convert_prompt_to_openai_format(request["prompt"]),
         max_tokens=request["max_tokens"],
         temperature=0.0,
     )
@@ -233,7 +235,7 @@ async def async_completion_task(request, app):
         receive=pass_receive,
     )
 
-    response = await create_completion(completion_request, raw_request)
+    response = await create_chat_completion(completion_request, raw_request)
 
     response_data = json.loads(response.body.decode("utf-8"))
 
@@ -244,7 +246,7 @@ async def async_completion_task(request, app):
     }
 
     if "choices" in response_data:
-        response["response"] = response_data["choices"][0]["text"]
+        response["response"] = response_data["choices"][0]["message"]["content"]
     elif response_data["object"] == "error":
         response["error"] = response_data["message"]
 
@@ -563,7 +565,7 @@ async def show_version():
 @router.post("/v1/chat/completions")
 async def create_chat_completion(request: ChatCompletionRequest, raw_request: Request):
     logger.info(f"Received request: {request.dict()}")
-    logger.info(f"Received raw request: {raw_request.json()}")
+    #logger.info(f"Received raw request: {await raw_request.json()}")
 
     generator = await chat(raw_request).create_chat_completion(request, raw_request)
 
@@ -807,6 +809,27 @@ async def run_server(args, running_status, **uvicorn_kwargs) -> None:
     # NB: Await server shutdown only after the backend context is exited
     await shutdown_task
 
+
+def convert_prompt_to_openai_format(prompt: PromptType) -> list[ChatCompletionMessageParam]:
+    """Convert a prompt to OpenAI format."""
+    if isinstance(prompt, str):
+        return [{"role": "user", "content": prompt}]
+    elif isinstance(prompt, dict):
+        return [
+            {"role": 'user',
+             "content": [convert_prompt_sub_field_to_openai_content_format(key, value) for key, value in prompt.items()]
+            }
+        ]
+    else:
+        raise ValueError(f"Invalid prompt type: {type(prompt)}")
+
+def convert_prompt_sub_field_to_openai_content_format(key: str, value: str) -> dict:
+    if key == 'text':
+        return {"type": "text", "text": value}
+    elif key == 'image':
+        return {"type": "image_url", "image_url": {"url": value}}
+    else:
+        raise ValueError(f"Invalid prompt sub-field: {key}. Must be 'text' or 'image'.")
 
 if __name__ == "__main__":
     # NOTE(simon):

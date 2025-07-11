@@ -1,4 +1,5 @@
 from cray_infra.util.get_config import get_config
+from cray_infra.huggingface.get_hf_token import get_hf_token
 
 from vllm.entrypoints.openai.api_server import run_server
 from vllm.entrypoints.openai.cli_args import make_arg_parser
@@ -15,7 +16,7 @@ logger = logging.getLogger(__name__)
 
 async def create_vllm(port, running_status):
 
-    os.environ["HUGGING_FACE_HUB_TOKEN"] = "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"
+    os.environ["HUGGING_FACE_HUB_TOKEN"] = get_hf_token()
 
     config = get_config()
 
