@@ -980,6 +980,8 @@ class Qwen2VLForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP,
             # quantization method now.
             quant_config=None,
         )
+        self.dtype = self.visual.dtype
+        self.device = self.visual.device
 
         self.model = Qwen2Model(config, cache_config, quant_config)
 
@@ -1080,6 +1082,8 @@ class Qwen2VLForConditionalGeneration(nn.Module, SupportsMultiModal, SupportsPP,
         )
 
     def _process_image_input(self, image_input: Qwen2VLImageInputs) -> torch.Tensor:
+        print(f"All model attributes: {self.__dict__}")
+
         if image_input["type"] == "image_embeds":
             return image_input["data"].type(self.visual.dtype)
 

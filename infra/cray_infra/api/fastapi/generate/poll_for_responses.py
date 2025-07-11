@@ -71,6 +71,6 @@ async def poll_for_responses(request_ids):
 def truncate_fields(response):
     # Limit the length of the prompt and error fields to 100 characters
     response = copy.deepcopy(response)
-    response["prompt"] = response.get("prompt", "")[:100]
-    response["error"] = response.get("error", "")[:100]
+    response["prompt"] = str(response.get("prompt", ""))[:100]
+    response["error"] = str(response.get("error", ""))[:100]
     return response

@@ -150,6 +150,28 @@ def _supports_lora(model: Union[Type[object], object]) -> bool:
 
     return isinstance(model, SupportsLoRA)
 
+@runtime_checkable
+class SupportsTokenformer(Protocol):
+    """The interface required for all models that support Tokenformer."""
+
+    supports_tokenformer: ClassVar[Literal[True]] = True
+
+
+@overload
+def supports_tokenformer(model: Type[object]) -> TypeIs[Type[SupportsTokenformer]]: ...
+
+
+@overload
+def supports_tokenformer(model: object) -> TypeIs[SupportsTokenformer]: ...
+
+def supports_tokenformer(
+    model: Union[Type[object], object],
+) -> Union[TypeIs[Type[SupportsTokenformer]], TypeIs[SupportsTokenformer]]:
+    if isinstance(model, type):
+        return isinstance(model, SupportsTokenformer)
+
+    return isinstance(model, SupportsTokenformer)
+
 
 @runtime_checkable
 class SupportsPP(Protocol):

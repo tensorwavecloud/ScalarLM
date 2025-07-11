@@ -257,7 +257,7 @@ async def async_completion_task(request, app):
             * response_data["usage"]["total_tokens"]
         )
 
-    app.state.engine_client.check_health()
+    await app.state.engine_client.check_health()
 
     return response
 

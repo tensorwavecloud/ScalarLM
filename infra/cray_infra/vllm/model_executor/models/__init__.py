@@ -1,12 +1,14 @@
 from .interfaces import (
     HasInnerState,
     SupportsLoRA,
+    SupportsTokenformer,
     SupportsMultiModal,
     SupportsPP,
     has_inner_state,
     supports_lora,
     supports_multimodal,
     supports_pp,
+    supports_tokenformer,
 )
 from .interfaces_base import (
     VllmModelForEmbedding,
@@ -24,6 +26,8 @@ __all__ = [
     "is_text_generation_model",
     "HasInnerState",
     "has_inner_state",
+    "SupportsTokenformer",
+    "supports_tokenformer",
     "SupportsLoRA",
     "supports_lora",
     "SupportsMultiModal",

@@ -9,7 +9,7 @@ from tokenformer.tokenformer_surgeon import (
     TokenformerSurgeon,
     TokenformerAttentionAdapter,
 )
-from vllm.model_executor.models import SupportsLoRA
+from vllm.model_executor.models import SupportsLoRA, supports_tokenformer
 from vllm.lora.models import get_lora_id
 from vllm.logger import init_logger
 
@@ -89,7 +89,7 @@ class TokenformerModel(AdapterModel):
 
         if len(files) == 0:
             raise FileNotFoundError(f"No .pt file found in {model_dir}")
-        
+
         checkpoint_file = files[0]
 
         tokenformers = {}
@@ -111,7 +111,10 @@ class TokenformerModelManager(AdapterModelManager):
         model: SupportsLoRA,
         device: torch.device,
     ):
-        self.model = vLLMTokenformerSurgeon(model, device).insert_adapter_modules()
+        if supports_tokenformer(model):
+            self.model = vLLMTokenformerSurgeon(model, device).insert_adapter_modules()
+        else:
+            self.model = model
         self._registered_adapters: Dict[int, Any] = {}
         self._active_adapter: Any = None
         self.tokenformer_model_cls = TokenformerModel
