@@ -6,6 +6,10 @@ from cray_infra.api.fastapi.routers.request_types.get_gpu_count_response import 
     GetGPUCountResponse,
 )
 
+from cray_infra.api.fastapi.routers.request_types.get_node_count_response import (
+    GetNodeCountResponse,
+)
+
 from cray_infra.training.launch_training_job import launch_training_job
 from cray_infra.training.upload_training_data import upload_training_data
 from cray_infra.training.training_logs_generator import training_logs_generator
@@ -13,6 +17,7 @@ from cray_infra.training.get_training_job_info import get_training_job_info
 from cray_infra.training.list_models import list_models
 from cray_infra.training.squeue import squeue
 from cray_infra.training.get_gpu_count import get_gpu_count
+from cray_infra.training.get_node_count import get_node_count
 
 from fastapi import APIRouter, Request, HTTPException, status
 from fastapi.responses import StreamingResponse, JSONResponse
@@ -77,6 +82,10 @@ async def get_squeue():
 @megatron_router.get("/gpu_count")
 async def gpu_count():
     return GetGPUCountResponse(gpu_count=get_gpu_count())
+
+@megatron_router.get("/node_count")
+async def node_count():
+    return GetNodeCountResponse(gpu_count=get_node_count())
 
 
 @megatron_router.get("/endpoints")

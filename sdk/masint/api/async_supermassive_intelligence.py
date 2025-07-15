@@ -58,3 +58,6 @@ class AsyncSupermassiveIntelligence:
 
     async def get_gpu_count(self):
         return await self.engine.get_gpu_count()
+
+    async def get_node_count(self):
+        return await self.engine.get_node_count()

@@ -6,6 +6,6 @@ def get_gpu_count():
     gpu_count = 0
 
     for node in node_info:
-        gpu_count += node["gpu_count"]
+        gpu_count = max(node["gpu_count"], gpu_count)
 
     return gpu_count

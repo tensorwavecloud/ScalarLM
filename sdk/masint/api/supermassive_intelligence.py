@@ -60,3 +60,6 @@ class SupermassiveIntelligence:
 
     def get_gpu_count(self):
         return asyncio.run(self.async_api.get_gpu_count())
+
+    def get_node_count(self):
+        return asyncio.run(self.async_api.get_node_count())

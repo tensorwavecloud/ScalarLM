@@ -100,6 +100,14 @@ class AsyncCray:
                 logger.debug(f"get_gpu_count response: {response}")
                 return response["gpu_count"]
 
+    async def get_node_count(self):
+        api_url = make_api_url("v1/megatron/node_count", api_url=self.api_url)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as resp:
+                response = await resp.json()
+                logger.debug(f"get_node_count response: {response}")
+                return response["node_count"]
+
 
 async def poll_for_responses(result, api_url):
     api_url = make_api_url("v1/generate/get_results", api_url=api_url)
