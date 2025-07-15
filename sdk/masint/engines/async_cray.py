@@ -1,8 +1,13 @@
 from masint.util.make_api_url import make_api_url
 
 from masint.engines.cray.submit_training_job import submit_training_job
+from masint.engines.cray.submit_slurm_job import submit_slurm_job
 
 import aiohttp
+
+import logging
+
+logger = logging.getLogger(__name__)
 
 
 class AsyncCray:
@@ -11,6 +16,9 @@ class AsyncCray:
 
     async def train(self, data, model_name, train_args):
         return await submit_training_job(data, model_name, train_args, api_url=self.api_url)
+
+    async def submit_slurm_job(self, code, train_args=None):
+        return await submit_slurm_job(code, train_args, api_url=self.api_url)
 
     async def generate(self, prompts, model_name, max_tokens):
         result = await self.submit_generate(prompts, model_name, max_tokens)
@@ -83,6 +91,14 @@ class AsyncCray:
         async with aiohttp.ClientSession() as session:
             async with session.get(api_url) as resp:
                 return await resp.json()
+
+    async def get_gpu_count(self):
+        api_url = make_api_url("v1/megatron/gpu_count", api_url=self.api_url)
+        async with aiohttp.ClientSession() as session:
+            async with session.get(api_url) as resp:
+                response = await resp.json()
+                logger.debug(f"get_gpu_count response: {response}")
+                return response["gpu_count"]
 
 
 async def poll_for_responses(result, api_url):

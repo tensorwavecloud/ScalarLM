@@ -50,12 +50,12 @@ class Metrics:
         """
         return {
             "queue_depth": self.queue_depth,
-            "total_completed_requests": self.total_completed_requests,
-            "total_completed_tokens": self.total_completed_tokens,
-            "total_completed_response_time": self.total_completed_response_time,
-            "tokens_per_second": self.total_completed_tokens / self.total_completed_response_time if self.total_completed_response_time > 0 else 0,
-            "requests_per_second": self.total_completed_requests / self.total_completed_response_time if self.total_completed_response_time > 0 else 0,
-            "flops_per_second": self.total_completed_flops / self.total_completed_response_time if self.total_completed_response_time > 0 else 0,
+            "requests": self.total_completed_requests,
+            "tokens": self.total_completed_tokens,
+            "total_time": self.total_completed_response_time,
+            "token/s": self.total_completed_tokens / self.total_completed_response_time if self.total_completed_response_time > 0 else 0,
+            "request/s": self.total_completed_requests / self.total_completed_response_time if self.total_completed_response_time > 0 else 0,
+            "flop/s": self.total_completed_flops / self.total_completed_response_time if self.total_completed_response_time > 0 else 0,
         }
 
 

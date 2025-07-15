@@ -23,6 +23,9 @@ class AsyncSupermassiveIntelligence:
             prompts=prompts, model_name=model_name, max_tokens=max_tokens
         )
 
+    async def submit_slurm_job(self, code, train_args=None):
+        return await self.engine.submit_slurm_job(code=code, train_args=train_args)
+
     async def embed(self, prompts, model_name=None):
         return await self.engine.embed(prompts=prompts, model_name=model_name)
 
@@ -52,3 +55,6 @@ class AsyncSupermassiveIntelligence:
 
     async def metrics(self):
         return await self.engine.metrics()
+
+    async def get_gpu_count(self):
+        return await self.engine.get_gpu_count()

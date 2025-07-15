@@ -93,12 +93,12 @@ async def generate(request: GenerateRequest):
             ]
         )
 
-    logger.info(f"Generated responses: {responses}")
+    logger.info(f"Generated responses: {truncate_list(responses)}")
     return responses
 
 
 def truncate_list(list_of_strings):
-    return [truncate_string(s) for s in list_of_strings]
+    return [truncate_string(str(s)) for s in list_of_strings]
 
 
 def truncate_string(s):

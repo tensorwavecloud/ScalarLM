@@ -8,7 +8,6 @@ class SupermassiveIntelligence:
         self.async_api = AsyncSupermassiveIntelligence(api_url=api_url)
 
     ## Train and Inference API methods
-
     def train(self, data, model_name=None, train_args={}):
         return asyncio.run(
             self.async_api.train(
@@ -21,6 +20,11 @@ class SupermassiveIntelligence:
             self.async_api.generate(
                 prompts=prompts, model_name=model_name, max_tokens=max_tokens
             )
+        )
+
+    def submit_slurm_job(self, code, train_args=None):
+        return asyncio.run(
+            self.async_api.submit_slurm_job(code=code, train_args=train_args)
         )
 
     def embed(self, prompts, model_name=None):
@@ -53,3 +57,6 @@ class SupermassiveIntelligence:
 
     def metrics(self):
         return asyncio.run(self.async_api.metrics())
+
+    def get_gpu_count(self):
+        return asyncio.run(self.async_api.get_gpu_count())

@@ -75,7 +75,13 @@ def get_node_info():
     cpu_count = get_cpu_count()
     gpu_count = get_gpu_count()
 
-    return {"hostname": hostname, "cpu_count": cpu_count, "gpu_count": gpu_count, "gpu_type" : get_gpu_type(), "gpu_indexes" : get_gpu_indexes() }
+    return {
+        "hostname": hostname,
+        "cpu_count": cpu_count,
+        "gpu_count": gpu_count,
+        "gpu_type": get_gpu_type(),
+        "gpu_indexes": get_gpu_indexes(),
+    }
 
 
 def get_hostname():
@@ -206,7 +212,6 @@ def write_slurm_config(cluster_info):
         f.write(new_config)
 
 
-
 def load_slurm_conf_values():
     slurm_conf_values = {}
     with open(slurm_config_path, "r") as f:
@@ -228,6 +233,7 @@ def load_slurm_conf_values():
             slurm_conf_values[key] = value.strip()
     return slurm_conf_values
 
+
 def has_any_gpus(cluster_info):
     for node in cluster_info["all_nodes"]:
         if node["gpu_count"] > 0:
@@ -242,6 +248,7 @@ def save_slurm_conf_values(slurm_conf_values):
             config += f"{key}={value}\n"
 
     return config
+
 
 def write_node_config(node):
     """
@@ -288,6 +295,7 @@ def write_gres_config(cluster_info):
     with atomic_write(shared_gres_config_path, overwrite=True) as f:
         f.write(gres_config)
 
+
 def write_cgroup_config(cluster_info):
     with open(cgroup_config_path) as config:
         with atomic_write(shared_cgroup_config_path, overwrite=True) as shared_config:
@@ -318,6 +326,7 @@ def get_gpu_indexes():
                     continue
 
     return indexes
+
 
 def get_gpu_type():
     if torch.version.hip:

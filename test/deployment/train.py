@@ -13,7 +13,7 @@ def get_dataset():
     return dataset
 
 
-llm = scalarlm.SupermassiveIntelligence(api_url=scalarlm.api_url)
+llm = scalarlm.SupermassiveIntelligence()
 
 dataset = get_dataset()
 

@@ -55,6 +55,9 @@ ARG TORCH_VERSION="2.4.0"
 RUN pip install uv
 RUN uv pip install torch==${TORCH_VERSION} --index-url https://download.pytorch.org/whl/cpu
 
+# Put torch on the LD_LIBRARY_PATH
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/.venv/lib64/python3.12/site-packages/torch/lib
+
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
 
@@ -155,7 +158,7 @@ COPY ./scripts ${INSTALL_ROOT}/scripts
 # Build SLURM plugin
 RUN /app/cray/infra/slurm_src/compile.sh
 
-ENV LD_LIBRARY_PATH="${PYTHONPATH}:/usr/local/lib/slurm"
+ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PYTHONPATH}:/usr/local/lib/slurm"
 
 ENV SLURM_CONF=${INSTALL_ROOT}/nfs/slurm.conf
 

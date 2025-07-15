@@ -26,9 +26,9 @@ def print_stats(stats):
     max_lengths = {key: len(key) for key in keys}
 
     for key in keys:
-        if "flops_per_second" in key:
+        if "flop" in key:
             stats[key] = humanize_flops(stats[key])
-        elif "per_second" in key or "_time" in key:
+        elif "/s" in key or "_time" in key:
             stats[key] = f"{stats[key]:.2f}"
 
     for key, value in stats.items():
