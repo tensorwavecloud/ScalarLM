@@ -1,4 +1,5 @@
 from cray_infra.api.fastapi.generate.get_work import get_work
+from cray_infra.api.fastapi.generate.get_adaptors import get_adaptors
 from cray_infra.api.fastapi.generate.generate import generate
 from cray_infra.api.fastapi.generate.finish_work import finish_work
 from cray_infra.api.fastapi.generate.get_results import get_results
@@ -16,6 +17,9 @@ from cray_infra.api.fastapi.routers.request_types.finish_work_request import (
 )
 from cray_infra.api.fastapi.routers.request_types.get_results_request import (
     GetResultsRequest,
+)
+from cray_infra.api.fastapi.routers.request_types.get_adaptors_request import (
+    GetAdaptorsRequest,
 )
 
 from fastapi import APIRouter
@@ -45,6 +49,11 @@ async def get_work_endpoint(request: GetWorkRequest):
 @generate_router.post("/finish_work")
 async def finish_work_endpoint(requests: FinishWorkRequests):
     return await finish_work(requests)
+
+
+@generate_router.post("/get_adaptors")
+async def get_adaptors_endpoint(request: GetAdaptorsRequest):
+    return await get_adaptors(request)
 
 
 @generate_router.post("/embed")

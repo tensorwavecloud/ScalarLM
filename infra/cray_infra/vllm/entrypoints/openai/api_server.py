@@ -18,7 +18,9 @@ from functools import partial
 from http import HTTPStatus
 from typing import AsyncIterator, Set
 
-from infra.cray_infra.api.fastapi.routers.request_types.get_work_response import PromptType
+from infra.cray_infra.api.fastapi.routers.request_types.get_work_response import (
+    PromptType,
+)
 from infra.cray_infra.vllm.entrypoints.chat_utils import ChatCompletionMessageParam
 import uvloop
 from fastapi import APIRouter, FastAPI, Request
@@ -90,6 +92,11 @@ async def lifespan(app: FastAPI):
         get_work_task = asyncio.create_task(get_work(app))
         _running_tasks.add(get_work_task)
         get_work_task.add_done_callback(_running_tasks.remove)
+
+        # Get adaptors task
+        get_adaptors_task = asyncio.create_task(get_adaptors(app))
+        _running_tasks.add(get_adaptors_task)
+        get_adaptors_task.add_done_callback(_running_tasks.remove)
 
         # Log stats task
         if app.state.log_stats:
@@ -347,6 +354,77 @@ async def async_embedding_task(request, app):
     return response
 
 
+async def get_adaptors(app: FastAPI):
+    loaded_adaptor_count = 0
+
+    while True:
+        try:
+            loaded_adaptor_count = await get_adaptors_step(app, loaded_adaptor_count)
+        except Exception as e:
+            logger.error("Error in get_adaptors_step: %s", e)
+            logger.error(traceback.format_exc())
+            await asyncio.sleep(10)
+
+
+async def get_adaptors_step(app: FastAPI, loaded_adaptor_count: int):
+    config = get_config()
+
+    params = {
+        "loaded_adaptor_count": loaded_adaptor_count,
+    }
+
+    session = get_global_session()
+    async with session.post(
+        config["api_url"] + "/v1/generate/get_adaptors",
+        json=params,
+    ) as resp:
+        assert resp.status == 200
+
+        data = await resp.json()
+
+    for new_adaptor in data["new_adaptors"]:
+        logger.info("Loading new adaptor: %s", new_adaptor)
+        try:
+            await add_new_adaptor(app, new_adaptor)
+            loaded_adaptor_count += 1
+        except Exception as e:
+            logger.error("Error loading adaptor %s: %s", new_adaptor, e)
+            continue
+
+    return loaded_adaptor_count
+
+
+async def add_new_adaptor(app: FastAPI, new_adaptor: str):
+    lora_adaptor_request = LoadLoraAdapterRequest(
+        lora_name=new_adaptor, lora_path=new_adaptor
+    )
+
+    raw_request = Request(
+        scope={
+            "app": app,
+            "type": "http",
+            "headers": {},
+            "path": "/v1/load_lora_adapter",
+        },
+        receive=pass_receive,
+    )
+
+    response = await load_lora_adapter(lora_adaptor_request, raw_request)
+
+    if isinstance(response, JSONResponse):
+        if response.status_code != 200:
+            logger.error(
+                "Failed to load new adaptor %s: %s",
+                new_adaptor,
+                response.content.decode("utf-8"),
+            )
+            raise RuntimeError(
+                f"Failed to load new adaptor {new_adaptor}: {response.content.decode('utf-8')}"
+            )
+        else:
+            logger.info("Successfully loaded new adaptor: %s", new_adaptor)
+
+
 @asynccontextmanager
 async def build_async_engine_client(args: Namespace) -> AsyncIterator[EngineClient]:
 
@@ -565,7 +643,7 @@ async def show_version():
 @router.post("/v1/chat/completions")
 async def create_chat_completion(request: ChatCompletionRequest, raw_request: Request):
     logger.info(f"Received request: {request.dict()}")
-    #logger.info(f"Received raw request: {await raw_request.json()}")
+    # logger.info(f"Received raw request: {await raw_request.json()}")
 
     generator = await chat(raw_request).create_chat_completion(request, raw_request)
 
@@ -810,26 +888,34 @@ async def run_server(args, running_status, **uvicorn_kwargs) -> None:
     await shutdown_task
 
 
-def convert_prompt_to_openai_format(prompt: PromptType) -> list[ChatCompletionMessageParam]:
+def convert_prompt_to_openai_format(
+    prompt: PromptType,
+) -> list[ChatCompletionMessageParam]:
     """Convert a prompt to OpenAI format."""
     if isinstance(prompt, str):
         return [{"role": "user", "content": prompt}]
     elif isinstance(prompt, dict):
         return [
-            {"role": 'user',
-             "content": [convert_prompt_sub_field_to_openai_content_format(key, value) for key, value in prompt.items()]
+            {
+                "role": "user",
+                "content": [
+                    convert_prompt_sub_field_to_openai_content_format(key, value)
+                    for key, value in prompt.items()
+                ],
             }
         ]
     else:
         raise ValueError(f"Invalid prompt type: {type(prompt)}")
 
+
 def convert_prompt_sub_field_to_openai_content_format(key: str, value: str) -> dict:
-    if key == 'text':
+    if key == "text":
         return {"type": "text", "text": value}
-    elif key == 'image':
+    elif key == "image":
         return {"type": "image_url", "image_url": {"url": value}}
     else:
         raise ValueError(f"Invalid prompt sub-field: {key}. Must be 'text' or 'image'.")
+
 
 if __name__ == "__main__":
     # NOTE(simon):

@@ -27,6 +27,7 @@ class Config(BaseModel):
 
     response_timeout: int = 60 # seconds
     inference_work_queue_timeout: int = 30 # seconds
+    get_adaptors_timeout: int = 30 # seconds
 
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
 
