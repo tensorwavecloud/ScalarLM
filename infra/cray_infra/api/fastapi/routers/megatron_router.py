@@ -79,9 +79,11 @@ async def models():
 async def get_squeue():
     return await squeue()
 
+
 @megatron_router.get("/gpu_count")
 async def gpu_count():
     return GetGPUCountResponse(gpu_count=get_gpu_count())
+
 
 @megatron_router.get("/node_count")
 async def node_count():

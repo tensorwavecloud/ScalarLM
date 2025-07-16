@@ -194,6 +194,31 @@ void mpi_reduce_scatter(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
     );
 }
 
+void mpi_alltoall(torch::Tensor& sendbuf, torch::Tensor& recvbuf) {
+    ensure_mpi_initialized();
+
+    int world_size;
+    MPI_Comm_size(MPI_COMM_WORLD, &world_size);
+
+    int count = sendbuf.numel() / world_size;
+
+    if (recvbuf.numel() != sendbuf.numel()) {
+        throw std::runtime_error("recvbuf must have the same number of elements as sendbuf");
+    }
+
+    auto [mpi_dtype, typesize] = get_typesize(sendbuf.scalar_type());
+
+    MPI_Alltoall(
+        sendbuf.data_ptr(),
+        count,
+        mpi_dtype,
+        recvbuf.data_ptr(),
+        count,
+        mpi_dtype,
+        MPI_COMM_WORLD
+    );
+}
+
 void mpi_send(torch::Tensor& tensor, int dest) {
     ensure_mpi_initialized();
     void* ptr = tensor.data_ptr();
@@ -229,6 +254,7 @@ void mpi_recv(torch::Tensor& tensor, int source) {
 
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
     m.def("allgather", &mpi_allgather, "MPI AllGather");
+    m.def("alltoall", &mpi_alltoall, "MPI All to All");
     m.def("allreduce", &mpi_allreduce, "MPI AllReduce");
     m.def("reduce_scatter", &mpi_reduce_scatter, "MPI ReduceScatter");
     m.def("send", &mpi_send, "MPI Send");
