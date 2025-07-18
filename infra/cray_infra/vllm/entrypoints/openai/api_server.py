@@ -93,11 +93,6 @@ async def lifespan(app: FastAPI):
         _running_tasks.add(get_work_task)
         get_work_task.add_done_callback(_running_tasks.remove)
 
-        # Get adaptors task
-        get_adaptors_task = asyncio.create_task(get_adaptors(app))
-        _running_tasks.add(get_adaptors_task)
-        get_adaptors_task.add_done_callback(_running_tasks.remove)
-
         # Log stats task
         if app.state.log_stats:
             engine_client: EngineClient = app.state.engine_client
@@ -135,6 +130,7 @@ async def get_work_loop(app: FastAPI):
     state = {
         "total_kv_cache_tokens" : total_kv_cache_tokens,
         "free_kv_cache_tokens": total_kv_cache_tokens,
+        "loaded_adaptor_count" : 0
     }
 
     while True:
@@ -206,6 +202,8 @@ async def get_work_step(app: FastAPI, state):
         return
 
     logger.info("Got work: %s", truncate_fields(data))
+
+    state["loaded_adaptor_count"] = await get_adaptors_step(app, state["loaded_adaptor_count"])
 
     state["free_kv_cache_tokens"] -= len(data["requests"]) * maximum_tokens_per_single_request
 
@@ -399,18 +397,6 @@ def kill_vllm_container():
     os.system("pgrep pt_main_thread | xargs kill -9")
     os.system("pgrep python | xargs kill -9")
     sys.exit(1)
-
-
-async def get_adaptors(app: FastAPI):
-    loaded_adaptor_count = 0
-
-    while True:
-        try:
-            loaded_adaptor_count = await get_adaptors_step(app, loaded_adaptor_count)
-        except Exception as e:
-            logger.error("Error in get_adaptors_step: %s", e)
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
 
 
 async def get_adaptors_step(app: FastAPI, loaded_adaptor_count: int):
