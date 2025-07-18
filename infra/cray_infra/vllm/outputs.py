@@ -107,6 +107,7 @@ class RequestOutput:
         lora_request: Optional[LoRARequest] = None,
         encoder_prompt: Optional[str] = None,
         encoder_prompt_token_ids: Optional[List[int]] = None,
+        max_tokens: Optional[int] = None,
     ) -> None:
         self.request_id = request_id
         self.prompt = prompt
@@ -118,6 +119,7 @@ class RequestOutput:
         self.lora_request = lora_request
         self.encoder_prompt = encoder_prompt
         self.encoder_prompt_token_ids = encoder_prompt_token_ids
+        self.max_tokens = max_tokens
 
     @classmethod
     def from_seq_group(
@@ -133,6 +135,8 @@ class RequestOutput:
         ):
             return None
 
+        max_tokens = sampling_params.max_tokens
+
         # Init cache (if needed)
         if use_cache and seq_group.cached_request_output is None:
             seq_group.cached_request_output = RequestOutput(  # type: ignore
@@ -142,6 +146,7 @@ class RequestOutput:
                 prompt_logprobs=None,
                 outputs=[],
                 finished=False,
+                max_tokens=max_tokens,
             )
 
         seqs = seq_group.get_seqs()
@@ -261,6 +266,7 @@ class RequestOutput:
             seq_group.lora_request,
             encoder_prompt,
             encoder_prompt_token_ids,
+            max_tokens,
         )
 
         if use_cache:
@@ -283,7 +289,8 @@ class RequestOutput:
             f"outputs={self.outputs}, "
             f"finished={self.finished}, "
             f"metrics={self.metrics}, "
-            f"lora_request={self.lora_request})"
+            f"lora_request={self.lora_request}, "
+            f"max_tokens={self.max_tokens})"
         )
 
 

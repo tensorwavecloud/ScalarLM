@@ -21,11 +21,12 @@ from vllm.config import (
 # yapf: disable
 from vllm.engine.multiprocessing import (ENGINE_DEAD_ERROR, IPC_DATA_EXT,
                                          IPC_HEALTH_EXT, IPC_INPUT_EXT,
+                                         IPC_FREE_TOKENS_EXT,
                                          IPC_OUTPUT_EXT, REQUEST_OUTPUTS_T,
                                          VLLM_RPC_SUCCESS_STR, RPCAbortRequest,
                                          RPCError, RPCProcessRequest,
                                          RPCStartupRequest, RPCStartupResponse,
-                                         RPCUProfileRequest)
+                                         RPCUProfileRequest, FreeTokensRequest)
 # yapf: enable
 from vllm.envs import VLLM_RPC_TIMEOUT
 from vllm.executor.gpu_executor import GPUExecutor
@@ -93,6 +94,10 @@ class MQLLMEngine:
                 self._async_socket_engine_callback
             )
 
+        self.engine.send_free_tokens_callback = (
+            self._send_free_tokens_callback
+        )
+
         self.ctx = zmq.Context()  # type: ignore[attr-defined]
 
         # Receive input from the client.
@@ -106,6 +111,10 @@ class MQLLMEngine:
         # Send heartbeats back to client.
         self.heartbeat_socket = self.ctx.socket(zmq.constants.PUSH)
         self.heartbeat_socket.bind(f"{ipc_path}{IPC_HEALTH_EXT}")
+
+        # Send free tokens back to client.
+        self.free_tokens_socket = self.ctx.socket(zmq.constants.PUSH)
+        self.free_tokens_socket.bind(f"{ipc_path}{IPC_FREE_TOKENS_EXT}")
 
         # IPC path for the data socket.
         self.data_ipc_path = f"{ipc_path}{IPC_DATA_EXT}"
@@ -202,7 +211,7 @@ class MQLLMEngine:
                     tracing_enabled = self.engine.is_tracing_enabled()
                     response = RPCStartupResponse(
                         tracing_enabled=tracing_enabled,
-                        dynamic_batch_size=self.engine.get_maximum_concurrency(),
+                        total_kv_cache_tokens=self.engine.get_total_kv_cache_tokens(),
                     )
 
             except Exception as e:
@@ -363,8 +372,29 @@ class MQLLMEngine:
 
     def _async_socket_engine_callback(self, request_outputs: REQUEST_OUTPUTS_T):
         """Callback used by engine to make socket handling async with GPU."""
+        self._send_free_tokens_for_outputs(request_outputs)
+
         self._send_outputs(request_outputs)
         self.handle_new_input()
+
+    def _send_free_tokens_for_outputs(self, request_outputs: REQUEST_OUTPUTS_T):
+        """Send free tokens for outputs if available."""
+            free_tokens = 0
+            for output in request_outputs:
+                if not isinstance(output, RequestOutput):
+                    continue
+                free_tokens += len(output.prompt_token_ids)
+                free_tokens += output.max_tokens
+
+            if free_tokens > 0:
+                self._send_free_tokens_callback(free_tokens)
+
+    def _send_free_tokens_callback(self, free_tokens: int):
+        """Callback used by engine to send free tokens to the client."""
+        if not self.free_tokens_socket.closed:
+            self.free_tokens_socket.send_multipart(
+                (pickle.dumps(FreeTokensRequest(free_token_count=free_tokens)),), copy=False
+            )
 
     def _set_errored(self, e: BaseException):
         """Log and set errored status if this is the first issue."""

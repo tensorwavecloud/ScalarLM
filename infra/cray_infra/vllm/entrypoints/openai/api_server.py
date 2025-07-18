@@ -89,7 +89,7 @@ async def lifespan(app: FastAPI):
     try:
 
         # Get work task
-        get_work_task = asyncio.create_task(get_work(app))
+        get_work_task = asyncio.create_task(get_work_loop(app))
         _running_tasks.add(get_work_task)
         get_work_task.add_done_callback(_running_tasks.remove)
 
@@ -124,33 +124,54 @@ async def lifespan(app: FastAPI):
         del app.state
 
 
-async def get_work(app: FastAPI):
+async def get_work_loop(app: FastAPI):
+
+    running_worker_tasks = set()
+
+    total_kv_cache_tokens = await app.state.engine_client.get_total_kv_cache_tokens()
+
+    maximum_tokens_per_single_request = config["max_model_length"]
+
+    state = {
+        "total_kv_cache_tokens" : total_kv_cache_tokens,
+        "free_kv_cache_tokens": total_kv_cache_tokens,
+    }
+
     while True:
-        try:
-            await get_work_step(app)
-        except AsyncEngineDeadError:
-            logger.error("Engine is dead, restarting")
-            # Kill the container so it can be restarted
-            kill_vllm_container()
-        except MQEngineDeadError:
-            logger.error("Engine is dead, restarting")
-            # Kill the container so it can be restarted
-            kill_vllm_container()
+        if len(running_worker_tasks) == 0:
+            state["free_kv_cache_tokens"] = total_kv_cache_tokens
 
-        except Exception as e:
-            logger.error("Error in get_work_step: %s", e)
-            logger.error(traceback.format_exc())
-            await asyncio.sleep(10)
+        if state["free_kv_cache_tokens"] >= maximum_tokens_per_single_request:
+            get_work_task = try_get_work_step(app, state)
+            running_worker_tasks.add(get_work_task)
+
+        if state["free_kv_cache_tokens"] < state["total_kv_cache_tokens"]:
+            check_for_free_tokens_task = check_for_free_tokens(app, state)
+            running_worker_tasks.add(check_for_free_tokens_task)
+
+        done, pending = await asyncio.wait(running_worker_tasks,
+            return_when=asyncio.FIRST_COMPLETED)
 
 
-def kill_vllm_container():
-    # Kill instances of pt_thread_main process
-    os.system("pgrep pt_main_thread | xargs kill -9")
-    os.system("pgrep python | xargs kill -9")
-    sys.exit(1)
+async def try_get_work_step(app: FastAPI, state):
+    try:
+        await get_work_step(app, state)
+    except AsyncEngineDeadError:
+        logger.error("Engine is dead, restarting")
+        # Kill the container so it can be restarted
+        kill_vllm_container()
+    except MQEngineDeadError:
+        logger.error("Engine is dead, restarting")
+        # Kill the container so it can be restarted
+        kill_vllm_container()
+
+    except Exception as e:
+        logger.error("Error in get_work_loop: %s", e)
+        logger.error(traceback.format_exc())
+        await asyncio.sleep(10)
 
 
-async def get_work_step(app: FastAPI):
+async def get_work_step(app: FastAPI, state):
 
     try:
         await app.state.engine_client.check_health()
@@ -160,8 +181,10 @@ async def get_work_step(app: FastAPI):
 
     config = get_config()
 
-    batch_size = await app.state.engine_client.get_dynamic_batch_size()
     max_batch_size = config["generate_batch_size"]
+    maximum_tokens_per_single_request = config["max_model_length"]
+
+    batch_size = state["free_kv_cache_tokens"] // maximum_tokens_per_single_request
 
     params = {
         "batch_size": min(batch_size, max_batch_size),
@@ -184,8 +207,10 @@ async def get_work_step(app: FastAPI):
 
     logger.info("Got work: %s", truncate_fields(data))
 
+    state["free_kv_cache_tokens"] -= len(data["requests"]) * maximum_tokens_per_single_request
+
     completion_tasks = [
-        async_generate_task(request, app) for request in data["requests"]
+        async_generate_task(request, app, state) for request in data["requests"]
     ]
 
     results = await asyncio.gather(*completion_tasks)
@@ -220,16 +245,16 @@ async def pass_receive() -> typing.NoReturn:
     return {"type": "http.request"}
 
 
-async def async_generate_task(request, app):
+async def async_generate_task(request, app, state):
     if request["request_type"] == "generate":
-        return await async_completion_task(request, app)
+        return await async_completion_task(request, app, state)
     elif request["request_type"] == "embed":
-        return await async_embedding_task(request, app)
+        return await async_embedding_task(request, app, state)
     else:
         raise ValueError(f"Invalid request type: {request['request_type']}")
 
 
-async def async_completion_task(request, app):
+async def async_completion_task(request, app, state):
     completion_request = ChatCompletionRequest(
         model=request["model"],
         messages=convert_prompt_to_openai_format(request["prompt"]),
@@ -263,6 +288,7 @@ async def async_completion_task(request, app):
             compute_flop_count(await app.state.engine_client.get_model_config())
             * response_data["usage"]["total_tokens"]
         )
+        state["free_kv_cache_tokens"] += response_data["usage"]["total_tokens"]
 
     await app.state.engine_client.check_health()
 
@@ -324,7 +350,7 @@ def compute_flop_count(model_config):
     return total_flops
 
 
-async def async_embedding_task(request, app):
+async def async_embedding_task(request, app, state):
     embedding_request = EmbeddingRequest(
         model=request["model"],
         input=request["prompt"],
@@ -351,7 +377,28 @@ async def async_embedding_task(request, app):
     elif response_data["object"] == "error":
         response["error"] = response_data["message"]
 
+    if "usage" in response_data:
+        response["token_count"] = response_data["usage"]["total_tokens"]
+        response["flop_count"] = (
+            compute_flop_count(await app.state.engine_client.get_model_config())
+            * response_data["usage"]["total_tokens"]
+        )
+        state["free_kv_cache_tokens"] += response_data["usage"]["total_tokens"]
+
     return response
+
+
+async def check_for_free_tokens(app: FastAPI, state):
+    newly_free_tokens = await app.state.engine_client.get_free_kv_cache_tokens()
+    state["free_kv_cache_tokens"] += newly_free_tokens
+    logger.info("Updated kv cache tokens: %d", state["free_kv_cache_tokens"])
+
+
+def kill_vllm_container():
+    # Kill instances of pt_thread_main process
+    os.system("pgrep pt_main_thread | xargs kill -9")
+    os.system("pgrep python | xargs kill -9")
+    sys.exit(1)
 
 
 async def get_adaptors(app: FastAPI):

@@ -31,6 +31,7 @@ from vllm.engine.async_llm_engine import (
     build_guided_decoding_logits_processor_async)
 from vllm.engine.multiprocessing import (ENGINE_DEAD_ERROR, IPC_DATA_EXT,
                                          IPC_HEALTH_EXT, IPC_INPUT_EXT,
+                                         IPC_FREE_TOKENS_EXT,
                                          IPC_OUTPUT_EXT, RPC_REQUEST_T,
                                          VLLM_RPC_SUCCESS_STR, RPCAbortRequest,
                                          RPCError, RPCProcessRequest,
@@ -59,6 +60,7 @@ class MQClientClosedError(Exception):
     causes a ZMQError and creates a huge stack trace.
     So, we throw this error such that we can suppress it.
     """
+
 
 class MQLLMEngineClient:
     """A client wrapper for MQLLMEngine that conforms to the
@@ -111,6 +113,10 @@ class MQLLMEngineClient:
         # IPC path for acking heartbeats.
         self.heartbeat_socket: Socket = self.context.socket(zmq.constants.PULL)
         self.heartbeat_socket.connect(f"{ipc_path}{IPC_HEALTH_EXT}")
+
+        # IPC path for receiving tokens.
+        self.free_tokens_socket: Socket = self.context.socket(zmq.constants.PULL)
+        self.free_tokens_socket.connect(f"{ipc_path}{IPC_FREE_TOKENS_EXT}")
 
         # IPC path for the data socket.
         self.data_ipc_path = f"{ipc_path}{IPC_DATA_EXT}"
@@ -167,6 +173,15 @@ class MQLLMEngineClient:
 
         except Exception as e:
             self._set_errored(e)
+
+    async def get_free_kv_cache_tokens(self):
+        if await self.free_tokens_socket.poll(timeout=VLLM_RPC_TIMEOUT) == 0:
+            return 0
+
+        message: Frame = await self.free_tokens_socket.recv(copy=False)
+        free_tokens_message = pickle.loads(message.buffer)
+
+        return free_tokens_message.free_token_count
 
     async def run_output_handler_loop(self):
         """Get RequestOutputs from Engine and stream to Request Queues"""
@@ -238,7 +253,7 @@ class MQLLMEngineClient:
             response = await self._wait_for_server_rpc(socket)
 
             self.tracing_flag = response.tracing_enabled
-            self.dynamic_batch_size = response.dynamic_batch_size
+            self.total_kv_cache_tokens = response.total_kv_cache_tokens
 
             # Start health_loop.
             self.health_loop = asyncio.create_task(
@@ -339,8 +354,8 @@ class MQLLMEngineClient:
     async def is_tracing_enabled(self) -> bool:
         return self.tracing_flag
 
-    async def get_dynamic_batch_size(self) -> int:
-        return self.dynamic_batch_size
+    async def get_total_kv_cache_tokens(self) -> int:
+        return self.total_kv_cache_tokens
 
     async def _wait_for_server_rpc(self, socket: Socket) -> RPCStartupResponse:
         """Wait for the RPCServer to start up."""

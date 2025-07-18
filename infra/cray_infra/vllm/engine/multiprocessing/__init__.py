@@ -16,6 +16,7 @@ IPC_INPUT_EXT = "_input_socket"
 IPC_OUTPUT_EXT = "_output_socket"
 IPC_HEALTH_EXT = "_health_socket"
 IPC_DATA_EXT = "_data_socket"
+IPC_FREE_TOKENS_EXT = "_free_tokens_socket"
 
 
 class MQEngineDeadError(RuntimeError):
@@ -107,7 +108,7 @@ class RPCStartupRequest(Enum):
 @dataclass
 class RPCStartupResponse:
     tracing_enabled: bool
-    dynamic_batch_size: int
+    total_kv_cache_tokens: int
 
 
 class RPCUProfileRequest(Enum):
