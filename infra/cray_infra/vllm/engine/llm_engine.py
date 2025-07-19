@@ -2014,7 +2014,7 @@ class LLMEngine:
             # check that chunked prefill does not truncate them
             # max_batch_len = self.scheduler_config.max_num_batched_tokens
 
-    def _compute_free_tokens(self, inputs: Union[LLMInputs, EncoderDecoderLLMInputs]):
+    def _compute_free_tokens(self, inputs: Union[LLMInputs, EncoderDecoderLLMInputs], params):
         if self.model_config.is_multimodal_model:
             # For encoder-decoder multimodal models, the max_prompt_len
             # restricts the decoder prompt length
@@ -2033,8 +2033,10 @@ class LLMEngine:
 
         free_tokens = max_token_count - max_output_tokens - input_token_count
 
+        logger.info(f"Free tokens available after tokenization: {free_tokens}")
+
         if free_tokens > 0:
-            self.send_free_token_callback(free_tokens)
+            self.send_free_tokens_callback(free_tokens)
 
     def _build_logits_processors(
         self, sampling_params: SamplingParams, lora_request: Optional[LoRARequest]

@@ -181,6 +181,11 @@ class MQLLMEngineClient:
         message: Frame = await self.free_tokens_socket.recv(copy=False)
         free_tokens_message = pickle.loads(message.buffer)
 
+        assert free_tokens_message.free_token_count > 0, (
+            "Free token count must be greater than 0, "
+            f"got {free_tokens_message.free_token_count}"
+        )
+
         return free_tokens_message.free_token_count
 
     async def run_output_handler_loop(self):

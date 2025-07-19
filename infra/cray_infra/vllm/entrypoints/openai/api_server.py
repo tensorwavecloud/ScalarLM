@@ -120,38 +120,78 @@ async def lifespan(app: FastAPI):
 
 
 async def get_work_loop(app: FastAPI):
+    try:
+        await get_work_loop_body(app)
+    except Exception as e:
+        logger.error("Unhandled (Fatal) Error in get_work_loop: %s", e)
+        logger.error(traceback.format_exc())
+        # Kill the container so it can be restarted
+        kill_vllm_container()
 
-    running_worker_tasks = set()
+async def get_work_loop_body(app: FastAPI):
+
+    logger.info("Starting get_work_loop")
 
     total_kv_cache_tokens = await app.state.engine_client.get_total_kv_cache_tokens()
+
+    config = get_config()
 
     maximum_tokens_per_single_request = config["max_model_length"]
 
     state = {
         "total_kv_cache_tokens" : total_kv_cache_tokens,
         "free_kv_cache_tokens": total_kv_cache_tokens,
-        "loaded_adaptor_count" : 0
+        "loaded_adaptor_count" : 0,
+        "running_worker_tasks": set()
     }
 
+    logger.info("Total kv cache tokens: %d",
+        total_kv_cache_tokens,
+    )
+
+    logger.info("Maximum tokens per single request: %d",
+        maximum_tokens_per_single_request,
+    )
+
+    assert total_kv_cache_tokens >= maximum_tokens_per_single_request, (
+        "Total kv cache tokens must be greater than or equal to the maximum tokens per single request."
+    )
+
     while True:
-        if len(running_worker_tasks) == 0:
+        if len(state["running_worker_tasks"]) == 0:
+            logger.info("No running worker tasks, setting free kv cache tokens to total kv cache tokens")
             state["free_kv_cache_tokens"] = total_kv_cache_tokens
 
-        if state["free_kv_cache_tokens"] >= maximum_tokens_per_single_request:
-            get_work_task = try_get_work_step(app, state)
-            running_worker_tasks.add(get_work_task)
-
         if state["free_kv_cache_tokens"] < state["total_kv_cache_tokens"]:
-            check_for_free_tokens_task = check_for_free_tokens(app, state)
-            running_worker_tasks.add(check_for_free_tokens_task)
+            check_for_free_tokens_task = asyncio.create_task(check_for_free_tokens(app, state))
+            state["running_worker_tasks"].add(check_for_free_tokens_task)
 
-        done, pending = await asyncio.wait(running_worker_tasks,
+        if state["free_kv_cache_tokens"] >= maximum_tokens_per_single_request:
+            get_work_tasks = await try_get_work_step(app, state)
+            if get_work_tasks is not None:
+                for task in get_work_tasks:
+                    state["running_worker_tasks"].add(task)
+
+        if len(state["running_worker_tasks"]) == 0:
+            logger.info("No running worker tasks, lets go back to trying to get work")
+            continue
+
+        done, pending = await asyncio.wait(state["running_worker_tasks"],
             return_when=asyncio.FIRST_COMPLETED)
+
+        for task in done:
+            if task is not None:
+                try:
+                    await task
+                except Exception as e:
+                    logger.error("Error in get_work_loop: %s", e)
+                    logger.error(traceback.format_exc())
+            state["running_worker_tasks"].remove(task)
 
 
 async def try_get_work_step(app: FastAPI, state):
     try:
-        await get_work_step(app, state)
+        return await get_work_step(app, state)
     except AsyncEngineDeadError:
         logger.error("Engine is dead, restarting")
         # Kill the container so it can be restarted
@@ -201,11 +241,26 @@ async def get_work_step(app: FastAPI, state):
         logger.info("No work to do")
         return
 
+    got_work_step_task = asyncio.create_task(got_work_step(app, state, data))
+    check_for_free_tokens_task = asyncio.create_task(check_for_free_tokens(app, state))
+
+    return [got_work_step_task, check_for_free_tokens_task]
+
+async def got_work_step(app: FastAPI, state, data):
+
     logger.info("Got work: %s", truncate_fields(data))
 
     state["loaded_adaptor_count"] = await get_adaptors_step(app, state["loaded_adaptor_count"])
 
+    config = get_config()
+
+    maximum_tokens_per_single_request = config["max_model_length"]
+
     state["free_kv_cache_tokens"] -= len(data["requests"]) * maximum_tokens_per_single_request
+
+    logger.info("Free kv cache tokens after getting work: %d",
+        state["free_kv_cache_tokens"],
+    )
 
     completion_tasks = [
         async_generate_task(request, app, state) for request in data["requests"]
@@ -219,6 +274,7 @@ async def get_work_step(app: FastAPI, state):
 
     logger.info("Sending finished inference results with params: %s", params)
 
+    session = get_global_session()
     async with session.post(
         config["api_url"] + "/v1/generate/finish_work",
         json=params,

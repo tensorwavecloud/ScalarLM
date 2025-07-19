@@ -239,6 +239,7 @@ class MQLLMEngine:
 
             # Send request outputs (if async, done in engine_step callback).
             if not self.use_async_sockets:
+                self._send_free_tokens_for_outputs(request_outputs)
                 self._send_outputs(request_outputs)
 
     def engine_step(self) -> List[RequestOutput]:
@@ -379,15 +380,16 @@ class MQLLMEngine:
 
     def _send_free_tokens_for_outputs(self, request_outputs: REQUEST_OUTPUTS_T):
         """Send free tokens for outputs if available."""
-            free_tokens = 0
-            for output in request_outputs:
-                if not isinstance(output, RequestOutput):
-                    continue
-                free_tokens += len(output.prompt_token_ids)
-                free_tokens += output.max_tokens
+        free_tokens = 0
+        for output in request_outputs:
+            if not isinstance(output, RequestOutput):
+                continue
+            free_tokens += len(output.prompt_token_ids)
+            free_tokens += output.max_tokens
 
-            if free_tokens > 0:
-                self._send_free_tokens_callback(free_tokens)
+        if free_tokens > 0:
+            logger.info(f"Sending {free_tokens} free tokens to client after output generation.")
+            self._send_free_tokens_callback(free_tokens)
 
     def _send_free_tokens_callback(self, free_tokens: int):
         """Callback used by engine to send free tokens to the client."""

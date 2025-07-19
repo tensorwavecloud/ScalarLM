@@ -115,6 +115,10 @@ class RPCUProfileRequest(Enum):
     START_PROFILE = 1
     STOP_PROFILE = 2
 
+@dataclass
+class FreeTokensRequest:
+    free_token_count: int
+
 
 RPC_REQUEST_T = Union[
     RPCProcessRequest, RPCAbortRequest, RPCStartupRequest, RPCUProfileRequest
