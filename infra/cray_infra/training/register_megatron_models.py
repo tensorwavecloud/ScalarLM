@@ -54,4 +54,6 @@ async def get_registered_models():
 async def register_model(model):
     vllm_model_manager = get_vllm_model_manager()
 
+    vllm_model_manager.register_model(model)
+
 

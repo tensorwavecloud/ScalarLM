@@ -484,8 +484,13 @@ async def get_adaptors_step(app: FastAPI, loaded_adaptor_count: int):
 
 
 async def add_new_adaptor(app: FastAPI, new_adaptor: str):
+    config = get_config()
+    base_path = config["training_job_directory"]
+
+    new_adaptor_path = os.path.join(base_path, new_adaptor)
+
     lora_adaptor_request = LoadLoraAdapterRequest(
-        lora_name=new_adaptor, lora_path=new_adaptor
+        lora_name=new_adaptor, lora_path=new_adaptor_path
     )
 
     raw_request = Request(
