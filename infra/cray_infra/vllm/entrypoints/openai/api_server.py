@@ -128,6 +128,7 @@ async def get_work_loop(app: FastAPI):
         # Kill the container so it can be restarted
         kill_vllm_container()
 
+
 async def get_work_loop_body(app: FastAPI):
 
     logger.info("Starting get_work_loop")
@@ -139,31 +140,37 @@ async def get_work_loop_body(app: FastAPI):
     maximum_tokens_per_single_request = config["max_model_length"]
 
     state = {
-        "total_kv_cache_tokens" : total_kv_cache_tokens,
+        "total_kv_cache_tokens": total_kv_cache_tokens,
         "free_kv_cache_tokens": total_kv_cache_tokens,
-        "loaded_adaptor_count" : 0,
-        "running_worker_tasks": set()
+        "loaded_adaptor_count": 0,
+        "running_worker_tasks": set(),
     }
 
-    logger.info("Total kv cache tokens: %d",
+    logger.info(
+        "Total kv cache tokens: %d",
         total_kv_cache_tokens,
     )
 
-    logger.info("Maximum tokens per single request: %d",
+    logger.info(
+        "Maximum tokens per single request: %d",
         maximum_tokens_per_single_request,
     )
 
-    assert total_kv_cache_tokens >= maximum_tokens_per_single_request, (
-        "Total kv cache tokens must be greater than or equal to the maximum tokens per single request."
-    )
+    assert (
+        total_kv_cache_tokens >= maximum_tokens_per_single_request
+    ), "Total kv cache tokens must be greater than or equal to the maximum tokens per single request."
 
     while True:
         if len(state["running_worker_tasks"]) == 0:
-            logger.info("No running worker tasks, setting free kv cache tokens to total kv cache tokens")
+            logger.info(
+                "No running worker tasks, setting free kv cache tokens to total kv cache tokens"
+            )
             state["free_kv_cache_tokens"] = total_kv_cache_tokens
 
         if state["free_kv_cache_tokens"] < state["total_kv_cache_tokens"]:
-            check_for_free_tokens_task = asyncio.create_task(check_for_free_tokens(app, state))
+            check_for_free_tokens_task = asyncio.create_task(
+                check_for_free_tokens(app, state)
+            )
             state["running_worker_tasks"].add(check_for_free_tokens_task)
 
         if state["free_kv_cache_tokens"] >= maximum_tokens_per_single_request:
@@ -176,8 +183,9 @@ async def get_work_loop_body(app: FastAPI):
             logger.info("No running worker tasks, lets go back to trying to get work")
             continue
 
-        done, pending = await asyncio.wait(state["running_worker_tasks"],
-            return_when=asyncio.FIRST_COMPLETED)
+        done, pending = await asyncio.wait(
+            state["running_worker_tasks"], return_when=asyncio.FIRST_COMPLETED
+        )
 
         for task in done:
             if task is not None:
@@ -246,19 +254,25 @@ async def get_work_step(app: FastAPI, state):
 
     return [got_work_step_task, check_for_free_tokens_task]
 
+
 async def got_work_step(app: FastAPI, state, data):
 
     logger.info("Got work: %s", truncate_fields(data))
 
-    state["loaded_adaptor_count"] = await get_adaptors_step(app, state["loaded_adaptor_count"])
+    state["loaded_adaptor_count"] = await get_adaptors_step(
+        app, state["loaded_adaptor_count"]
+    )
 
     config = get_config()
 
     maximum_tokens_per_single_request = config["max_model_length"]
 
-    state["free_kv_cache_tokens"] -= len(data["requests"]) * maximum_tokens_per_single_request
+    state["free_kv_cache_tokens"] -= (
+        len(data["requests"]) * maximum_tokens_per_single_request
+    )
 
-    logger.info("Free kv cache tokens after getting work: %d",
+    logger.info(
+        "Free kv cache tokens after getting work: %d",
         state["free_kv_cache_tokens"],
     )
 
@@ -301,14 +315,24 @@ async def pass_receive() -> typing.NoReturn:
 
 async def async_generate_task(request, app, state):
     if request["request_type"] == "generate":
-        return await async_completion_task(request, app, state)
+        if is_chat_completion_task(request):
+            return await async_chat_completion_task(request, app, state)
+        else:
+            return await async_completion_task(request, app, state)
     elif request["request_type"] == "embed":
         return await async_embedding_task(request, app, state)
     else:
         raise ValueError(f"Invalid request type: {request['request_type']}")
 
 
-async def async_completion_task(request, app, state):
+def is_chat_completion_task(request):
+    if isinstance(request["prompt"], str):
+        return False
+
+    return True
+
+
+async def async_chat_completion_task(request, app, state):
     completion_request = ChatCompletionRequest(
         model=request["model"],
         messages=convert_prompt_to_openai_format(request["prompt"]),
@@ -347,6 +371,35 @@ async def async_completion_task(request, app, state):
     await app.state.engine_client.check_health()
 
     return response
+
+
+def convert_prompt_to_openai_format(
+    prompt: PromptType,
+) -> list[ChatCompletionMessageParam]:
+    """Convert a prompt to OpenAI format."""
+    if isinstance(prompt, str):
+        return [{"role": "user", "content": prompt}]
+    elif isinstance(prompt, dict):
+        return [
+            {
+                "role": "user",
+                "content": [
+                    convert_prompt_sub_field_to_openai_content_format(key, value)
+                    for key, value in prompt.items()
+                ],
+            }
+        ]
+    else:
+        raise ValueError(f"Invalid prompt type: {type(prompt)}")
+
+
+def convert_prompt_sub_field_to_openai_content_format(key: str, value: str) -> dict:
+    if key == "text":
+        return {"type": "text", "text": value}
+    elif key == "image":
+        return {"type": "image_url", "image_url": {"url": value}}
+    else:
+        raise ValueError(f"Invalid prompt sub-field: {key}. Must be 'text' or 'image'.")
 
 
 def compute_flop_count(model_config):
@@ -402,6 +455,45 @@ def compute_flop_count(model_config):
     )
 
     return total_flops
+
+
+async def async_completion_task(request, app, state):
+    completion_request = CompletionRequest(
+        model=request["model"],
+        prompt=request["prompt"],
+        max_tokens=request["max_tokens"],
+        temperature=0.0,
+    )
+
+    raw_request = Request(
+        scope={"app": app, "type": "http", "headers": {}, "path": "/v1/completions"},
+        receive=pass_receive,
+    )
+
+    response = await create_completion(completion_request, raw_request)
+
+    response_data = json.loads(response.body.decode("utf-8"))
+
+    logger.info("Got response: %s", response_data)
+
+    response = {"request_id": request["request_id"]}
+
+    if "choices" in response_data:
+        response["response"] = response_data["choices"][0]["text"]
+    elif response_data["object"] == "error":
+        response["error"] = response_data["message"]
+
+    if "usage" in response_data:
+        response["token_count"] = response_data["usage"]["total_tokens"]
+        response["flop_count"] = (
+            compute_flop_count(await app.state.engine_client.get_model_config())
+            * response_data["usage"]["total_tokens"]
+        )
+        state["free_kv_cache_tokens"] += response_data["usage"]["total_tokens"]
+
+    app.state.engine_client.check_health()
+
+    return response
 
 
 async def async_embedding_task(request, app, state):
@@ -980,35 +1072,6 @@ async def run_server(args, running_status, **uvicorn_kwargs) -> None:
 
     # NB: Await server shutdown only after the backend context is exited
     await shutdown_task
-
-
-def convert_prompt_to_openai_format(
-    prompt: PromptType,
-) -> list[ChatCompletionMessageParam]:
-    """Convert a prompt to OpenAI format."""
-    if isinstance(prompt, str):
-        return [{"role": "user", "content": prompt}]
-    elif isinstance(prompt, dict):
-        return [
-            {
-                "role": "user",
-                "content": [
-                    convert_prompt_sub_field_to_openai_content_format(key, value)
-                    for key, value in prompt.items()
-                ],
-            }
-        ]
-    else:
-        raise ValueError(f"Invalid prompt type: {type(prompt)}")
-
-
-def convert_prompt_sub_field_to_openai_content_format(key: str, value: str) -> dict:
-    if key == "text":
-        return {"type": "text", "text": value}
-    elif key == "image":
-        return {"type": "image_url", "image_url": {"url": value}}
-    else:
-        raise ValueError(f"Invalid prompt sub-field: {key}. Must be 'text' or 'image'.")
 
 
 if __name__ == "__main__":
