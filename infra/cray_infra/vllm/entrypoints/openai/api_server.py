@@ -162,6 +162,7 @@ async def get_work_loop_body(app: FastAPI):
     ), "Total kv cache tokens must be greater than or equal to the maximum tokens per single request."
 
     while True:
+        logger.info(f"Running get work loop body: {state}")
         if len(state["running_worker_tasks"]) == 0:
             logger.info(
                 "No running worker tasks, setting free kv cache tokens to total kv cache tokens"
@@ -186,7 +187,7 @@ async def get_work_loop_body(app: FastAPI):
             continue
 
         done, pending = await asyncio.wait(
-            state["running_worker_tasks"], return_when=asyncio.FIRST_COMPLETED
+            state["running_worker_tasks"], return_when=asyncio.FIRST_COMPLETED, timeout=10.0
         )
 
         for task in done:
