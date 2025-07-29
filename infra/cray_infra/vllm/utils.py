@@ -1094,13 +1094,7 @@ def _cuda_device_count_stateless(cuda_visible_devices: Optional[str] = None) -> 
     if not torch.cuda._is_compiled():
         return 0
     if is_hip():
-        # ROCm uses amdsmi instead of nvml for stateless device count
-        # This requires a sufficiently modern version of Torch 2.4.0
-        raw_count = (
-            torch.cuda._device_count_amdsmi()
-            if (hasattr(torch.cuda, "_device_count_amdsmi"))
-            else -1
-        )
+        return torch.cuda.device_count()
     else:
         raw_count = torch.cuda._device_count_nvml()
     r = torch._C._cuda_getDeviceCount() if raw_count < 0 else raw_count

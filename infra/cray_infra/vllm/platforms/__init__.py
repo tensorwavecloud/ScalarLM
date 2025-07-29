@@ -34,14 +34,10 @@ except Exception:
 is_rocm = False
 
 try:
-    import amdsmi
+    import torch
 
-    amdsmi.amdsmi_init()
-    try:
-        if len(amdsmi.amdsmi_get_processor_handles()) > 0:
-            is_rocm = True
-    finally:
-        amdsmi.amdsmi_shut_down()
+    if hasattr(torch.version, "hip") and torch.version.hip is not None:
+        is_rocm = True
 except Exception:
     pass
 
