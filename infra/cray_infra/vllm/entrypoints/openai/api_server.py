@@ -382,7 +382,6 @@ async def async_chat_completion_task(request, app, state):
             compute_flop_count(await app.state.engine_client.get_model_config())
             * response_data["usage"]["total_tokens"]
         )
-        state["free_kv_cache_tokens"] += response_data["usage"]["total_tokens"]
 
     await app.state.engine_client.check_health()
 
@@ -505,7 +504,6 @@ async def async_completion_task(request, app, state):
             compute_flop_count(await app.state.engine_client.get_model_config())
             * response_data["usage"]["total_tokens"]
         )
-        state["free_kv_cache_tokens"] += response_data["usage"]["total_tokens"]
 
     app.state.engine_client.check_health()
 
