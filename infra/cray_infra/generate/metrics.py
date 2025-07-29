@@ -18,6 +18,10 @@ class Metrics:
         """
         Record a completed request.
         """
+        if self.queue_depth <= 0:
+            self.queue_depth = 0
+            return
+
         self.total_completed_requests += 1
 
         if flop_count is not None:

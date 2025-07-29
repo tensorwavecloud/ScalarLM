@@ -97,6 +97,10 @@ class InferenceWorkQueue:
         async with self.lock:
             self.queue.clear_acked_data()
 
+    async def unack_count(self):
+        async with self.lock:
+            return self.queue.unack_count()
+
     def __len__(self):
         return len(self.queue)
 

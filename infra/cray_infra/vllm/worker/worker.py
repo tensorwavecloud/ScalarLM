@@ -194,6 +194,7 @@ class Worker(LocalOrDistributedWorkerBase):
             gc.collect()
             torch.cuda.empty_cache()
             self.init_gpu_memory = torch.cuda.mem_get_info()[0]
+            logger.info(f"Initial GPU memory usage: {self.init_gpu_memory}")
         else:
             raise RuntimeError(f"Not support device type: {self.device_config.device}")
         # Initialize the distributed environment.
@@ -245,6 +246,8 @@ class Worker(LocalOrDistributedWorkerBase):
         # Profile the memory usage of the model and get the maximum number of
         # cache blocks that can be allocated with the remaining free memory.
         torch.cuda.empty_cache()
+        gc.collect()
+        torch.cuda.synchronize()
 
         # Execute a forward pass with dummy inputs to profile the memory usage
         # of the model.
@@ -268,7 +271,7 @@ class Worker(LocalOrDistributedWorkerBase):
         num_gpu_blocks = int(
             (total_gpu_memory * self.cache_config.gpu_memory_utilization - peak_memory)
             // cache_block_size
-        )
+        ) + self.model_config.max_model_len // self.cache_config.block_size
         num_cpu_blocks = int(self.cache_config.swap_space_bytes // cache_block_size)
         num_gpu_blocks = max(num_gpu_blocks, 0)
         num_cpu_blocks = max(num_cpu_blocks, 0)

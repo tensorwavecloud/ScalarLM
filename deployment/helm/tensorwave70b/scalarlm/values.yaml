@@ -18,7 +18,7 @@ cache_pvc:
   size: 200Gi
 
 model: meta-llama/Llama-3.3-70B-Instruct
-max_model_length: 8192
+max_model_length: 16384
 gpu_memory_utilization: 0.95
 dtype: bfloat16
 

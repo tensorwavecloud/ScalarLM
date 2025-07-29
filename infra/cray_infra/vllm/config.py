@@ -688,9 +688,9 @@ class CacheConfig:
         return {key: str(value) for key, value in self.__dict__.items()}
 
     def _verify_args(self) -> None:
-        if self.gpu_memory_utilization > 1.0:
+        if self.gpu_memory_utilization > 10.0:
             raise ValueError(
-                "GPU memory utilization must be less than 1.0. Got "
+                "GPU memory utilization must be less than 10.0. Got "
                 f"{self.gpu_memory_utilization}."
             )
 

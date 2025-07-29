@@ -144,6 +144,7 @@ async def get_work_loop_body(app: FastAPI):
         "free_kv_cache_tokens": total_kv_cache_tokens,
         "loaded_adaptor_count": 0,
         "running_worker_tasks": set(),
+        "getting_work": False
     }
 
     logger.info(
@@ -173,7 +174,8 @@ async def get_work_loop_body(app: FastAPI):
             )
             state["running_worker_tasks"].add(check_for_free_tokens_task)
 
-        if state["free_kv_cache_tokens"] >= maximum_tokens_per_single_request:
+        if state["free_kv_cache_tokens"] >= maximum_tokens_per_single_request and not state["getting_work"]:
+            state["getting_work"] = True
             get_work_tasks = await try_get_work_step(app, state)
             if get_work_tasks is not None:
                 for task in get_work_tasks:
@@ -191,6 +193,14 @@ async def get_work_loop_body(app: FastAPI):
             if task is not None:
                 try:
                     await task
+                except AsyncEngineDeadError:
+                    logger.error("Engine is dead, restarting")
+                    # Kill the container so it can be restarted
+                    kill_vllm_container()
+                except MQEngineDeadError:
+                    logger.error("Engine is dead, restarting")
+                    # Kill the container so it can be restarted
+                    kill_vllm_container()
                 except Exception as e:
                     logger.error("Error in get_work_loop: %s", e)
                     logger.error(traceback.format_exc())
@@ -213,6 +223,8 @@ async def try_get_work_step(app: FastAPI, state):
         logger.error("Error in get_work_loop: %s", e)
         logger.error(traceback.format_exc())
         await asyncio.sleep(10)
+    finally:
+        state["getting_work"] = False
 
 
 async def get_work_step(app: FastAPI, state):
@@ -249,6 +261,21 @@ async def get_work_step(app: FastAPI, state):
         logger.info("No work to do")
         return
 
+    config = get_config()
+
+    maximum_tokens_per_single_request = config["max_model_length"]
+
+    state["free_kv_cache_tokens"] -= (
+        len(data["requests"]) * maximum_tokens_per_single_request
+    )
+
+    assert state["free_kv_cache_tokens"] >= 0
+
+    logger.info(
+        "Free kv cache tokens after getting work: %d",
+        state["free_kv_cache_tokens"],
+    )
+
     got_work_step_task = asyncio.create_task(got_work_step(app, state, data))
     check_for_free_tokens_task = asyncio.create_task(check_for_free_tokens(app, state))
 
@@ -263,19 +290,6 @@ async def got_work_step(app: FastAPI, state, data):
         app, state["loaded_adaptor_count"]
     )
 
-    config = get_config()
-
-    maximum_tokens_per_single_request = config["max_model_length"]
-
-    state["free_kv_cache_tokens"] -= (
-        len(data["requests"]) * maximum_tokens_per_single_request
-    )
-
-    logger.info(
-        "Free kv cache tokens after getting work: %d",
-        state["free_kv_cache_tokens"],
-    )
-
     completion_tasks = [
         async_generate_task(request, app, state) for request in data["requests"]
     ]
@@ -287,6 +301,8 @@ async def got_work_step(app: FastAPI, state, data):
     }
 
     logger.info("Sending finished inference results with params: %s", params)
+
+    config = get_config()
 
     session = get_global_session()
     async with session.post(
@@ -554,23 +570,26 @@ async def get_adaptors_step(app: FastAPI, loaded_adaptor_count: int):
         "loaded_adaptor_count": loaded_adaptor_count,
     }
 
-    session = get_global_session()
-    async with session.post(
-        config["api_url"] + "/v1/generate/get_adaptors",
-        json=params,
-    ) as resp:
-        assert resp.status == 200
+    try:
+        session = get_global_session()
+        async with session.post(
+            config["api_url"] + "/v1/generate/get_adaptors",
+            json=params,
+        ) as resp:
+            assert resp.status == 200
 
-        data = await resp.json()
+            data = await resp.json()
 
-    for new_adaptor in data["new_adaptors"]:
-        logger.info("Loading new adaptor: %s", new_adaptor)
-        try:
-            await add_new_adaptor(app, new_adaptor)
-            loaded_adaptor_count += 1
-        except Exception as e:
-            logger.error("Error loading adaptor %s: %s", new_adaptor, e)
-            continue
+        for new_adaptor in data["new_adaptors"]:
+            logger.info("Loading new adaptor: %s", new_adaptor)
+            try:
+                await add_new_adaptor(app, new_adaptor)
+                loaded_adaptor_count += 1
+            except Exception as e:
+                logger.error("Error loading adaptor %s: %s", new_adaptor, e)
+                continue
+    except Exception as e:
+        logger.error("Error loading adaptors %s", e)
 
     return loaded_adaptor_count
 
