@@ -1,6 +1,6 @@
 image:
   repository: gdiamos/scalarlm-amd
-  tag: v0.93
+  tag: v0.95
   pullPolicy: Always
 
 service:
@@ -20,6 +20,7 @@ cache_pvc:
 model: meta-llama/Llama-3.3-70B-Instruct
 max_model_length: 8192
 gpu_memory_utilization: 0.95
+dtype: bfloat16
 
 training_gpus: 2
 inference_gpus: 6
