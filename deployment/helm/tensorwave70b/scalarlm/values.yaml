@@ -19,7 +19,7 @@ cache_pvc:
 
 model: meta-llama/Llama-3.3-70B-Instruct
 max_model_length: 16384
-gpu_memory_utilization: 0.95
+gpu_memory_utilization: 0.92
 dtype: bfloat16
 
 training_gpus: 2

@@ -554,6 +554,7 @@ async def check_for_free_tokens(app: FastAPI, state):
     newly_free_tokens = await app.state.engine_client.get_free_kv_cache_tokens()
     state["free_kv_cache_tokens"] += newly_free_tokens
     logger.info("Updated kv cache tokens: %d", state["free_kv_cache_tokens"])
+    app.state.engine_client.check_health()
 
 
 def kill_vllm_container():
