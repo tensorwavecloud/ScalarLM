@@ -40,7 +40,6 @@ def discover_clusters():
     cluster_info = get_cluster_info(node_info)
 
     save_cluster_info(cluster_info)
-    reload_slurm_configs()
 
 
 def setup_logging():
@@ -172,6 +171,7 @@ def save_cluster_info(cluster_info):
     write_gres_config(cluster_info)
     write_cgroup_config(cluster_info)
     write_cluster_info_file(cluster_info)
+    reload_slurm_configs()
 
 
 def load_cluster_info_file():
@@ -199,6 +199,11 @@ def write_slurm_config(cluster_info):
     else:
         if "GresTypes" in slurm_conf_values:
             del slurm_conf_values["GresTypes"]
+
+    if len(cluster_info["all_nodes"]) <= 1:
+        slurm_conf_values["MpiDefault"] = "none"
+    else:
+        slurm_conf_values["MpiDefault"] = "pmix"
 
     new_config = save_slurm_conf_values(slurm_conf_values)
 
