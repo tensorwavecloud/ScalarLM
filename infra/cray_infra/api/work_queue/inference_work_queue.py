@@ -17,7 +17,7 @@ class InferenceWorkQueue:
 
     async def put(self, request):
         async with self.lock:
-            request["data"]["timestamp"] = time.time()
+            request["timestamp"] = time.time()
             return self.queue.put(request)
 
     async def get(self):
@@ -83,7 +83,7 @@ class InferenceWorkQueue:
             unacked_requests = []
 
             for result in results:
-                if int(result["status"]) == int(persistqueue.AckStatus.unacked):
+                if int(result["status"]) == int(persistqueue.AckStatus.unack):
                     unacked_requests.append(result)
 
             return unacked_requests
