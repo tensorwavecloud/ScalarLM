@@ -33,7 +33,7 @@ async def restart_unacked_requests_from_queue(inference_work_queue):
 
         if config["inference_work_queue_ack_timeout"] < time_since_submit:
 
-            await inference_work_queue.resume_unack_task(id=request["pqid"])
+            await inference_work_queue.resume_unack_task(id=request["id"])
             resumed_count += 1
 
     logger.info(f"Restarted {resumed_count} unacked requests from the queue.")
