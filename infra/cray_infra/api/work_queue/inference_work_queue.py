@@ -3,7 +3,6 @@ from cray_infra.util.get_config import get_config
 
 import persistqueue
 
-
 import asyncio
 import time
 import logging
@@ -18,6 +17,7 @@ class InferenceWorkQueue:
 
     async def put(self, request):
         async with self.lock:
+            request["data"]["timestamp"] = time.time()
             return self.queue.put(request)
 
     async def get(self):
@@ -36,6 +36,7 @@ class InferenceWorkQueue:
                     raw_item = self.queue.get(block=False, raw=True)
 
                 item = raw_item["data"]
+                item["timestamp"] = time.time()
                 request_id = raw_item["pqid"]
 
                 break
@@ -55,6 +56,7 @@ class InferenceWorkQueue:
                 raw_item = self.queue.get(block=False, raw=True)
 
             item = raw_item["data"]
+            item["timestamp"] = time.time()
             request_id = raw_item["pqid"]
 
         except persistqueue.Empty:
@@ -74,6 +76,18 @@ class InferenceWorkQueue:
 
         return None
 
+    async def get_unacked_requests(self):
+        async with self.lock:
+            results = self.queue.queue()
+
+            unacked_requests = []
+
+            for result in results:
+                if int(result["status"]) == int(persistqueue.AckStatus.unacked):
+                    unacked_requests.append(result)
+
+            return unacked_requests
+
     async def update(self, id, item):
         async with self.lock:
             return self.queue.update(id=id, item=item)
@@ -92,6 +106,10 @@ class InferenceWorkQueue:
     async def resume_unack_tasks(self):
         async with self.lock:
             self.queue.resume_unack_tasks()
+
+    async def resume_unack_task(self, id):
+        async with self.lock:
+            self.queue.nack(id=id)
 
     async def clear_acked_data(self):
         async with self.lock:

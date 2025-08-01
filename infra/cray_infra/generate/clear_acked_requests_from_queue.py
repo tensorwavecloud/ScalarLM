@@ -1,6 +1,5 @@
 from cray_infra.api.work_queue.inference_work_queue import get_file_backed_inference_work_queue
 from cray_infra.util.get_config import get_config
-from cray_infra.generate.metrics import get_metrics
 
 import time
 import logging
@@ -18,16 +17,23 @@ async def clear_acked_requests_from_queue():
 
     logger.info(f"Cleared {starting_size - ending_size} acked requests from the queue.")
 
+    await restart_unacked_requests_from_queue(inference_work_queue)
+
+
+async def restart_unacked_requests_from_queue(inference_work_queue):
     config = get_config()
 
-    metrics = get_metrics()
-    
-    if metrics.epoch_time is not None:
-        time_since_epoch = time.time() - metrics.epoch_time
+    unacked_requests = await inference_work_queue.get_unacked_requests()
 
-        if config["inference_work_queue_ack_timeout"] < time_since_epoch and metrics.queue_depth > 0:
-            unacked_count = await inference_work_queue.unack_count()
+    resumed_count = 0
 
-            await inference_work_queue.resume_unack_tasks()
-            
-            logger.info(f"Restarted {unacked_count} unacked requests from the queue.")
+    for request in unacked_requests:
+
+        time_since_submit = time.time() - request["data"]["timestamp"]
+
+        if config["inference_work_queue_ack_timeout"] < time_since_submit:
+
+            await inference_work_queue.resume_unack_task(id=request["pqid"])
+            resumed_count += 1
+
+    logger.info(f"Restarted {resumed_count} unacked requests from the queue.")
