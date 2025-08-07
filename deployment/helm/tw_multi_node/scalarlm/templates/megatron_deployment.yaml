@@ -95,9 +95,9 @@ spec:
             limits:
               amd.com/gpu: 1
           securityContext:
-            privileged: true
+            #privileged: true
             capabilities:
-              add: ["NET_ADMIN", "SYS_ADMIN", "IPC_LOCK"]
+              add: ["NET_ADMIN"]
       volumes:
         - name: scalarlm-jobs
           persistentVolumeClaim:
