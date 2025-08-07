@@ -1,6 +1,6 @@
 image:
   repository: gdiamos/scalarlm-amd
-  tag: v0.94
+  tag: v0.95
   pullPolicy: Always
 
 service:
@@ -10,15 +10,15 @@ service:
   externalIP: 64.139.222.101
 
 jobs_pvc:
-  storageClass: nfs-csi
+  storageClass: longhorn
   size: 100Gi
 
 cache_pvc:
-  storageClass: nfs-csi
+  storageClass: longhorn
   size: 200Gi
 
 slurm_config_pvc:
-    storageClass: nfs-csi
+    storageClass: longhorn
     size: 10Gi
 
 model: meta-llama/Llama-3.3-3B-Instruct

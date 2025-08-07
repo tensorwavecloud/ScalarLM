@@ -17,6 +17,8 @@ spec:
         {{- toYaml . | nindent 8 }}
     {{- end }}
       hostname: {{ include "scalarlm.fullname" . }}
+      nodeSelector:
+        zone: greg
       dnsConfig:
         searches:
           - {{ include "scalarlm.megatronname" . }}-headless.scalarlm.svc.cluster.local

@@ -26,14 +26,14 @@ spec:
         options:
           - name: ndots
             value: "1"
+      nodeSelector:
+        zone: greg
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
           imagePullPolicy: {{ .Values.image.pullPolicy }}
           command: ["/app/cray/scripts/start_one_server.sh"]
           env:
-            - name: LD_LIBRARY_PATH
-              value: "/usr/local/rdma-lib:$LD_LIBRARY_PATH"
             # UCX configuration to use available RDMA devices and TCP fallback
             - name: UCX_TLS
               value: "tcp,rc,ud"
