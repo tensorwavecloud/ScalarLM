@@ -76,6 +76,8 @@ ENV HIP_FORCE_DEV_KERNARG=1
 ARG INSTALL_ROOT=/app/cray
 WORKDIR ${INSTALL_ROOT}
 
+ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/venv/lib/python3.12/site-packages/torch/lib:/usr/local/rdma-lib
+
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm
@@ -158,7 +160,7 @@ COPY ./scripts ${INSTALL_ROOT}/scripts
 # Build SLURM plugin
 RUN /app/cray/infra/slurm_src/compile.sh
 
-ENV LD_LIBRARY_PATH="${LD_LIBRARY_PATH}:${PYTHONPATH}:/usr/local/lib/slurm"
+ENV LD_LIBRARY_PATH=${LD_LIBRARY_PATH}:${PYTHONPATH}:/usr/local/lib/slurm
 
 ENV SLURM_CONF=${INSTALL_ROOT}/nfs/slurm.conf
 

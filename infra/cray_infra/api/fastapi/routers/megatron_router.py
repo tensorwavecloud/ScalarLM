@@ -87,7 +87,7 @@ async def gpu_count():
 
 @megatron_router.get("/node_count")
 async def node_count():
-    return GetNodeCountResponse(gpu_count=get_node_count())
+    return GetNodeCountResponse(node_count=get_node_count())
 
 
 @megatron_router.get("/endpoints")
