@@ -1,6 +1,6 @@
 from cray_infra.one_server.create_api import create_api
-
 from cray_infra.one_server.create_vllm import create_vllm
+from cray_infra.one_server.create_megatron import create_megatron
 
 import asyncio
 import logging
@@ -34,6 +34,10 @@ async def start_cray_server(server_list: list):
 
     if "megatron" in server_list:
         logger.debug("Megatron server doesn't need python")
+        megatron_task = asyncio.create_task(
+            create_megatron(running_status=running_status)
+        )
+        running_status.tasks.append(megatron_task)
         started_any_server = True
 
     if not started_any_server:
