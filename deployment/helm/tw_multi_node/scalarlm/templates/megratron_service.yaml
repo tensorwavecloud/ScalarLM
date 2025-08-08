@@ -12,3 +12,4 @@ spec:
     - port: 6818     
       targetPort: 6818 
       protocol: TCP
+      name: slurmd
