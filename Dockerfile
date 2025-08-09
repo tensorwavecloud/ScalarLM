@@ -18,7 +18,7 @@ ENV PATH=$PATH:/opt/hpcx/ompi/bin
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/opt/hpcx/ompi/lib
 
 ARG TORCH_VERSION="2.4.0"
-ARG TORCH_CUDA_ARCH_LIST="8.0"
+ARG TORCH_CUDA_ARCH_LIST="7.5"
 
 RUN pip install uv
 
