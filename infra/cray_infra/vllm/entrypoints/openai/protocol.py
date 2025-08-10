@@ -646,15 +646,16 @@ class CompletionRequest(OpenAIBaseModel):
         ):
             guided_json_object = True
 
-        guided_decoding = GuidedDecodingParams.from_optional(
-            json=self.guided_json,
-            regex=self.guided_regex,
-            choice=self.guided_choice,
-            grammar=self.guided_grammar,
-            json_object=guided_json_object,
-            backend=self.guided_decoding_backend,
-            whitespace_pattern=self.guided_whitespace_pattern,
-        )
+        guided_decoding = None
+        # guided_decoding = GuidedDecodingParams.from_optional(
+        #     json=self.guided_json,
+        #     regex=self.guided_regex,
+        #     choice=self.guided_choice,
+        #     grammar=self.guided_grammar,
+        #     json_object=guided_json_object,
+        #     backend=self.guided_decoding_backend,
+        #     whitespace_pattern=self.guided_whitespace_pattern,
+        # )
 
         return SamplingParams.from_optional(
             n=self.n,
