@@ -34,6 +34,8 @@ services:
     cray-nvidia:
         <<: *cray
         runtime: nvidia
+        cap_add:
+          - SYS_PTRACE
         deploy:
             resources:
                 reservations:
@@ -48,7 +50,6 @@ services:
           - /dev/dri
         security_opt:
           - seccomp:unconfined
-
         cap_add:
           - SYS_PTRACE
 

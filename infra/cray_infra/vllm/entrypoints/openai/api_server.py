@@ -162,7 +162,7 @@ async def get_work_loop_body(app: FastAPI):
     ), "Total kv cache tokens must be greater than or equal to the maximum tokens per single request."
 
     while True:
-        logger.info(f"Running get work loop body: {state}")
+        logger.info(f"Running get work loop boda with {len(state['running_worker_tasks'])} tasks..")
         if len(state["running_worker_tasks"]) == 0:
             logger.info(
                 "No running worker tasks, setting free kv cache tokens to total kv cache tokens"
