@@ -85,6 +85,8 @@ async def file_sender(file_path):
 def make_training_archive(data):
 
     with make_data_file(data) as data_file_path:
+        check_for_zero_length_file(data_file_path)
+
         with tempfile.NamedTemporaryFile() as archive_file:
             with tarfile.open(archive_file.name, "w") as tar:
                 # Add the data file to the archive
@@ -98,8 +100,10 @@ def make_training_archive(data):
                 ml_dir = find_ml_dir()
 
                 if ml_dir is None:
-                    logger.warning(f"ML directory not found. Skipping addition to "
-                        "archive, using default ml directory from ScalarLM server.")
+                    logger.warning(
+                        f"ML directory not found. Skipping addition to "
+                        "archive, using default ml directory from ScalarLM server."
+                    )
                 else:
                     tar.add(ml_dir, arcname="ml", filter=tar_info_strip_file_info)
 
@@ -117,6 +121,7 @@ def tar_info_strip_file_info(tarinfo):
     tarinfo.uname = tarinfo.gname = "root"
     tarinfo.mtime = 0
     return tarinfo
+
 
 def find_ml_dir():
     # Check the current directory first
@@ -138,13 +143,14 @@ def find_ml_dir():
 
 @contextlib.contextmanager
 def make_data_file(data):
-    chunk_size = 64 * 1024
 
     if isinstance(data, str):
         with open(data, "rb") as f:
             yield f
 
     elif isinstance(data, io.BufferedIOBase):
+        chunk_size = 64 * 1024
+
         with tempfile.NamedTemporaryFile() as f:
             for chunk in iter(lambda: data.read(chunk_size), b""):
                 f.write(chunk)
@@ -163,3 +169,6 @@ def make_data_file(data):
     else:
         raise ValueError(f"Unsupported data type: {type(data)}")
 
+def check_for_zero_length_file(file_path):
+    if os.path.getsize(file_path) == 0:
+        raise ValueError(f"The file {file_path} is empty. Please provide valid data.")

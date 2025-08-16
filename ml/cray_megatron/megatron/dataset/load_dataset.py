@@ -65,10 +65,13 @@ def split_dataset_by_node(dataset):
     data_parallel_rank = get_data_parallel_rank()
     data_parallel_world_size = get_data_parallel_world_size()
 
-    num_shards=data_parallel_world_size
-    index=data_parallel_rank
+    num_shards = data_parallel_world_size
+    index = data_parallel_rank
 
-    filtered_dataset = dataset.filter(lambda example, idx: idx % data_parallel_world_size == data_parallel_rank, with_indices=True)
+    filtered_dataset = dataset.filter(
+        lambda example, idx: idx % data_parallel_world_size == data_parallel_rank,
+        with_indices=True,
+    )
 
     return filtered_dataset
 
@@ -124,7 +127,9 @@ def add_eos_token(tokens, model, tokenizer):
 def get_pack_function(model):
     job_config = get_job_config()
 
-    block_size = min(model.config.max_position_embeddings, job_config["max_token_block_size"])
+    block_size = min(
+        model.config.max_position_embeddings, job_config["max_token_block_size"]
+    )
 
     def pack(dataset):
         # Concatenate all texts.
