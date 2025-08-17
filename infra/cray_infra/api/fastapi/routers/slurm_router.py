@@ -20,7 +20,7 @@ async def slurm_status():
         squeue_info = await squeue()
         gpu_count = get_gpu_count()
         node_count = get_node_count()
-        
+
         return {
             "queue": squeue_info.dict(),
             "resources": {
@@ -56,13 +56,13 @@ async def cancel_job(job_id: str):
             text=True,
             check=True
         )
-        
+
         return {
-            "status": "success", 
+            "status": "success",
             "message": f"Job {job_id} cancelled successfully",
             "job_id": job_id
         }
-        
+
     except subprocess.CalledProcessError as e:
         logger.error(f"Failed to cancel job {job_id}: {e.stderr}")
         return JSONResponse(
@@ -77,7 +77,7 @@ async def cancel_job(job_id: str):
         logger.exception(f"Error cancelling job {job_id}")
         return JSONResponse(
             content={
-                "status": "error", 
+                "status": "error",
                 "error": str(e),
                 "job_id": job_id
             },

@@ -71,10 +71,6 @@ WORKDIR ${INSTALL_ROOT}
 
 ENV LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/app/venv/lib/python3.12/site-packages/torch/lib:/usr/local/rdma-lib
 
-# vLLM dependencies
-COPY ./infra/requirements-vllm-rocm.txt ${INSTALL_ROOT}/requirements-vllm-rocm.txt
-RUN uv pip install --no-compile --no-cache-dir -r ${INSTALL_ROOT}/requirements-vllm-rocm.txt
-
 ###############################################################################
 # VLLM BUILD STAGE
 FROM ${BASE_NAME} AS vllm

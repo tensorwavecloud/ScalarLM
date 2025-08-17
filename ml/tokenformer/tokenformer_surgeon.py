@@ -48,13 +48,25 @@ class TokenformerMLPAdapter(nn.Module):
 
     # Call layer with all inputs and kwargs
     def forward(self, query: torch.Tensor):
-        base_layer_results = self.layer(query)
+        all_base_layer_results = self.layer(query)
 
         tokenformer_results = self.tokenformer_op_1(query)
 
+        if isinstance(all_base_layer_results, tuple):
+            base_layer_results = all_base_layer_results[0]
+        else:
+            base_layer_results = all_base_layer_results
+
         # sum the two outputs
         layer_and_adaptor_sum = base_layer_results + tokenformer_results
-        return layer_and_adaptor_sum
+
+        if isinstance(all_base_layer_results, tuple):
+            results = (layer_and_adaptor_sum, ) + all_base_layer_results[1:]
+        else:
+            results = layer_and_adaptor_sum
+
+        return results
+
 
     def tokenformer_op(self, query):
 

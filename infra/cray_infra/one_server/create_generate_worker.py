@@ -3,6 +3,7 @@ import aiohttp
 import copy
 import json
 import os
+import sys
 
 import logging
 
@@ -113,7 +114,7 @@ async def create_generate_worker(server_status):
         # print backtrace for debugging
         logger.error(f"Worker encountered an error: {e}", exc_info=True)
         logger.error("Shutting down worker due to error")
-
+        kill_vllm_container()
 
     finally:
         # Cleanup resources
@@ -148,7 +149,7 @@ async def get_batch_size(app):
 
     if batch_size <= 0:
         logger.debug("Batch size is 0, waiting for kv cache space")
-        await vllm_engine_client.wait_for_kv_cache_size_update()
+        return 0
 
     current_kv_cache_size = await vllm_engine_client.get_current_kv_cache_size()
 
@@ -437,6 +438,12 @@ async def async_completion_task(request, app):
             * response_data["usage"]["total_tokens"]
         )
 
-    app.state.engine_client.check_health()
+    await app.state.engine_client.check_health()
 
     return response
+
+def kill_vllm_container():
+    # Kill instances of pt_thread_main process
+    os.system("pgrep pt_main_thread | xargs kill -9")
+    os.system("pgrep python | xargs kill -9")
+    sys.exit(1)

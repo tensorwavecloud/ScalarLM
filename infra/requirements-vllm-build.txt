@@ -1,4 +1,0 @@
-setuptools-scm>=8
-wheel
-cmake>=3.26
-ninja
