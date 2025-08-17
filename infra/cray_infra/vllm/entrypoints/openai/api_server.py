@@ -404,9 +404,9 @@ def convert_prompt_to_openai_format(
         for key, value in prompt.items():
             if key == "text":
                 list_of_content.append({"type": "text", "text": value})
-            elif key == "image":
+            elif key == "images":
                 list_of_content.extend([{"type": "image_url", "image_url": {"url": image}} for image in value])
-            else:   
+            else:
                 raise ValueError(f"Invalid prompt sub-field: {key}. Must be 'text' or 'image'.")
         return [
             {
@@ -416,7 +416,7 @@ def convert_prompt_to_openai_format(
         ]
     else:
         raise ValueError(f"Invalid prompt type: {type(prompt)}")
-    
+
 
 
 def compute_flop_count(model_config):

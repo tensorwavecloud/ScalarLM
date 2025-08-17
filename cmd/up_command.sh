@@ -16,4 +16,4 @@ else
     docker_compose_service="cray-nvidia"
 fi
 
-BASE_NAME=${target} VLLM_TARGET_DEVICE=${vllm_target_device} docker compose -f docker-compose.yaml up ${docker_compose_service} --build --force-recreate
+BASE_NAME=${target} VLLM_TARGET_DEVICE=${vllm_target_device} docker compose -f docker-compose.yaml up ${docker_compose_service}

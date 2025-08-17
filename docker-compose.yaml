@@ -34,6 +34,7 @@ services:
     cray-nvidia:
         <<: *cray
         runtime: nvidia
+        restart: on-failure
         cap_add:
           - SYS_PTRACE
         deploy:

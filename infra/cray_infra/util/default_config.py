@@ -5,7 +5,10 @@ class Config(BaseModel):
     api_url: str = "http://localhost:8000"
 
     #model: str = "masint/tiny-random-qwen2-vl"
-    model: str = "masint/tiny-random-llama"
+    #model: str = "masint/tiny-random-llama"
+    #model: str = "Snowflake/Arctic-Text2SQL-R1-7B"
+    #model: str = "Qwen/Qwen2-7B-Instruct"
+    model: str = "Qwen/Qwen2-VL-7B-Instruct"
 
     # 10GB using 1024 for KB, 1024 for MB, 1024 for GB
     max_upload_file_size: int = 1024 * 1024 * 1024 * 10
@@ -31,10 +34,10 @@ class Config(BaseModel):
 
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
 
-    gpu_memory_utilization: float = 0.50
+    gpu_memory_utilization: float = 0.95
     max_model_length: int = 8192
-    dtype: str = "float32"
     limit_mm_per_prompt: str = "image=2"
+    dtype: str = "float16"
 
     max_log_length: int = 100
 
