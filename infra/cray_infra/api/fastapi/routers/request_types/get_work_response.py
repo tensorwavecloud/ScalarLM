@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 from typing import Optional, Union
 
-PromptType = Union[str, dict[str, str]]
+PromptType = Union[str, dict[str, Union[str, list[str]]]]
 
 class GetWorkResponse(BaseModel):
     prompt: PromptType

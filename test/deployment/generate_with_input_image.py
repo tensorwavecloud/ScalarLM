@@ -10,8 +10,9 @@ def get_dataset(count):
     dataset = []
 
     for i in range(count):
+        image_url = get_image(f"https://httpbin.org/image/png")
         dataset.append({"text": "What is in this image?",
-                        "image": get_image(f"https://httpbin.org/image/png")})
+                        "image": [image_url, image_url]})
 
     return dataset
 

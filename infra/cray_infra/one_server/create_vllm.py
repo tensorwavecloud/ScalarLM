@@ -32,6 +32,7 @@ async def create_vllm(port, running_status):
         f"--gpu-memory-utilization={config['gpu_memory_utilization']}",
         f"--max-log-len={config['max_log_length']}",
         f"--swap-space=0",
+        f"--limit-mm-per-prompt={config['limit_mm_per_prompt']}",
         "--enable-lora",
         "--disable-async-output-proc", # Disable async output processing for embeddings
     ]

@@ -34,6 +34,7 @@ class Config(BaseModel):
     gpu_memory_utilization: float = 0.50
     max_model_length: int = 8192
     dtype: str = "float32"
+    limit_mm_per_prompt: str = "image=2"
 
     max_log_length: int = 100
 

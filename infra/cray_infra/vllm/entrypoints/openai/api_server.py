@@ -388,34 +388,35 @@ async def async_chat_completion_task(request, app, state):
 
     return response
 
-
 def convert_prompt_to_openai_format(
     prompt: PromptType,
 ) -> list[ChatCompletionMessageParam]:
     """Convert a prompt to OpenAI format."""
     if isinstance(prompt, str):
-        return [{"role": "user", "content": prompt}]
-    elif isinstance(prompt, dict):
         return [
             {
                 "role": "user",
-                "content": [
-                    convert_prompt_sub_field_to_openai_content_format(key, value)
-                    for key, value in prompt.items()
-                ],
+                "content": [{"role": "user", "content": prompt}]
+            }
+        ]
+    elif isinstance(prompt, dict):
+        list_of_content = []
+        for key, value in prompt.items():
+            if key == "text":
+                list_of_content.append({"type": "text", "text": value})
+            elif key == "image":
+                list_of_content.extend([{"type": "image_url", "image_url": {"url": image}} for image in value])
+            else:   
+                raise ValueError(f"Invalid prompt sub-field: {key}. Must be 'text' or 'image'.")
+        return [
+            {
+                "role": "user",
+                "content": list_of_content
             }
         ]
     else:
         raise ValueError(f"Invalid prompt type: {type(prompt)}")
-
-
-def convert_prompt_sub_field_to_openai_content_format(key: str, value: str) -> dict:
-    if key == "text":
-        return {"type": "text", "text": value}
-    elif key == "image":
-        return {"type": "image_url", "image_url": {"url": value}}
-    else:
-        raise ValueError(f"Invalid prompt sub-field: {key}. Must be 'text' or 'image'.")
+    
 
 
 def compute_flop_count(model_config):
