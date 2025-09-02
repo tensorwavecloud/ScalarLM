@@ -27,8 +27,6 @@ class SupermassiveIntelligence:
             self.async_api.submit_slurm_job(code=code, train_args=train_args)
         )
 
-    def embed(self, prompts, model_name=None):
-        return asyncio.run(self.async_api.embed(prompts=prompts, model_name=model_name))
 
     ## Alignment API methods
 

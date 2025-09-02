@@ -1,40 +1,18 @@
-"""vLLM: a high-throughput and memory-efficient inference engine for LLMs"""
+"""
+vLLM integration module for ScalarLM.
+Provides both HTTP and direct engine access patterns.
+"""
 
-from vllm.engine.arg_utils import AsyncEngineArgs, EngineArgs
-from vllm.engine.async_llm_engine import AsyncLLMEngine
-from vllm.engine.llm_engine import LLMEngine
-from vllm.entrypoints.llm import LLM
-from vllm.executor.ray_utils import initialize_ray_cluster
-from vllm.inputs import PromptType, TextPrompt, TokensPrompt
-from vllm.model_executor.models import ModelRegistry
-from vllm.outputs import (
-    CompletionOutput,
-    EmbeddingOutput,
-    EmbeddingRequestOutput,
-    RequestOutput,
-)
-from vllm.pooling_params import PoolingParams
-from vllm.sampling_params import SamplingParams
-
-from .version import __version__, __version_tuple__
+from .engine_interface import VLLMEngineInterface
+from .http_engine import HTTPVLLMEngine
+from .direct_engine import DirectVLLMEngine
+from .engine_factory import create_vllm_engine, test_engine, get_engine_info
 
 __all__ = [
-    "__version__",
-    "__version_tuple__",
-    "LLM",
-    "ModelRegistry",
-    "PromptType",
-    "TextPrompt",
-    "TokensPrompt",
-    "SamplingParams",
-    "RequestOutput",
-    "CompletionOutput",
-    "EmbeddingOutput",
-    "EmbeddingRequestOutput",
-    "LLMEngine",
-    "EngineArgs",
-    "AsyncLLMEngine",
-    "AsyncEngineArgs",
-    "initialize_ray_cluster",
-    "PoolingParams",
+    "VLLMEngineInterface",
+    "HTTPVLLMEngine", 
+    "DirectVLLMEngine",
+    "create_vllm_engine",
+    "test_engine",
+    "get_engine_info",
 ]

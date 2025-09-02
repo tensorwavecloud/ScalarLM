@@ -2,6 +2,7 @@ from vllm.entrypoints.openai.protocol import (
     TokenizeRequest,
     ChatCompletionRequest,
     CompletionRequest,
+    EmbeddingRequest,
 )
 
 from cray_infra.api.fastapi.aiohttp.get_global_session import get_global_session
@@ -111,6 +112,7 @@ async def create_completion(request: CompletionRequest, raw_request: Request):
         return StreamingResponse(content=generator(), media_type="text/event-stream")
     except Exception as e:
         return JSONResponse(content={"error": str(e)}, status_code=500)
+
 
 
 @openai_router.get("/endpoints")

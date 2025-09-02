@@ -26,8 +26,6 @@ class AsyncSupermassiveIntelligence:
     async def submit_slurm_job(self, code, train_args=None):
         return await self.engine.submit_slurm_job(code=code, train_args=train_args)
 
-    async def embed(self, prompts, model_name=None):
-        return await self.engine.embed(prompts=prompts, model_name=model_name)
 
     async def learn_classes(self, classes):
         assert False, "Not implemented yet."

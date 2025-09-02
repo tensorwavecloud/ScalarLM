@@ -42,24 +42,7 @@ class AsyncCray:
                 assert resp.status == 200
                 return await resp.json()
 
-    async def embed(self, prompts, model_name):
-        result = await self.submit_embed(prompts, model_name)
 
-        final_result = await poll_for_responses(result, api_url=self.api_url)
-
-        return [response["response"] for response in final_result["results"]]
-
-    async def submit_embed(self, prompts, model_name):
-        api_url = make_api_url("v1/generate/embed", api_url=self.api_url)
-        async with aiohttp.ClientSession() as session:
-            params = {"prompts": prompts}
-
-            if model_name is not None:
-                params["model"] = model_name
-
-            async with session.post(api_url, json=params) as resp:
-                assert resp.status == 200
-                return await resp.json()
 
     async def get_results(self, request_ids):
         async with aiohttp.ClientSession() as session:

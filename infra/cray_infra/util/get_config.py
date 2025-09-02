@@ -1,4 +1,4 @@
-from cray_infra.util.default_config import Config
+from .default_config import Config
 
 import os
 import yaml

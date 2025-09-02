@@ -27,13 +27,30 @@ class VLLMModelManager:
         self._models[start_time] = model
 
     def find_model(self, model_name):
+        import os
+        from pathlib import Path
+        
         config = get_config()
 
+        # Check if it's the base model
         if model_name == config["model"]:
             return model_name
 
+        # Check if it's in registered models
         if model_name in set(self._models.values()):
             return model_name
+
+        # DYNAMIC DISCOVERY: Check if model exists in training directory
+        training_dir = config.get("training_job_directory", "/app/cray/jobs")
+        model_path = os.path.join(training_dir, model_name)
+        
+        if os.path.exists(model_path):
+            # Verify it has model files (like .pt files) 
+            pt_files = list(Path(model_path).glob("*.pt"))
+            if len(pt_files) > 0:
+                # Auto-register the discovered model
+                self.register_model(model_name)
+                return model_name
 
         return None
 

@@ -27,6 +27,8 @@ async def register_megatron_models():
         if model not in registered_models:
             await register_model(model)
 
+    logger.info(f"Finished registering Megatron models, there are {len(registered_models)} registered models.")
+
 
 async def get_models():
     config = get_config()

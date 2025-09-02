@@ -7,13 +7,26 @@ from tokenformer.transformers_tokenformer import TransformersTokenformerSurgeon
 
 def replace_layers(model, custom_layer_class, logger=logging.getLogger(__name__)):
     start_time = time.time()
-    num_layers = len(model.model.layers)
-    logger.info(f"(replace_layers inplace) Starting in-place layer modification for {num_layers} layers")
+    
+    # Handle different model architectures
+    if hasattr(model, 'model') and hasattr(model.model, 'layers'):
+        # LLaMA-style models
+        layers = model.model.layers
+        is_gpt2 = False
+    elif hasattr(model, 'transformer') and hasattr(model.transformer, 'h'):
+        # GPT-2 style models
+        layers = model.transformer.h
+        is_gpt2 = True
+    else:
+        raise ValueError(f"Unsupported model architecture for layer replacement: {type(model)}")
+    
+    num_layers = len(layers)
+    logger.info(f"(replace_layers inplace) Starting in-place layer modification for {num_layers} layers (GPT-2: {is_gpt2})")
     
     for i in range(num_layers):
         layer_start = time.time()
         
-        old_layer = model.model.layers[i]
+        old_layer = layers[i]
         
         # Method 1: Try class replacement (if LlamaTokenformerDecoderLayer is just adding methods)
         try:
@@ -37,7 +50,7 @@ def replace_layers(model, custom_layer_class, logger=logging.getLogger(__name__)
             old_layer.__class__ = original_class  # Restore original class
             new_layer = custom_layer_class(model.config, i)
             new_layer.load_state_dict(old_layer.state_dict(), strict=False)
-            model.model.layers[i] = new_layer
+            layers[i] = new_layer
             layer_time = time.time() - layer_start
         
         if i < 5 or i % 20 == 0 or i == num_layers - 1:
@@ -57,6 +70,11 @@ def log_param_gradients(model, logger=logging.getLogger(__name__)):
 def create_llama_tokenformer_model(model, device, train_lm_head=None):
     logger = logging.getLogger(__name__)
     overall_start = time.time()
+    
+    # Check if this is a GPT-2 model - if so, skip tokenformer modifications
+    if hasattr(model, 'transformer') and hasattr(model.transformer, 'h'):
+        logger.info("GPT-2 model detected - skipping tokenformer modifications")
+        return model
     
     # Step 1: Replace layers
     logger.info("Starting layer replacement...")

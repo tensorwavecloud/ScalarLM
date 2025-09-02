@@ -15,7 +15,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-async def create_megatron(running_status):
+async def create_megatron(server_status):
     server_config = uvicorn.Config(
         "cray_infra.one_server.create_megatron:app",
         host="0.0.0.0",
@@ -23,7 +23,7 @@ async def create_megatron(running_status):
         log_level="info",
     )
     server = uvicorn.Server(server_config)
-    running_status.servers.append(server)
+    server_status.servers.append(server)
 
     await server.serve()
 

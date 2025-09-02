@@ -11,6 +11,9 @@ commands:
     - name: target
       allowed: ["cpu", "nvidia", "arm", "amd"]
       default: "cpu"
+    - name: sm_arch
+      help: GPU streaming multiprocessor architecture, e.g. 7.5, 8.0, 8.6, 12.0, auto
+      default: "auto"
 
 - name: depot-build
   help: Build image from dockerfile and push to depot
@@ -18,6 +21,9 @@ commands:
     - name: target
       allowed: ["cpu", "nvidia", "arm", "amd"]
       default: "cpu"
+    - name: sm_arch
+      help: GPU streaming multiprocessor architecture, e.g. 7.5, 8.0, 8.6, 12.0, auto
+      default: "auto"
 
 - name: up
   help: Start the container
@@ -25,6 +31,10 @@ commands:
     - name: target
       allowed: ["cpu", "nvidia", "amd"]
       default: "cpu"
+    - name: sm_arch
+      allowed: ["7.5", "8.6", "12.0", "auto"]
+      help: GPU streaming multiprocessor architecture, e.g. 7.5, 8.0, 8.6, 12.0, auto
+      default: "auto"
 
 - name: test
   help: Run tests in the container

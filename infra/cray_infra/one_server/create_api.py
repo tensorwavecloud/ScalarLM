@@ -1,7 +1,7 @@
 import uvicorn
 
 
-async def create_api(port, running_status):
+async def create_api(port, server_status):
     server_config = uvicorn.Config(
         "cray_infra.api.fastapi.main:app",
         host="0.0.0.0",
@@ -9,6 +9,6 @@ async def create_api(port, running_status):
         log_level="info",
     )
     server = uvicorn.Server(server_config)
-    running_status.servers.append(server)
+    server_status.servers.append(server)
 
     await server.serve()

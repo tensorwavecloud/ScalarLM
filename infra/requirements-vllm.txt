@@ -9,7 +9,8 @@ sentencepiece  # Required for LLaMA tokenizer.
 mistral_common[opencv] >= 1.4.4
 py-cpuinfo
 aiohttp
-openai >= 1.40.0 # Ensure modern openai package (ensure types module present)
+openai >= 1.99.1 # For Responses API with reasoning content (matches upstream vLLM)
+openai-harmony >= 0.0.3 # Required for gpt-oss (matches upstream vLLM)
 uvicorn[standard]
 fastapi >= 0.107.0, != 0.113.*, != 0.114.0; python_version >= '3.9'
 fastapi-utils

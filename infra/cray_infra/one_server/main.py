@@ -13,6 +13,7 @@ import asyncio
 import logging
 import os
 import sys
+import traceback
 
 logger = logging.getLogger(__name__)
 
@@ -67,13 +68,35 @@ async def run_all_servers_async():
             return_when=asyncio.FIRST_COMPLETED,
         )
 
+        # Check for exceptions in completed tasks
+        for task in done:
+            try:
+                # This will raise the exception if the task failed
+                result = task.result()
+            except Exception as e:
+                logger.error(f"Task {task.get_name()} failed with exception:")
+                logger.error(traceback.format_exc())
+
         logger.info("Cray sever is shutting down")
+
         for pending_task in pending:
-            pending_task.cancel("Another service died, server is shutting down")
+            try:
+                pending_task.cancel("Another service died, server is shutting down")
+            except Exception as e:
+                logger.error(f"Error canceling task {pending_task.get_name()}:")
+                logger.error(traceback.format_exc())
     else:
-        while True:
-            logger.info("Server is sleeping forever")
-            await asyncio.sleep(600)
+        try:
+            while True:
+                logger.info("Server is sleeping forever")
+                await asyncio.sleep(600)
+        except asyncio.CancelledError:
+            logger.info("Sleep loop was cancelled")
+            raise
+        except Exception as e:
+            logger.error("Error in sleep loop:")
+            logger.error(traceback.format_exc())
+            raise
 
 
 if __name__ == "__main__":

@@ -135,9 +135,7 @@ class LlamaTokenformerDecoderLayer(LlamaDecoderLayer):
             Tuple[torch.Tensor, torch.Tensor]
         ] = None,  # necessary, but kept here for BC
         **kwargs: Unpack[FlashAttentionKwargs],
-    ) -> Tuple[
-        torch.FloatTensor, Optional[Tuple[torch.FloatTensor, torch.FloatTensor]]
-    ]:
+    ) -> torch.Tensor:
         residual = hidden_states
 
         hidden_states = self.input_layernorm(hidden_states)
@@ -159,11 +157,13 @@ class LlamaTokenformerDecoderLayer(LlamaDecoderLayer):
         # Fully Connected
         residual = hidden_states
         hidden_states = self.post_attention_layernorm(hidden_states)
-        hidden_states = self.mlp(hidden_states)
+        outputs = self.mlp(hidden_states)
+
+        if isinstance(outputs, tuple):
+            hidden_states = outputs[0]
+        else:
+            hidden_states = outputs
+
         hidden_states = residual + hidden_states
 
-        outputs = (hidden_states,)
-        if output_attentions:
-            outputs += (self_attn_weights,)
-
-        return outputs
+        return hidden_states

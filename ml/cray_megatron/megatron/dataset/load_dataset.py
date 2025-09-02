@@ -110,6 +110,8 @@ def add_eos_token(tokens, model, tokenizer):
     # add stop token to the end of the sequence
     if model.generation_config is None:
         eos_token = tokenizer.eos_token_id
+    elif model.generation_config.eos_token_id is None:
+        eos_token = tokenizer.eos_token_id
     else:
         if isinstance(model.generation_config.eos_token_id, list):
             eos_token = model.generation_config.eos_token_id[-1]

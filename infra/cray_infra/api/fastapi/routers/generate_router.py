@@ -3,10 +3,8 @@ from cray_infra.api.fastapi.generate.get_adaptors import get_adaptors
 from cray_infra.api.fastapi.generate.generate import generate
 from cray_infra.api.fastapi.generate.finish_work import finish_work
 from cray_infra.api.fastapi.generate.get_results import get_results
-from cray_infra.api.fastapi.generate.embed import embed
 from cray_infra.api.fastapi.generate.metrics import metrics
 
-from cray_infra.api.fastapi.routers.request_types.embed_request import EmbedRequest
 
 from cray_infra.api.fastapi.routers.request_types.generate_request import (
     GenerateRequest,
@@ -55,10 +53,6 @@ async def finish_work_endpoint(requests: FinishWorkRequests):
 async def get_adaptors_endpoint(request: GetAdaptorsRequest):
     return await get_adaptors(request)
 
-
-@generate_router.post("/embed")
-async def embed_endpoint(request: EmbedRequest):
-    return await embed(request)
 
 
 @generate_router.get("/metrics")
