@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITLE_PLACEHOLDER</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#fff',
+                primaryTextColor: '#333',
+                primaryBorderColor: '#7C8B9C',
+                lineColor: '#5D6D7E',
+                secondaryColor: '#006FBB',
+                tertiaryColor: '#fff'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+        
+        // Convert code blocks with mermaid language to mermaid divs
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle both <pre><code class="language-mermaid"> and <pre class="mermaid"><code>
+            const codeBlocks1 = document.querySelectorAll('pre code.language-mermaid');
+            const codeBlocks2 = document.querySelectorAll('pre.mermaid code');
+            const allCodeBlocks = [...codeBlocks1, ...codeBlocks2];
+            
+            allCodeBlocks.forEach(function(codeBlock) {
+                const pre = codeBlock.parentElement;
+                const mermaidDiv = document.createElement('div');
+                mermaidDiv.className = 'mermaid';
+                mermaidDiv.textContent = codeBlock.textContent;
+                pre.parentNode.replaceChild(mermaidDiv, pre);
+            });
+            
+            // Re-initialize mermaid after DOM changes
+            mermaid.init();
+        });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+            font-size: 1.8em;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        h4 {
+            color: #7f8c8d;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 20px 0;
+        }
+        code {
+            background: #ecf0f1;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 0.9em;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            font-size: inherit;
+            color: #ecf0f1;
+        }
+        .mermaid {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px auto;
+            text-align: center;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 20px;
+            margin: 20px 0;
+            color: #555;
+            font-style: italic;
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .nav {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .nav a {
+            color: white;
+            margin-right: 20px;
+        }
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+SLURM_DEBUG_GUIDE
+<h1 id="slurm-debugging-guide">SLURM Debugging Guide</h1>
+<h2 id="essential-commands">Essential Commands</h2>
+<h3 id="queue-information">1. Queue Information</h3>
+<pre class="bash"><code># Basic queue status
+squeue
+
+# Detailed queue with reasons
+squeue -l
+
+# Show only your jobs
+squeue -u $USER
+
+# Show jobs in specific state
+squeue -t PENDING
+squeue -t RUNNING</code></pre>
+<h3 id="node-information">2. Node Information</h3>
+<pre class="bash"><code># Show all nodes status
+sinfo
+
+# Detailed node info
+sinfo -l
+
+# Show only available nodes
+sinfo -t idle
+
+# Show node details
+scontrol show node
+scontrol show node &lt;nodename&gt;</code></pre>
+<h3 id="job-information">3. Job Information</h3>
+<pre class="bash"><code># Show all job details
+scontrol show job &lt;jobid&gt;
+
+# Show job history
+sacct -j &lt;jobid&gt;
+
+# Show why job is pending
+squeue -j &lt;jobid&gt; -o &quot;%A %r&quot;</code></pre>
+<h3 id="common-pending-reasons">4. Common Pending Reasons</h3>
+<table style="width:100%;">
+<colgroup>
+<col style="width: 29%" />
+<col style="width: 33%" />
+<col style="width: 37%" />
+</colgroup>
+<thead>
+<tr>
+<th>Reason</th>
+<th>Meaning</th>
+<th>Solution</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Resources</td>
+<td>Not enough CPU/Memory available</td>
+<td>Wait or reduce requirements</td>
+</tr>
+<tr>
+<td>Priority</td>
+<td>Other jobs have higher priority</td>
+<td>Wait or increase priority</td>
+</tr>
+<tr>
+<td>NodeDown</td>
+<td>Required nodes are offline</td>
+<td>Fix nodes or wait for admin</td>
+</tr>
+<tr>
+<td>ReqNodeNotAvail</td>
+<td>Requested specific unavailable node</td>
+<td>Change node requirements</td>
+</tr>
+<tr>
+<td>Dependency</td>
+<td>Waiting for another job</td>
+<td>Check dependency job</td>
+</tr>
+<tr>
+<td>QOSMaxCpuPerUserLimit</td>
+<td>User CPU limit reached</td>
+<td>Wait for jobs to finish</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node-state-recovery">5. Node State Recovery</h3>
+<pre class="bash"><code># Bring node back online (admin only)
+scontrol update nodename=&lt;node&gt; state=idle
+
+# Drain node for maintenance
+scontrol update nodename=&lt;node&gt; state=drain reason=&quot;maintenance&quot;
+
+# Resume node after drain
+scontrol update nodename=&lt;node&gt; state=resume</code></pre>
+<h3 id="job-management">6. Job Management</h3>
+<pre class="bash"><code># Cancel a job
+scancel &lt;jobid&gt;
+
+# Cancel all your pending jobs
+scancel -u $USER -t PENDING
+
+# Hold a job
+scontrol hold &lt;jobid&gt;
+
+# Release a held job
+scontrol release &lt;jobid&gt;
+
+# Modify job requirements
+scontrol update job=&lt;jobid&gt; timelimit=30:00</code></pre>
+<h2 id="troubleshooting-your-current-issue">Troubleshooting Your Current
+Issue</h2>
+<p>The node is DOWN because it “unexpectedly rebooted”. To fix:</p>
+<ol type="1">
+<li><strong>Check slurmd service status:</strong></li>
+</ol>
+<pre class="bash"><code>docker exec scalarlm-cray-1 systemctl status slurmd</code></pre>
+<ol start="2" type="1">
+<li><strong>Try to bring node back online:</strong></li>
+</ol>
+<pre class="bash"><code>docker exec scalarlm-cray-1 scontrol update nodename=faeb82d74fc0 state=idle</code></pre>
+<ol start="3" type="1">
+<li><strong>Restart slurmd if needed:</strong></li>
+</ol>
+<pre class="bash"><code>docker exec scalarlm-cray-1 systemctl restart slurmd</code></pre>
+<ol start="4" type="1">
+<li><strong>Check SLURM logs:</strong></li>
+</ol>
+<pre class="bash"><code>docker exec scalarlm-cray-1 tail -f /var/log/slurm/slurmd.log
+docker exec scalarlm-cray-1 tail -f /var/log/slurm/slurmctld.log</code></pre>
+<h2 id="common-issues-in-docker-slurm">Common Issues in Docker
+SLURM</h2>
+<ol type="1">
+<li><strong>Node goes DOWN after container restart</strong>
+<ul>
+<li>Solution: Update node state to idle after container starts</li>
+</ul></li>
+<li><strong>Memory limits too low</strong>
+<ul>
+<li>Check: <code>scontrol show config | grep Mem</code></li>
+<li>Fix: Update slurm.conf RealMemory setting</li>
+</ul></li>
+<li><strong>CPU detection issues</strong>
+<ul>
+<li>Check: <code>slurmd -C</code> to see detected resources</li>
+<li>Fix: Manually set CPUs in slurm.conf</li>
+</ul></li>
+<li><strong>Munge authentication failures</strong>
+<ul>
+<li>Check: <code>systemctl status munge</code></li>
+<li>Fix: Ensure munge key is consistent</li>
+</ul></li>
+</ol>
+<h2 id="monitoring-tips">Monitoring Tips</h2>
+<ol type="1">
+<li><strong>Watch queue in real-time:</strong></li>
+</ol>
+<pre class="bash"><code>watch -n 1 squeue</code></pre>
+<ol start="2" type="1">
+<li><strong>Monitor node status:</strong></li>
+</ol>
+<pre class="bash"><code>watch -n 5 &#39;sinfo -o &quot;%n %t %E&quot;&#39;</code></pre>
+<ol start="3" type="1">
+<li><strong>Track job progress:</strong></li>
+</ol>
+<pre class="bash"><code>tail -f /path/to/job/output.log</code></pre>
+<ol start="4" type="1">
+<li><strong>Check resource usage:</strong></li>
+</ol>
+<pre class="bash"><code>sstat -j &lt;jobid&gt; --format=JobID,MaxRSS,MaxVMSize,CPUTime</code></pre>
+        <div class="footer">
+            Generated with Mermaid diagram support
+        </div>
+    </div>
+</body>
+</html>

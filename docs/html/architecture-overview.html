@@ -1,0 +1,726 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITLE_PLACEHOLDER</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#fff',
+                primaryTextColor: '#333',
+                primaryBorderColor: '#7C8B9C',
+                lineColor: '#5D6D7E',
+                secondaryColor: '#006FBB',
+                tertiaryColor: '#fff'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+        
+        // Convert code blocks with mermaid language to mermaid divs
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle both <pre><code class="language-mermaid"> and <pre class="mermaid"><code>
+            const codeBlocks1 = document.querySelectorAll('pre code.language-mermaid');
+            const codeBlocks2 = document.querySelectorAll('pre.mermaid code');
+            const allCodeBlocks = [...codeBlocks1, ...codeBlocks2];
+            
+            allCodeBlocks.forEach(function(codeBlock) {
+                const pre = codeBlock.parentElement;
+                const mermaidDiv = document.createElement('div');
+                mermaidDiv.className = 'mermaid';
+                mermaidDiv.textContent = codeBlock.textContent;
+                pre.parentNode.replaceChild(mermaidDiv, pre);
+            });
+            
+            // Re-initialize mermaid after DOM changes
+            mermaid.init();
+        });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+            font-size: 1.8em;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        h4 {
+            color: #7f8c8d;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 20px 0;
+        }
+        code {
+            background: #ecf0f1;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 0.9em;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            font-size: inherit;
+            color: #ecf0f1;
+        }
+        .mermaid {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px auto;
+            text-align: center;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 20px;
+            margin: 20px 0;
+            color: #555;
+            font-style: italic;
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .nav {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .nav a {
+            color: white;
+            margin-right: 20px;
+        }
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+architecture overview
+<h1 id="scalarlm-architecture-documentation">ScalarLM Architecture
+Documentation</h1>
+<h2 id="high-level-system-architecture">1. High-Level System
+Architecture</h2>
+<pre class="mermaid"><code>graph TB
+    subgraph &quot;User Layer&quot;
+        CLI[CLI/Scripts]
+        API[REST API]
+        SDK[Python SDK]
+        OpenAI[OpenAI Compatible]
+    end
+
+    subgraph &quot;ScalarLM Core - Port 8000&quot;
+        Router[FastAPI Router
+All /v1/* endpoints]
+        WorkQueue[Inference Work Queue
+SQLite-based]
+        GenWorker[Generate Worker
+Async processing]
+        TrainWorker[Training Worker
+SLURM jobs]
+    end
+
+    subgraph &quot;vLLM Engine Layer&quot;
+        VLLMServer[vLLM Server
+Port 8001]
+        EngineFactory[Engine Factory
+HTTP or Direct mode]
+        TokenMgr[Tokenformer Manager
+Checkpoint loader]
+    end
+
+    subgraph &quot;Model Storage&quot;
+        BaseModel[Base Models
+HuggingFace models]
+        TrainedModels[Trained Checkpoints
+/app/cray/jobs/{hash}/*.pt]
+        Adapters[Tokenformer Adapters
+Weight modifications]
+    end
+
+    subgraph &quot;Infrastructure&quot;
+        Docker[Docker Containers]
+        SLURM[SLURM Scheduler]
+        K8s[Kubernetes
+Optional]
+    end
+
+    CLI --&gt; Router
+    API --&gt; Router
+    SDK --&gt; Router
+    OpenAI --&gt; Router
+
+    Router --&gt; WorkQueue
+    WorkQueue --&gt; GenWorker
+    Router --&gt; TrainWorker
+
+    GenWorker --&gt; EngineFactory
+    EngineFactory --&gt; VLLMServer
+    
+    GenWorker --&gt; TokenMgr
+    TokenMgr --&gt; TrainedModels
+    TokenMgr --&gt; Adapters
+    
+    VLLMServer --&gt; BaseModel
+    VLLMServer --&gt; Adapters
+
+    TrainWorker --&gt; SLURM
+    SLURM --&gt; TrainedModels
+    
+    Docker --&gt; VLLMServer
+    Docker --&gt; Router</code></pre>
+<h2 id="technology-overview">2. Technology Overview</h2>
+<pre class="mermaid"><code>graph LR
+    subgraph &quot;What is ScalarLM?&quot;
+        Desc[Distributed LLM Training &amp; Serving Platform]
+    end
+
+    subgraph &quot;Core Technologies&quot;
+        vLLM[vLLM
+High-performance
+LLM inference engine]
+        FastAPI[FastAPI
+Modern Python
+web framework]
+        PyTorch[PyTorch
+Deep learning
+framework]
+        LoRA[LoRA
+Efficient model
+fine-tuning]
+    end
+
+    subgraph &quot;Infrastructure&quot;
+        Docker[Docker
+Container
+platform]
+        SLURM[SLURM
+Job scheduler
+for HPC]
+        MPI[MPI
+Multi-node
+communication]
+    end
+
+    subgraph &quot;Key Concepts&quot;
+        Checkpoint[Checkpoints
+.pt files with
+model weights]
+        Adapter[Adapters
+Small model
+modifications]
+        FLOP[FLOPs
+Computational
+cost tracking]
+    end
+
+    Desc --&gt; vLLM
+    Desc --&gt; FastAPI
+    vLLM --&gt; PyTorch
+    vLLM --&gt; LoRA
+    LoRA --&gt; Adapter
+    PyTorch --&gt; Checkpoint
+    Docker --&gt; vLLM
+    SLURM --&gt; MPI
+    vLLM --&gt; FLOP</code></pre>
+<h2 id="training-pipeline-mid-level">3. Training Pipeline
+(Mid-Level)</h2>
+<pre class="mermaid"><code>flowchart TD
+    Start[User submits
+training request] --&gt; API[&quot;/v1/megatron/train endpoint&quot;]
+    
+    API --&gt; Upload[Upload training data
+multipart/form-data]
+    Upload --&gt; Validate{Validate
+parameters}
+    Validate --&gt;|Invalid| Error[Return 422 error]
+    Validate --&gt;|Valid| Hash[Generate job hash
+from parameters]
+    
+    Hash --&gt; JobDir[Create job directory
+/app/cray/jobs/{hash}]
+    JobDir --&gt; SLURM[Submit SLURM job]
+    
+    SLURM --&gt; Response[Return job_status
+and job_hash]
+    
+    subgraph &quot;SLURM Execution&quot;
+        Worker[Training Worker] --&gt; LoadBase[Load base model
+e.g. TinyLlama]
+        LoadBase --&gt; PrepData[Prepare training
+dataset from JSONL]
+        
+        PrepData --&gt; Train[Train with LoRA
+15-150 steps]
+        
+        Train --&gt; Save[Save checkpoint
+checkpoint_15.pt]
+        Save --&gt; Metrics[Log metrics
+loss, FLOPs, time]
+    end
+    
+    Metrics --&gt; Complete[Job completes]
+    Complete --&gt; Ready[Model ready as
+adapter via hash]</code></pre>
+<h2 id="generation-pipeline-mid-level">4. Generation Pipeline
+(Mid-Level)</h2>
+<pre class="mermaid"><code>flowchart LR
+    subgraph &quot;Work Queue Flow&quot;
+        User[User Request] --&gt; Router[&quot;/v1/generate&quot;]
+        Router --&gt; Queue[SQLite Work Queue]
+        Queue --&gt; GetWork[Worker pulls work
+via get_work]
+    end
+
+    subgraph &quot;Adapter Discovery&quot;
+        GetWork --&gt; CheckModel{Is model
+a job hash?}
+        CheckModel --&gt;|Yes| GetAdaptors[get_adaptors()
+finds .pt files]
+        CheckModel --&gt;|No| UseBase[Use base model]
+        GetAdaptors --&gt; LoadLoRA[LoadLoRAAdapterRequest
+to vLLM]
+        LoadLoRA --&gt; Tokenformer[Load via
+Tokenformer system]
+    end
+
+    subgraph &quot;Generation&quot;
+        Tokenformer --&gt; Generate[vLLM generates
+via HTTP/Direct]
+        UseBase --&gt; Generate
+        Generate --&gt; FLOPs[Calculate FLOPs]
+        FLOPs --&gt; FinishWork[finish_work()
+marks complete]
+    end
+
+    subgraph &quot;Response&quot;
+        FinishWork --&gt; Queue2[Update queue]
+        Queue2 --&gt; GetResults[Client calls
+get_results()]
+        GetResults --&gt; Response[Return response
+with metrics]
+    end</code></pre>
+<h2 id="low-level-training-code-path">5. Low-Level Training Code
+Path</h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant User
+    participant API as megatron_router.py
+    participant Upload as upload_training_data.py
+    participant Launch as launch_training_job.py
+    participant SLURM as SLURM Scheduler
+    participant Worker as Training Script
+    participant FS as File System
+
+    User-&gt;&gt;API: POST /v1/megatron/train
+    API-&gt;&gt;Upload: upload_training_data(request)
+    Upload-&gt;&gt;Upload: save multipart file
+    Upload-&gt;&gt;Upload: parse config JSON
+    Upload--&gt;&gt;API: training_data_path, params
+    
+    API-&gt;&gt;Launch: launch_training_job(job_config)
+    Launch-&gt;&gt;Launch: generate_hash(params)
+    Launch-&gt;&gt;FS: mkdir /app/cray/jobs/{hash}
+    Launch-&gt;&gt;FS: save job_config.json
+    
+    Launch-&gt;&gt;SLURM: sbatch train_job.sh
+    SLURM--&gt;&gt;Launch: job_id
+    Launch--&gt;&gt;API: job_status
+    
+    API--&gt;&gt;User: TrainResponse(job_hash, status)
+    
+    Note over SLURM,Worker: Asynchronous SLURM execution
+    
+    SLURM-&gt;&gt;Worker: Execute training
+    Worker-&gt;&gt;Worker: Load base model
+    Worker-&gt;&gt;Worker: Setup LoRA config
+    
+    loop Training Steps (15)
+        Worker-&gt;&gt;Worker: forward_pass()
+        Worker-&gt;&gt;Worker: calculate_loss()
+        Worker-&gt;&gt;Worker: backward_pass()
+        Worker-&gt;&gt;Worker: optimizer.step()
+    end
+    
+    Worker-&gt;&gt;FS: torch.save(checkpoint_15.pt)
+    Worker-&gt;&gt;SLURM: Job complete</code></pre>
+<h2 id="low-level-generation-code-path">6. Low-Level Generation Code
+Path</h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant User
+    participant Router as generate_router.py
+    participant Queue as Work Queue
+    participant Worker as create_generate_worker.py
+    participant GetWork as get_work.py
+    participant Adaptors as get_adaptors.py
+    participant VLLM as vLLM Server:8001
+    participant Tokenformer as tokenformer.py
+
+    User-&gt;&gt;Router: POST /v1/generate
+    Router-&gt;&gt;Queue: Add work item
+    Router--&gt;&gt;User: {&quot;request_id&quot;: &quot;req_123&quot;}
+    
+    Note over Worker: Worker polling loop
+    Worker-&gt;&gt;Router: POST /v1/generate/get_work
+    Router-&gt;&gt;GetWork: get_work(batch_size)
+    GetWork-&gt;&gt;Queue: Get next item
+    GetWork-&gt;&gt;Adaptors: get_adaptors(request)
+    
+    alt Model is job hash
+        Adaptors-&gt;&gt;Adaptors: scan /app/cray/jobs/{hash}/*.pt
+        Adaptors--&gt;&gt;GetWork: [&quot;checkpoint_15.pt&quot;]
+        GetWork--&gt;&gt;Worker: work + new_adaptors
+        
+        Worker-&gt;&gt;Worker: add_new_adaptor()
+        Worker-&gt;&gt;VLLM: LoadLoRAAdapterRequest
+        VLLM-&gt;&gt;Tokenformer: from_local_checkpoint()
+        Tokenformer-&gt;&gt;Tokenformer: torch.load(checkpoint.pt)
+        Tokenformer-&gt;&gt;Tokenformer: extract tokenformer weights
+        Tokenformer--&gt;&gt;VLLM: adapter loaded
+    else Base model
+        GetWork--&gt;&gt;Worker: work item (no adaptors)
+    end
+    
+    Worker-&gt;&gt;VLLM: create_completion(request)
+    VLLM--&gt;&gt;Worker: generated_text
+    
+    Worker-&gt;&gt;Worker: compute_flop_count()
+    Worker-&gt;&gt;Router: POST /v1/generate/finish_work
+    Router-&gt;&gt;Queue: Mark complete
+    
+    User-&gt;&gt;Router: POST /v1/generate/get_results
+    Router-&gt;&gt;Queue: Get results
+    Queue--&gt;&gt;Router: completed result
+    Router--&gt;&gt;User: {&quot;response&quot;: &quot;...&quot;, &quot;flop_count&quot;: 150000000}</code></pre>
+<h2 id="component-relationships">7. Component Relationships</h2>
+<pre class="mermaid"><code>graph TD
+    subgraph &quot;API Layer - All /v1/*&quot;
+        FastAPI[FastAPI Application
+main.py]
+        GenRouter[Generate Router
+generate_router.py]
+        OpenAIv1[OpenAI v1 Router
+openai_v1_router.py]
+        MegatronRouter[Megatron Router
+megatron_router.py]
+        SLURMRouter[SLURM Router
+slurm_router.py]
+        HealthRouter[Health Router
+health_router.py]
+    end
+
+    subgraph &quot;Work Queue System&quot;
+        GenWorker[Generate Worker
+create_generate_worker.py]
+        GetWork[Get Work
+get_work.py]
+        GetAdaptors[Get Adaptors
+get_adaptors.py]
+        FinishWork[Finish Work
+finish_work.py]
+        WorkQueue[SQLite Queue
+inference_work_queue.py]
+    end
+
+    subgraph &quot;Adapter Management&quot;
+        TokenMgr[Tokenformer Manager
+tokenformer.py]
+        ModelState[Model State Manager
+Manages weight swapping]
+        AdapterCache[Adapter Cache
+LRU caching]
+    end
+
+    subgraph &quot;vLLM Integration&quot;
+        EngineFactory[Engine Factory
+engine_factory.py]
+        HTTPEngine[HTTP Engine
+http_engine.py - Port 8001]
+        DirectEngine[Direct Engine
+direct_engine.py]
+        CreateVLLM[Create vLLM
+create_vllm.py]
+    end
+
+    subgraph &quot;Storage&quot;
+        Jobs[Job Checkpoints
+/app/cray/jobs/{hash}/*.pt]
+        Config[Configuration
+default_config.py]
+    end
+
+    FastAPI --&gt; GenRouter
+    FastAPI --&gt; OpenAIv1
+    FastAPI --&gt; MegatronRouter
+    FastAPI --&gt; SLURMRouter
+    FastAPI --&gt; HealthRouter
+
+    GenRouter --&gt; GetWork
+    GenRouter --&gt; FinishWork
+    GetWork --&gt; WorkQueue
+    GetWork --&gt; GetAdaptors
+    
+    GenWorker --&gt; GetWork
+    GenWorker --&gt; GetAdaptors
+    GenWorker --&gt; EngineFactory
+    
+    GetAdaptors --&gt; Jobs
+    GenWorker --&gt; TokenMgr
+    
+    TokenMgr --&gt; ModelState
+    TokenMgr --&gt; AdapterCache
+    TokenMgr --&gt; Jobs
+    
+    EngineFactory --&gt; HTTPEngine
+    EngineFactory --&gt; DirectEngine
+    CreateVLLM --&gt; HTTPEngine
+    
+    Config --&gt; EngineFactory
+    Config --&gt; GenWorker</code></pre>
+<h2 id="docker-build-process">8. Docker Build Process</h2>
+<pre class="mermaid"><code>flowchart TD
+    subgraph &quot;Multi-Stage Build&quot;
+        Base[Base Image Selection
+CPU/NVIDIA/AMD]
+        Base --&gt; VLLM[vLLM Build Stage]
+        VLLM --&gt; Infra[Infrastructure Stage]
+        Infra --&gt; Final[Final Image]
+    end
+
+    subgraph &quot;Base Stage Details&quot;
+        CPU[Ubuntu 24.04
++ Python 3.12
++ PyTorch CPU]
+        NVIDIA[NVIDIA PyTorch 24.07
++ CUDA 12.x
++ Flash Attention]
+        AMD[ROCm Base
++ HIP
++ Custom kernels]
+    end
+
+    subgraph &quot;vLLM Build v0.10.0+&quot;
+        Source[vLLM Source
+Local copy or fork]
+        Source --&gt; BuildExt[Build C++ extensions
+cmake/ninja]
+        BuildExt --&gt; InstallVLLM[pip install vllm]
+        InstallVLLM --&gt; Adapters[Install ScalarLM adapters]
+    end
+
+    subgraph &quot;Final Setup&quot;
+        CopyCode[Copy ScalarLM code]
+        CopyCode --&gt; SetEnv[Set environment vars
+VLLM_USE_V1=1 for CPU]
+        SetEnv --&gt; SLURM[Install SLURM]
+        SLURM --&gt; Ready[Container Ready
+Ports 8000, 8001]
+    end
+
+    Base --&gt; CPU
+    Base --&gt; NVIDIA
+    Base --&gt; AMD
+    
+    CPU --&gt; VLLM
+    NVIDIA --&gt; VLLM
+    AMD --&gt; VLLM
+    
+    VLLM --&gt; Source
+    Adapters --&gt; Infra
+    Infra --&gt; CopyCode
+    Ready --&gt; Final</code></pre>
+<h2 id="key-file-locations">9. Key File Locations</h2>
+<pre class="mermaid"><code>graph TD
+    subgraph Configuration
+        Config[&quot;infra/cray_infra/util/default_config.py
+Main configuration&quot;]
+        EnvFile[&quot;.env.example
+Environment variables&quot;]
+    end
+
+    subgraph &quot;API Layer /v1/*&quot;
+        MainAPI[&quot;infra/cray_infra/api/fastapi/main.py
+FastAPI app - Port 8000&quot;]
+        Routers[&quot;infra/cray_infra/api/fastapi/routers/
+generate, megatron, openai_v1, slurm&quot;]
+    end
+
+    subgraph &quot;Worker &amp; Queue&quot;
+        Workers1[&quot;infra/cray_infra/one_server/
+create_generate_worker.py, create_vllm.py&quot;]
+        Generate[&quot;infra/cray_infra/api/fastapi/generate/
+get_work.py, finish_work.py, get_adaptors.py&quot;]
+    end
+
+    subgraph &quot;vLLM Adapters&quot;
+        VLLMWrapper[&quot;infra/cray_infra/vllm/
+http_engine.py, direct_engine.py&quot;]
+        Adapters[&quot;infra/cray_infra/adapters/
+tokenformer.py, model state management&quot;]
+    end
+
+    subgraph &quot;Training System&quot;
+        Training[&quot;infra/cray_infra/training/
+launch_training_job.py, SLURM integration&quot;]
+    end
+
+    subgraph &quot;Runtime Data&quot;
+        Jobs[&quot;/app/cray/jobs/{hash}/
+checkpoint_15.pt files&quot;]
+        WorkDB[&quot;/app/cray/inference_work_queue.sqlite
+Work queue database&quot;]
+    end
+
+    Config --&gt; MainAPI
+    MainAPI --&gt; Routers
+    Routers --&gt; Generate
+    Generate --&gt; Workers1
+    Workers1 --&gt; VLLMWrapper
+    VLLMWrapper --&gt; Adapters
+    Adapters --&gt; Jobs
+    Generate --&gt; WorkDB
+    Training --&gt; Jobs</code></pre>
+<h2 id="notes-for-emacs-users">Notes for Emacs Users</h2>
+<p>To work with these Mermaid diagrams in Emacs:</p>
+<ol type="1">
+<li><p>Install <code>mermaid-mode</code> from MELPA:</p>
+<pre class="elisp"><code>M-x package-install RET mermaid-mode RET</code></pre></li>
+<li><p>For live preview, install <code>mermaid-cli</code>:</p>
+<pre class="bash"><code>npm install -g @mermaid-js/mermaid-cli</code></pre></li>
+<li><p>Configure Emacs:</p>
+<pre class="elisp"><code>(setq mermaid-output-format &quot;.svg&quot;)
+(setq mermaid-tmp-dir &quot;/tmp/mermaid&quot;)</code></pre></li>
+<li><p>Commands:</p>
+<ul>
+<li><code>C-c C-c</code> - Compile current diagram</li>
+<li><code>C-c C-o</code> - Open compiled diagram</li>
+<li><code>C-c C-f</code> - Compile file</li>
+<li><code>C-c C-r</code> - Compile region</li>
+</ul></li>
+<li><p>For inline preview in Org-mode:</p>
+<pre class="org"><code>#+BEGIN_SRC mermaid :file diagram.svg
+graph TD
+    A --&gt; B
+#+END_SRC</code></pre></li>
+</ol>
+        <div class="footer">
+            Generated with Mermaid diagram support
+        </div>
+    </div>
+</body>
+</html>

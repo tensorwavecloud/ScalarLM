@@ -94,8 +94,8 @@ RUN pip install setuptools-scm
 
 # Configure vLLM source - can use either local directory or remote repo
 ARG VLLM_SOURCE=remote
-ARG VLLM_BRANCH=rschiavi/vllm-adapter
-ARG VLLM_REPO=https://github.com/supermassive-intelligence/vllm.git
+ARG VLLM_BRANCH=main
+ARG VLLM_REPO=https://github.com/supermassive-intelligence/vllm-fork.git
 
 # Handle vLLM source - keep it simple with bind mount approach
 COPY scripts/build-copy-vllm.sh ${INSTALL_ROOT}/build-copy-vllm.sh

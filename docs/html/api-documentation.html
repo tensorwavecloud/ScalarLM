@@ -1,0 +1,847 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TITLE_PLACEHOLDER</title>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+    <script>
+        // Initialize Mermaid
+        mermaid.initialize({ 
+            startOnLoad: true,
+            theme: 'default',
+            themeVariables: {
+                primaryColor: '#fff',
+                primaryTextColor: '#333',
+                primaryBorderColor: '#7C8B9C',
+                lineColor: '#5D6D7E',
+                secondaryColor: '#006FBB',
+                tertiaryColor: '#fff'
+            },
+            flowchart: {
+                useMaxWidth: true,
+                htmlLabels: true,
+                curve: 'basis'
+            }
+        });
+        
+        // Convert code blocks with mermaid language to mermaid divs
+        document.addEventListener('DOMContentLoaded', function() {
+            // Handle both <pre><code class="language-mermaid"> and <pre class="mermaid"><code>
+            const codeBlocks1 = document.querySelectorAll('pre code.language-mermaid');
+            const codeBlocks2 = document.querySelectorAll('pre.mermaid code');
+            const allCodeBlocks = [...codeBlocks1, ...codeBlocks2];
+            
+            allCodeBlocks.forEach(function(codeBlock) {
+                const pre = codeBlock.parentElement;
+                const mermaidDiv = document.createElement('div');
+                mermaidDiv.className = 'mermaid';
+                mermaidDiv.textContent = codeBlock.textContent;
+                pre.parentNode.replaceChild(mermaidDiv, pre);
+            });
+            
+            // Re-initialize mermaid after DOM changes
+            mermaid.init();
+        });
+    </script>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 40px 20px;
+            background: #f5f7fa;
+        }
+        .container {
+            background: white;
+            border-radius: 10px;
+            padding: 40px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 3px solid #3498db;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+        }
+        h2 {
+            color: #34495e;
+            margin-top: 40px;
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 2px solid #ecf0f1;
+            font-size: 1.8em;
+        }
+        h3 {
+            color: #34495e;
+            margin-top: 30px;
+            margin-bottom: 15px;
+            font-size: 1.4em;
+        }
+        h4 {
+            color: #7f8c8d;
+            margin-top: 20px;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+        pre {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 20px 0;
+        }
+        code {
+            background: #ecf0f1;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-family: 'SF Mono', Monaco, 'Cascadia Code', 'Roboto Mono', monospace;
+            font-size: 0.9em;
+        }
+        pre code {
+            background: none;
+            padding: 0;
+            font-size: inherit;
+            color: #ecf0f1;
+        }
+        .mermaid {
+            background: #f8f9fa;
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 30px auto;
+            text-align: center;
+            overflow-x: auto;
+            max-width: 100%;
+        }
+        blockquote {
+            border-left: 4px solid #3498db;
+            padding-left: 20px;
+            margin: 20px 0;
+            color: #555;
+            font-style: italic;
+            background: #f8f9fa;
+            padding: 15px 20px;
+            border-radius: 0 8px 8px 0;
+        }
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 20px 0;
+        }
+        th, td {
+            border: 1px solid #ddd;
+            padding: 12px;
+            text-align: left;
+        }
+        th {
+            background: #3498db;
+            color: white;
+        }
+        tr:nth-child(even) {
+            background: #f9f9f9;
+        }
+        ul, ol {
+            margin: 15px 0;
+            padding-left: 30px;
+        }
+        li {
+            margin: 8px 0;
+        }
+        a {
+            color: #3498db;
+            text-decoration: none;
+        }
+        a:hover {
+            text-decoration: underline;
+        }
+        .nav {
+            background: #2c3e50;
+            color: white;
+            padding: 15px 20px;
+            border-radius: 8px;
+            margin-bottom: 30px;
+        }
+        .nav a {
+            color: white;
+            margin-right: 20px;
+        }
+        .footer {
+            margin-top: 50px;
+            padding-top: 20px;
+            border-top: 1px solid #ecf0f1;
+            text-align: center;
+            color: #7f8c8d;
+            font-size: 0.9em;
+        }
+        .warning {
+            background: #fff3cd;
+            border-left: 4px solid #ffc107;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .info {
+            background: #d1ecf1;
+            border-left: 4px solid #17a2b8;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .success {
+            background: #d4edda;
+            border-left: 4px solid #28a745;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+        .error {
+            background: #f8d7da;
+            border-left: 4px solid #dc3545;
+            padding: 15px 20px;
+            margin: 20px 0;
+            border-radius: 0 8px 8px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+api documentation
+<h1 id="scalarlm-api-documentation">ScalarLM API Documentation</h1>
+<h2 id="api-architecture-overview">API Architecture Overview</h2>
+<pre class="mermaid"><code>graph TB
+    subgraph &quot;Client Access&quot;
+        HTTP[HTTP Clients]
+        SDK[Python SDK]
+        CLI[CLI Tools]
+    end
+
+    subgraph &quot;ScalarLM API Layer - Port 8000&quot;
+        FastAPI[FastAPI Server]
+        
+        subgraph &quot;API Routers - All under /v1&quot;
+            GenRoute[&quot;Generate Router /v1/generate/*&quot;]
+            OpenAIRoute[&quot;OpenAI v1 Router /v1/*&quot;]
+            MegatronRoute[&quot;Megatron Router /v1/megatron/*&quot;]
+            SLURMRoute[&quot;SLURM Router /slurm/*&quot;]
+            HealthRoute[&quot;Health Router /v1/health&quot;]
+        end
+
+        subgraph &quot;Work Queue System&quot;
+            WorkQueue[&quot;Inference Work Queue&quot;]
+            AdapterMgr[&quot;Adapter Manager&quot;]
+        end
+    end
+
+    subgraph &quot;vLLM Server - Port 8001&quot;
+        VLLMOpenAI[OpenAI Compatible API]
+        
+        subgraph &quot;vLLM Endpoints&quot;
+            Models[&quot;/v1/models&quot;]
+            Complete[&quot;/v1/completions&quot;]
+            Chat[&quot;/v1/chat/completions&quot;]
+            LoRA[&quot;/v1/load_lora_adapter&quot;]
+            Unload[&quot;/v1/unload_lora_adapter&quot;]
+        end
+    end
+
+    HTTP --&gt; FastAPI
+    SDK --&gt; FastAPI
+    CLI --&gt; FastAPI
+    
+    FastAPI --&gt; GenRoute
+    FastAPI --&gt; OpenAIRoute
+    FastAPI --&gt; MegatronRoute
+    FastAPI --&gt; SLURMRoute
+    FastAPI --&gt; HealthRoute
+    
+    GenRoute --&gt; WorkQueue
+    WorkQueue --&gt; AdapterMgr
+    AdapterMgr --&gt; VLLMOpenAI
+    OpenAIRoute --&gt; VLLMOpenAI
+    
+    VLLMOpenAI --&gt; Models
+    VLLMOpenAI --&gt; Complete
+    VLLMOpenAI --&gt; Chat
+    VLLMOpenAI --&gt; LoRA
+    VLLMOpenAI --&gt; Unload</code></pre>
+<h2 id="scalarlm-api-endpoints-port-8000">ScalarLM API Endpoints (Port
+8000)</h2>
+<h3 id="generation-endpoints-work-queue-based">1. Generation Endpoints
+(Work Queue Based)</h3>
+<pre class="mermaid"><code>graph LR
+    subgraph &quot;Generate Router /v1/generate&quot;
+        Gen[&quot;POST /v1/generate - Submit work&quot;]
+        GetWork[&quot;POST /v1/generate/get_work - Workers pull work&quot;]
+        FinishWork[&quot;POST /v1/generate/finish_work - Complete work&quot;]
+        GetResults[&quot;POST /v1/generate/get_results - Get results&quot;]
+        GetAdaptors[&quot;POST /v1/generate/get_adaptors - List adapters&quot;]
+        Metrics[&quot;GET /v1/generate/metrics - System metrics&quot;]
+    end
+
+    subgraph &quot;Work Queue Flow&quot;
+        Submit[Client submits request]
+        Queue[Added to work queue]
+        Worker[Worker pulls work]
+        Process[Process with vLLM]
+        Complete[Mark complete]
+        Retrieve[Client gets results]
+    end
+
+    Submit --&gt; Gen
+    Gen --&gt; Queue
+    Queue --&gt; GetWork
+    GetWork --&gt; Worker
+    Worker --&gt; Process
+    Process --&gt; FinishWork
+    FinishWork --&gt; Complete
+    Complete --&gt; GetResults
+    GetResults --&gt; Retrieve</code></pre>
+<h4 id="post-v1generate">POST <code>/v1/generate</code></h4>
+<pre class="json"><code>// Request - Submit work to queue
+{
+  &quot;prompt&quot;: &quot;What is 3+3?&quot;,
+  &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,  // or job hash like &quot;a1b2c3d4e5f6&quot;
+  &quot;max_tokens&quot;: 100,
+  &quot;request_type&quot;: &quot;generate&quot;
+}
+
+// Response
+{
+  &quot;request_id&quot;: &quot;req_12345&quot;,
+  &quot;status&quot;: &quot;queued&quot;
+}</code></pre>
+<h4 id="post-v1generateget_work">POST
+<code>/v1/generate/get_work</code></h4>
+<pre class="json"><code>// Request - Worker pulls work
+{
+  &quot;batch_size&quot;: 4,
+  &quot;loaded_adaptor_count&quot;: 2
+}
+
+// Response
+{
+  &quot;requests&quot;: [
+    {
+      &quot;prompt&quot;: &quot;What is 3+3?&quot;,
+      &quot;request_id&quot;: &quot;req_12345&quot;,
+      &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+      &quot;request_type&quot;: &quot;generate&quot;,
+      &quot;max_tokens&quot;: 100
+    }
+  ],
+  &quot;new_adaptors&quot;: {
+    &quot;new_adaptors&quot;: [&quot;job_hash_123&quot;, &quot;job_hash_456&quot;]
+  }
+}</code></pre>
+<h4 id="post-v1generatefinish_work">POST
+<code>/v1/generate/finish_work</code></h4>
+<pre class="json"><code>// Request - Worker completes work
+{
+  &quot;requests&quot;: [
+    {
+      &quot;request_id&quot;: &quot;req_12345&quot;,
+      &quot;response&quot;: &quot;The answer is 6.&quot;,
+      &quot;token_count&quot;: 15,
+      &quot;flop_count&quot;: 150000000
+    }
+  ]
+}</code></pre>
+<h4 id="post-v1generateget_results">POST
+<code>/v1/generate/get_results</code></h4>
+<pre class="json"><code>// Request - Client retrieves results
+{
+  &quot;request_ids&quot;: [&quot;req_12345&quot;]
+}
+
+// Response
+{
+  &quot;results&quot;: [
+    {
+      &quot;request_id&quot;: &quot;req_12345&quot;,
+      &quot;response&quot;: &quot;The answer is 6.&quot;,
+      &quot;token_count&quot;: 15,
+      &quot;flop_count&quot;: 150000000,
+      &quot;status&quot;: &quot;completed&quot;
+    }
+  ]
+}</code></pre>
+<h3 id="training-endpoints-megatron-router">2. Training Endpoints
+(Megatron Router)</h3>
+<pre class="mermaid"><code>graph TD
+    subgraph &quot;Megatron Training API /v1/megatron&quot;
+        Train[&quot;POST /v1/megatron/train - Start training job&quot;]
+        JobInfo[&quot;GET /v1/megatron/train/{job_hash} - Get job info&quot;]
+        Logs[&quot;GET /v1/megatron/train/logs/{model_name} - Stream logs&quot;]
+        ListModels[&quot;GET /v1/megatron/list_models - List trained models&quot;]
+        SQueue[&quot;GET /v1/megatron/squeue - SLURM queue status&quot;]
+        GPUCount[&quot;GET /v1/megatron/gpu_count - Available GPUs&quot;]
+        NodeCount[&quot;GET /v1/megatron/node_count - Available nodes&quot;]
+    end
+
+    subgraph &quot;Training Request&quot;
+        BaseModel[base_model: str]
+        Dataset[dataset: multipart/form-data]
+        Config[job_config: dict]
+        DataPath[training_data_path: str]
+    end
+
+    subgraph &quot;Job Response&quot;
+        JobHash[job_hash: str]
+        JobStatus[job_status: dict]
+        Deployed[deployed: bool]
+        JobConfig[job_config: dict]
+    end
+
+    Train --&gt; Dataset
+    Train --&gt; Config
+    Train --&gt; JobHash
+    JobInfo --&gt; JobStatus
+    ListModels --&gt; JobHash</code></pre>
+<h4 id="post-v1megatrontrain">POST <code>/v1/megatron/train</code></h4>
+<pre class="bash"><code># Training request with multipart form data
+curl -X POST http://localhost:8000/v1/megatron/train \
+  -F &quot;file=@training_data.jsonl&quot; \
+  -F &#39;config={
+    &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+    &quot;num_steps&quot;: 15,
+    &quot;learning_rate&quot;: 0.0001,
+    &quot;batch_size&quot;: 4,
+    &quot;lora_r&quot;: 8,
+    &quot;lora_alpha&quot;: 16
+  }&#39;
+
+# Response
+{
+  &quot;job_status&quot;: {
+    &quot;job_id&quot;: &quot;12345&quot;,
+    &quot;status&quot;: &quot;PENDING&quot;,
+    &quot;slurm_state&quot;: &quot;PD&quot;
+  },
+  &quot;job_config&quot;: {
+    &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+    &quot;num_steps&quot;: 15,
+    &quot;job_hash&quot;: &quot;a1b2c3d4e5f6&quot;
+  },
+  &quot;deployed&quot;: false
+}</code></pre>
+<h4 id="get-v1megatrontrainjob_hash">GET
+<code>/v1/megatron/train/{job_hash}</code></h4>
+<pre class="json"><code>// Response
+{
+  &quot;job_hash&quot;: &quot;a1b2c3d4e5f6&quot;,
+  &quot;status&quot;: &quot;RUNNING&quot;,
+  &quot;checkpoint_path&quot;: &quot;/app/cray/jobs/a1b2c3d4e5f6/checkpoint_15.pt&quot;,
+  &quot;current_step&quot;: 10,
+  &quot;total_steps&quot;: 15,
+  &quot;loss&quot;: 0.234
+}</code></pre>
+<h3 id="slurm-management-endpoints">3. SLURM Management Endpoints</h3>
+<pre class="mermaid"><code>graph LR
+    subgraph &quot;SLURM Router /slurm&quot;
+        Status[&quot;GET /slurm/status - Cluster status&quot;]
+        Queue[&quot;GET /slurm/squeue - Job queue&quot;]
+        Endpoints[&quot;GET /slurm/endpoints - List routes&quot;]
+    end
+
+    subgraph &quot;Status Response&quot;
+        QueueInfo[queue: SLURM jobs]
+        Resources[resources: GPUs/nodes]
+        ClusterStatus[status: active/error]
+    end
+
+    subgraph &quot;Resources&quot;
+        GPUs[gpu_count: int]
+        Nodes[node_count: int]
+        Jobs[jobs: list]
+    end
+
+    Status --&gt; QueueInfo
+    Status --&gt; Resources
+    Queue --&gt; Jobs
+    Resources --&gt; GPUs
+    Resources --&gt; Nodes</code></pre>
+<h4 id="get-slurmstatus">GET <code>/slurm/status</code></h4>
+<pre class="json"><code>// Response
+{
+  &quot;queue&quot;: {
+    &quot;jobs&quot;: [
+      {
+        &quot;job_id&quot;: &quot;12345&quot;,
+        &quot;name&quot;: &quot;train_a1b2c3d4&quot;,
+        &quot;state&quot;: &quot;RUNNING&quot;,
+        &quot;time&quot;: &quot;0:05:23&quot;,
+        &quot;nodes&quot;: 1
+      }
+    ]
+  },
+  &quot;resources&quot;: {
+    &quot;gpu_count&quot;: 8,
+    &quot;node_count&quot;: 2
+  },
+  &quot;status&quot;: &quot;active&quot;
+}</code></pre>
+<h3 id="health-metrics-endpoints">4. Health &amp; Metrics Endpoints</h3>
+<pre class="mermaid"><code>graph TD
+    subgraph &quot;Health Router /v1&quot;
+        Health[&quot;GET /v1/health - System health&quot;]
+        Metrics[&quot;GET /v1/generate/metrics - Generation metrics&quot;]
+    end
+
+    subgraph &quot;Health Response&quot;
+        Status[status: healthy/unhealthy]
+        Components[components: dict]
+        Timestamp[timestamp: str]
+    end
+
+    subgraph &quot;Metrics Response&quot;
+        QueueSize[queue_size: int]
+        ActiveRequests[active_requests: int]
+        ModelStats[model_stats: dict]
+        Performance[performance: dict]
+    end
+
+    Health --&gt; Status
+    Health --&gt; Components
+    Metrics --&gt; QueueSize
+    Metrics --&gt; ActiveRequests
+    Metrics --&gt; ModelStats</code></pre>
+<h4 id="get-v1health">GET <code>/v1/health</code></h4>
+<pre class="json"><code>// Response
+{
+  &quot;status&quot;: &quot;healthy&quot;,
+  &quot;components&quot;: {
+    &quot;vllm_server&quot;: &quot;healthy&quot;,
+    &quot;work_queue&quot;: &quot;healthy&quot;,
+    &quot;slurm&quot;: &quot;active&quot;
+  },
+  &quot;timestamp&quot;: &quot;2024-01-27T10:00:00Z&quot;
+}</code></pre>
+<h2 id="openai-compatible-api-port-8000-8001">OpenAI Compatible API
+(Port 8000 → 8001)</h2>
+<h3 id="openai-v1-endpoints-scalarlm-proxy">OpenAI v1 Endpoints
+(ScalarLM Proxy)</h3>
+<pre class="mermaid"><code>graph TD
+    subgraph &quot;OpenAI v1 Router - ScalarLM&quot;
+        ChatComp[&quot;POST /v1/chat/completions - Chat completion&quot;]
+        Comp[&quot;POST /v1/completions - Text completion&quot;]
+        ModList[&quot;GET /v1/models - List available models&quot;]
+    end
+
+    subgraph &quot;Proxy Flow&quot;
+        Client[Client Request]
+        ScalarLM[ScalarLM:8000]
+        vLLM[vLLM:8001]
+        Response[Response]
+    end
+
+    subgraph &quot;Features&quot;
+        Streaming[SSE Streaming]
+        System[System Messages]
+        Multi[Multi-turn Chat]
+        Adapter[LoRA Adapter Support]
+    end
+
+    Client --&gt; ScalarLM
+    ScalarLM --&gt; vLLM
+    vLLM --&gt; Response
+    ChatComp --&gt; Streaming
+    ChatComp --&gt; System
+    ChatComp --&gt; Multi
+    Comp --&gt; Adapter</code></pre>
+<h4 id="post-v1chatcompletions">POST
+<code>/v1/chat/completions</code></h4>
+<pre class="json"><code>// Request (proxied to vLLM)
+{
+  &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,  // or job hash
+  &quot;messages&quot;: [
+    {&quot;role&quot;: &quot;system&quot;, &quot;content&quot;: &quot;You are a helpful assistant.&quot;},
+    {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What is 3+3?&quot;}
+  ],
+  &quot;temperature&quot;: 0.7,
+  &quot;max_tokens&quot;: 100,
+  &quot;stream&quot;: false
+}
+
+// Response (from vLLM)
+{
+  &quot;id&quot;: &quot;chatcmpl-123&quot;,
+  &quot;object&quot;: &quot;chat.completion&quot;,
+  &quot;created&quot;: 1706352000,
+  &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+  &quot;choices&quot;: [{
+    &quot;index&quot;: 0,
+    &quot;message&quot;: {
+      &quot;role&quot;: &quot;assistant&quot;,
+      &quot;content&quot;: &quot;3 + 3 equals 6.&quot;
+    },
+    &quot;finish_reason&quot;: &quot;stop&quot;
+  }],
+  &quot;usage&quot;: {
+    &quot;prompt_tokens&quot;: 20,
+    &quot;completion_tokens&quot;: 10,
+    &quot;total_tokens&quot;: 30
+  }
+}</code></pre>
+<h4 id="post-v1completions">POST <code>/v1/completions</code></h4>
+<pre class="json"><code>// Request (proxied to vLLM)
+{
+  &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+  &quot;prompt&quot;: &quot;The capital of France is&quot;,
+  &quot;max_tokens&quot;: 10,
+  &quot;temperature&quot;: 0.0,
+  &quot;stream&quot;: true
+}
+
+// Response (SSE stream from vLLM)
+data: {&quot;id&quot;:&quot;cmpl-1&quot;,&quot;object&quot;:&quot;text_completion&quot;,&quot;created&quot;:1706352000,&quot;model&quot;:&quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,&quot;choices&quot;:[{&quot;text&quot;:&quot; Paris&quot;,&quot;index&quot;:0,&quot;logprobs&quot;:null,&quot;finish_reason&quot;:null}]}
+data: {&quot;id&quot;:&quot;cmpl-1&quot;,&quot;object&quot;:&quot;text_completion&quot;,&quot;created&quot;:1706352000,&quot;model&quot;:&quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,&quot;choices&quot;:[{&quot;text&quot;:&quot;.&quot;,&quot;index&quot;:0,&quot;logprobs&quot;:null,&quot;finish_reason&quot;:&quot;stop&quot;}]}
+data: [DONE]</code></pre>
+<h2 id="vllm-server-native-endpoints-port-8001">vLLM Server Native
+Endpoints (Port 8001)</h2>
+<h3 id="vllm-openai-api">vLLM OpenAI API</h3>
+<pre class="mermaid"><code>graph TB
+    subgraph &quot;vLLM Native API&quot;
+        VModels[&quot;GET /v1/models - Model registry&quot;]
+        VChat[&quot;POST /v1/chat/completions - Chat endpoint&quot;]
+        VComplete[&quot;POST /v1/completions - Completion endpoint&quot;]
+    end
+
+    subgraph &quot;vLLM Adapter Management&quot;
+        LoadLoRA[&quot;POST /v1/load_lora_adapter - Load adapter&quot;]
+        UnloadLoRA[&quot;POST /v1/unload_lora_adapter - Unload adapter&quot;]
+    end
+
+    subgraph &quot;Adapter Loading&quot;
+        AdapterName[lora_name: job_hash]
+        AdapterPath[lora_path: /app/cray/jobs/path]
+        Tokenformer[Tokenformer weights]
+    end
+
+    LoadLoRA --&gt; AdapterName
+    LoadLoRA --&gt; AdapterPath
+    AdapterPath --&gt; Tokenformer</code></pre>
+<h4 id="post-v1load_lora_adapter-vllm-server">POST
+<code>/v1/load_lora_adapter</code> (vLLM Server)</h4>
+<pre class="json"><code>// Request (from generate worker)
+{
+  &quot;lora_name&quot;: &quot;a1b2c3d4e5f6&quot;,
+  &quot;lora_path&quot;: &quot;/app/cray/jobs/a1b2c3d4e5f6&quot;
+}
+
+// Note: The adapter loading uses ScalarLM&#39;s Tokenformer system
+// to load .pt checkpoint files and apply weights to base model</code></pre>
+<h2 id="api-authentication-headers">API Authentication &amp;
+Headers</h2>
+<pre class="mermaid"><code>graph LR
+    subgraph &quot;Authentication&quot;
+        APIKey[&quot;API Key - X-API-Key header&quot;]
+        Bearer[&quot;Bearer Token - Authorization header&quot;]
+        Session[&quot;Session Cookie - scalarlm_session&quot;]
+    end
+
+    subgraph &quot;Common Headers&quot;
+        ContentType[Content-Type: application/json]
+        Accept[Accept: application/json]
+        UserAgent[User-Agent: scalarlm-client/1.0]
+    end
+
+    subgraph &quot;Response Headers&quot;
+        RateLimit[X-RateLimit-Remaining]
+        RequestID[X-Request-ID]
+        ProcessTime[X-Process-Time-Ms]
+    end</code></pre>
+<h2 id="request-flow-diagram">Request Flow Diagram</h2>
+<pre class="mermaid"><code>sequenceDiagram
+    participant Client
+    participant ScalarLM as ScalarLM API 8000
+    participant Queue as Work Queue
+    participant Worker as Generate Worker
+    participant vLLM as vLLM Server 8001
+    participant Storage as Job Storage
+
+    Client-&gt;&gt;ScalarLM: POST /v1/generate
+    ScalarLM-&gt;&gt;Queue: Add to queue
+    ScalarLM--&gt;&gt;Client: Return request_id
+    
+    Worker-&gt;&gt;ScalarLM: POST /v1/generate/get_work
+    ScalarLM-&gt;&gt;Queue: Get next work item
+    Queue--&gt;&gt;ScalarLM: Work item + adapters
+    ScalarLM--&gt;&gt;Worker: Work response
+    
+    alt Has new adapter (job hash)
+        Worker-&gt;&gt;ScalarLM: POST /v1/generate/get_adaptors
+        ScalarLM-&gt;&gt;Storage: Find checkpoint_*.pt
+        Storage--&gt;&gt;ScalarLM: Adapter path
+        ScalarLM--&gt;&gt;Worker: Adapter info
+        Worker-&gt;&gt;vLLM: POST /v1/load_lora_adapter
+        vLLM-&gt;&gt;Storage: Load Tokenformer weights
+        vLLM--&gt;&gt;Worker: Adapter loaded
+    end
+    
+    Worker-&gt;&gt;vLLM: POST /v1/completions or /v1/chat/completions
+    vLLM--&gt;&gt;Worker: Generated text
+    
+    Worker-&gt;&gt;Worker: Calculate FLOPs
+    Worker-&gt;&gt;ScalarLM: POST /v1/generate/finish_work
+    ScalarLM-&gt;&gt;Queue: Mark complete
+    
+    Client-&gt;&gt;ScalarLM: POST /v1/generate/get_results
+    ScalarLM-&gt;&gt;Queue: Get results
+    Queue--&gt;&gt;ScalarLM: Completed results
+    ScalarLM--&gt;&gt;Client: Response with metrics</code></pre>
+<h2 id="error-responses">Error Responses</h2>
+<pre class="mermaid"><code>graph TD
+    subgraph &quot;HTTP Status Codes&quot;
+        OK200[&quot;200 OK - Success&quot;]
+        Created201[&quot;201 Created - Resource created&quot;]
+        BadRequest400[&quot;400 Bad Request - Invalid input&quot;]
+        Unauthorized401[&quot;401 Unauthorized - Auth required&quot;]
+        NotFound404[&quot;404 Not Found - Resource missing&quot;]
+        RateLimit429[&quot;429 Too Many Requests - Rate limited&quot;]
+        ServerError500[&quot;500 Internal Error - Server fault&quot;]
+        ServiceUnavail503[&quot;503 Service Unavailable - Overloaded&quot;]
+    end
+
+    subgraph &quot;Error Response Format&quot;
+        Error[&quot;JSON error object with code, message, details&quot;]
+    end
+
+    BadRequest400 --&gt; Error
+    NotFound404 --&gt; Error
+    ServerError500 --&gt; Error</code></pre>
+<h2 id="websocket-endpoints-future">WebSocket Endpoints (Future)</h2>
+<pre class="mermaid"><code>graph LR
+    subgraph &quot;WebSocket API&quot;
+        WSConnect[&quot;WS /ws/generate - Real-time generation&quot;]
+        WSChat[&quot;WS /ws/chat - Interactive chat&quot;]
+        WSMetrics[&quot;WS /ws/metrics - Live metrics&quot;]
+    end
+
+    subgraph &quot;WebSocket Events&quot;
+        Connect[connection.open]
+        Message[message.receive]
+        Token[token.generated]
+        Complete[generation.complete]
+        Disconnect[connection.close]
+    end
+
+    WSConnect --&gt; Connect
+    WSConnect --&gt; Token
+    WSChat --&gt; Message
+    WSMetrics --&gt; Complete</code></pre>
+<h2 id="sdk-usage-examples">SDK Usage Examples</h2>
+<h3 id="python-sdk-work-queue-based">Python SDK (Work Queue Based)</h3>
+<pre class="python"><code>from scalarlm import Client
+import asyncio
+
+# Initialize client
+client = Client(base_url=&quot;http://localhost:8000&quot;)
+
+# Submit generation request (async)
+async def generate_text():
+    # Submit work to queue
+    request_id = await client.generate(
+        prompt=&quot;What is 3+3?&quot;,
+        model=&quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+        max_tokens=100
+    )
+    
+    # Poll for results
+    result = await client.get_results(request_id)
+    print(result.response)
+    print(f&quot;FLOPs used: {result.flop_count}&quot;)
+
+# Train model using Megatron
+async def train_model():
+    with open(&quot;training_data.jsonl&quot;, &quot;rb&quot;) as f:
+        job = await client.megatron.train(
+            file=f,
+            config={
+                &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+                &quot;num_steps&quot;: 15,
+                &quot;learning_rate&quot;: 0.0001
+            }
+        )
+    print(f&quot;Training job hash: {job.job_hash}&quot;)
+    
+    # Use trained model (by job hash)
+    request_id = await client.generate(
+        prompt=&quot;What is 5+5?&quot;,
+        model=job.job_hash,  # Use job hash as model
+        max_tokens=100
+    )</code></pre>
+<h3 id="curl-examples">cURL Examples</h3>
+<pre class="bash"><code># Health check
+curl http://localhost:8000/v1/health
+
+# List models via OpenAI API
+curl http://localhost:8000/v1/models
+
+# Submit generation work
+curl -X POST http://localhost:8000/v1/generate \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;prompt&quot;: &quot;What is 3+3?&quot;,
+    &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+    &quot;max_tokens&quot;: 100,
+    &quot;request_type&quot;: &quot;generate&quot;
+  }&#39;
+# Returns: {&quot;request_id&quot;: &quot;req_12345&quot;, &quot;status&quot;: &quot;queued&quot;}
+
+# Get results
+curl -X POST http://localhost:8000/v1/generate/get_results \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;request_ids&quot;: [&quot;req_12345&quot;]
+  }&#39;
+
+# OpenAI-compatible chat completion (direct proxy)
+curl -X POST http://localhost:8000/v1/chat/completions \
+  -H &quot;Content-Type: application/json&quot; \
+  -d &#39;{
+    &quot;model&quot;: &quot;TinyLlama/TinyLlama-1.1B-Chat-v1.0&quot;,
+    &quot;messages&quot;: [
+      {&quot;role&quot;: &quot;user&quot;, &quot;content&quot;: &quot;What is 3+3?&quot;}
+    ],
+    &quot;stream&quot;: false
+  }&#39;
+
+# Check SLURM status
+curl http://localhost:8000/slurm/status</code></pre>
+<h2 id="rate-limiting-quotas">Rate Limiting &amp; Quotas</h2>
+<pre class="mermaid"><code>graph TD
+    subgraph &quot;Rate Limits&quot;
+        Global[Global: 1000 req/min]
+        PerUser[Per User: 100 req/min]
+        PerModel[Per Model: 50 req/min]
+    end
+
+    subgraph &quot;Resource Quotas&quot;
+        Tokens[Max Tokens: 4096]
+        Context[Max Context: 2048]
+        Batch[Max Batch: 32]
+        Concurrent[Max Concurrent: 10]
+    end
+
+    subgraph &quot;Response Headers&quot;
+        Limit[X-RateLimit-Limit: 100]
+        Remaining[X-RateLimit-Remaining: 95]
+        Reset[X-RateLimit-Reset: 1706352060]
+    end
+
+    Global --&gt; Limit
+    PerUser --&gt; Remaining
+    PerModel --&gt; Reset</code></pre>
+        <div class="footer">
+            Generated with Mermaid diagram support
+        </div>
+    </div>
+</body>
+</html>

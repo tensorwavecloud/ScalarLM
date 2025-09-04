@@ -12,8 +12,8 @@ services:
                 - BASE_NAME=${BASE_NAME}
                 - VLLM_TARGET_DEVICE=${VLLM_TARGET_DEVICE}
                 - VLLM_SOURCE=${VLLM_SOURCE:-remote}
-                - VLLM_BRANCH=${VLLM_BRANCH:-rschiavi/vllm-adapter}
-                - VLLM_REPO=${VLLM_REPO:-https://github.com/supermassive-intelligence/vllm.git}
+                - VLLM_BRANCH=${VLLM_BRANCH:-main}
+                - VLLM_REPO=${VLLM_REPO:-https://github.com/supermassive-intelligence/vllm-fork.git}
         ports:
             - "8000:8000"
             - "8001:8001"

@@ -1,7 +1,10 @@
 #!/bin/bash
+#
 # ScalarLM Master Test Runner - Unified interface for all test types
-# Combines deployment, integration, unit, performance, and quick tests
-
+# Many tests (integration) require running in the Docker instance.
+# For example, To run a single test in the container:
+#  % docker exec scalarlm-cray-1 python -m pytest /app/cray/test/integration/test_end_to_end_pipeline.py::test_quick_pipeline -v -s
+#
 set -e
 
 # Colors for output
@@ -15,22 +18,19 @@ NC='\033[0m'
 
 # Script location
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$SCRIPT_DIR"
+PROJECT_ROOT="$SCRIPT_DIR/../../"
 
 # Configuration
 DOCKER_IMAGE="${SCALARLM_DOCKER_IMAGE:-scalarlm-cray:latest}"
 TEST_ENV="local"  # local, docker, or auto
-QUICK_MODE=false
+HEALTH_MODE=false
 SERVER_CHECK=true
 SHOW_HELP=false
 
 # Test selection flags
-RUN_QUICK=false
+RUN_DEPLOYMENT=false
 RUN_UNIT=false
 RUN_INTEGRATION=false
-RUN_DEPLOYMENT=false
-RUN_PERFORMANCE=false
-RUN_VLLM_MODES=false
 RUN_ALL=true
 
 print_header() {
@@ -46,12 +46,9 @@ usage() {
     echo "Usage: $0 [TEST_TYPE] [OPTIONS]"
     echo ""
     echo -e "${BOLD}Test Types:${NC}"
-    echo "  quick              🏃 Quick smoke tests (deployment + unit basic)"
-    echo "  unit               🧪 Unit tests (fast, no Docker)"
+    echo "  deployment          🚀 Deployment tests (health, generate, train)"
     echo "  integration        🔗 Integration tests (Docker required)"
-    echo "  deployment         🚀 Deployment tests (live server required)"
-    echo "  performance        ⚡ Performance benchmarks"
-    echo "  vllm-modes         🔄 HTTP vs Direct vLLM mode tests"
+    echo ""
     echo "  all                🎯 All test suites (default)"
     echo ""
     echo -e "${BOLD}Environment Options:${NC}"
@@ -69,49 +66,26 @@ usage() {
     echo ""
     echo -e "${BOLD}Examples:${NC}"
     echo "  $0                          # Run all tests"
-    echo "  $0 quick                    # Quick smoke test"
-    echo "  $0 unit --local             # Unit tests locally"
+    echo "  $0 deployment               # Deployment tests"
     echo "  $0 integration --docker     # Integration tests in Docker"
-    echo "  $0 deployment              # API endpoint tests"
-    echo "  $0 vllm-modes              # Test HTTP vs Direct modes"
+    echo ""
     echo "  $0 all -v -f                # All tests, verbose, fail-fast"
     echo ""
     echo -e "${BOLD}Prerequisites:${NC}"
-    echo "  • For deployment tests: ScalarLM server running (docker-compose up -d cray)"
+    echo "  • For integration tests: ScalarLM server running (docker-compose up -d cray)"
     echo "  • For integration tests: Docker image built (docker-compose build cray)"
-    echo "  • For vLLM mode tests: Both HTTP and Direct vLLM accessible"
 }
 
 # Parse arguments
 while [[ $# -gt 0 ]]; do
     case $1 in
-        quick)
-            RUN_QUICK=true
-            RUN_ALL=false
-            shift
-            ;;
-        unit)
-            RUN_UNIT=true
-            RUN_ALL=false
-            shift
-            ;;
-        integration)
-            RUN_INTEGRATION=true
-            RUN_ALL=false
-            shift
-            ;;
         deployment)
             RUN_DEPLOYMENT=true
             RUN_ALL=false
             shift
             ;;
-        performance)
-            RUN_PERFORMANCE=true
-            RUN_ALL=false
-            shift
-            ;;
-        vllm-modes)
-            RUN_VLLM_MODES=true
+        integration)
+            RUN_INTEGRATION=true
             RUN_ALL=false
             shift
             ;;
@@ -231,34 +205,24 @@ detect_environment() {
 }
 
 # Test execution functions
-run_quick_tests() {
-    echo -e "${BOLD}${CYAN}🏃 QUICK SMOKE TESTS${NC}"
+run_deployment_tests() {
+    echo -e "${BOLD}${CYAN}🚀 DEPLOYMENT TESTS${NC}"
     echo "Running essential tests for fast feedback..."
     echo ""
     
-    # Basic unit tests
-    echo -e "${BLUE}▶ Quick Unit Tests${NC}"
-    "$PROJECT_ROOT/test/scripts/run_unit_tests.sh" test/unit/kv_cache/test_kv_cache_methods.py
-    
     # Health check if server is running
     if [ "$SERVER_RUNNING" = true ]; then
-        echo -e "${BLUE}▶ Quick Health Check${NC}"
+        echo -e "${BLUE}▶ Health Check${NC}"
         python "$PROJECT_ROOT/test/deployment/health.py"
+        
+        echo -e "${BLUE}▶ Generate Test${NC}"
+        python "$PROJECT_ROOT/test/deployment/generate.py"
+        
+        echo -e "${BLUE}▶ Train Test${NC}"
+        python "$PROJECT_ROOT/test/deployment/train.py"
     fi
     
-    echo -e "${GREEN}✓ Quick tests completed${NC}"
-}
-
-run_unit_tests() {
-    echo -e "${BOLD}${CYAN}🧪 UNIT TESTS${NC}"
-    
-    if [ "$TEST_ENV" = "docker" ] && [ "$DOCKER_IMAGE_AVAILABLE" = true ]; then
-        echo "Running unit tests in Docker..."
-        "$PROJECT_ROOT/test/scripts/run_docker_test.sh" test/unit/
-    else
-        echo "Running unit tests locally..."
-        "$PROJECT_ROOT/test/scripts/run_unit_tests.sh"
-    fi
+    echo -e "${GREEN}✓ Deployment tests completed${NC}"
 }
 
 run_integration_tests() {
@@ -268,9 +232,9 @@ run_integration_tests() {
     if docker ps --format "table {{.Names}}" | grep -q "scalarlm-cray"; then
         echo "Running integration tests against live ScalarLM container..."
         
-        # Ensure test dependencies are installed
-        echo "Installing test dependencies..."
-        pip install -q -r "$PROJECT_ROOT/test/requirements-pytest.txt"
+        # Ensure test dependencies are installed in the container
+        echo "Installing test dependencies in container..."
+        docker exec scalarlm-cray-1 pip install -q -r /app/cray/test/requirements-pytest.txt
         
         # Set environment for tests to run against running container
         export PYTHONPATH="$PROJECT_ROOT/infra:$PROJECT_ROOT/sdk:${PYTHONPATH:-}"
@@ -301,42 +265,7 @@ run_integration_tests() {
     fi
 }
 
-run_deployment_tests() {
-    echo -e "${BOLD}${CYAN}🚀 DEPLOYMENT TESTS${NC}"
-    
-    if [ "$SERVER_RUNNING" = true ]; then
-        echo "Running deployment tests against live server..."
-        "$PROJECT_ROOT/scripts/run-deployment-tests.sh"
-    else
-        echo -e "${RED}❌ Deployment tests require running server${NC}"
-        echo "Start with: docker-compose up -d cray"
-        return 1
-    fi
-}
 
-run_performance_tests() {
-    echo -e "${BOLD}${CYAN}⚡ PERFORMANCE TESTS${NC}"
-    
-    if [ -f "$PROJECT_ROOT/test/performance/compare_vllm_modes.py" ]; then
-        echo "Running vLLM mode performance comparison..."
-        python "$PROJECT_ROOT/test/performance/compare_vllm_modes.py"
-    else
-        echo -e "${YELLOW}⚠ No performance tests found${NC}"
-    fi
-}
-
-run_vllm_mode_tests() {
-    echo -e "${BOLD}${CYAN}🔄 VLLM MODE TESTS${NC}"
-    
-    if [ "$SERVER_RUNNING" = true ]; then
-        echo "Running HTTP vs Direct mode tests..."
-        "$PROJECT_ROOT/scripts/run-integration-tests.sh"
-    else
-        echo -e "${RED}❌ vLLM mode tests require running server${NC}"
-        echo "Start with: docker-compose up -d cray"
-        return 1
-    fi
-}
 
 # Main execution
 detect_environment
@@ -375,23 +304,12 @@ run_test_suite() {
 
 # Execute selected test suites
 if [ "$RUN_ALL" = true ]; then
-    run_test_suite "Quick Tests" run_quick_tests
-    run_test_suite "Unit Tests" run_unit_tests
-    run_test_suite "Integration Tests" run_integration_tests
     run_test_suite "Deployment Tests" run_deployment_tests
-    run_test_suite "Performance Tests" run_performance_tests
-elif [ "$RUN_QUICK" = true ]; then
-    run_test_suite "Quick Tests" run_quick_tests
-elif [ "$RUN_UNIT" = true ]; then
-    run_test_suite "Unit Tests" run_unit_tests
-elif [ "$RUN_INTEGRATION" = true ]; then
     run_test_suite "Integration Tests" run_integration_tests
 elif [ "$RUN_DEPLOYMENT" = true ]; then
     run_test_suite "Deployment Tests" run_deployment_tests
-elif [ "$RUN_PERFORMANCE" = true ]; then
-    run_test_suite "Performance Tests" run_performance_tests
-elif [ "$RUN_VLLM_MODES" = true ]; then
-    run_test_suite "vLLM Mode Tests" run_vllm_mode_tests
+elif [ "$RUN_INTEGRATION" = true ]; then
+    run_test_suite "Integration Tests" run_integration_tests
 fi
 
 # Final summary
