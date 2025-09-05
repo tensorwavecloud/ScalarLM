@@ -97,11 +97,21 @@ ARG VLLM_SOURCE=remote
 ARG VLLM_BRANCH=main
 ARG VLLM_REPO=https://github.com/supermassive-intelligence/vllm-fork.git
 
-# Handle vLLM source - keep it simple with bind mount approach
+# Handle vLLM source - support both local and remote modes
 COPY scripts/build-copy-vllm.sh ${INSTALL_ROOT}/build-copy-vllm.sh
+
+# Remote mode (default): clone from repository without mounting
+RUN if [ "${VLLM_SOURCE}" = "remote" ]; then \
+        bash ${INSTALL_ROOT}/build-copy-vllm.sh ${VLLM_SOURCE} ${INSTALL_ROOT}/vllm \
+        /dev/null ${VLLM_REPO} ${VLLM_BRANCH}; \
+    fi
+
+# Local mode: mount ./vllm directory and copy
 RUN --mount=type=bind,source=./vllm,target=/workspace/vllm \
-    bash ${INSTALL_ROOT}/build-copy-vllm.sh ${VLLM_SOURCE} ${INSTALL_ROOT}/vllm \
-    /workspace/vllm ${VLLM_REPO} ${VLLM_BRANCH}
+    if [ "${VLLM_SOURCE}" = "local" ]; then \
+        bash ${INSTALL_ROOT}/build-copy-vllm.sh ${VLLM_SOURCE} ${INSTALL_ROOT}/vllm \
+        /workspace/vllm ${VLLM_REPO} ${VLLM_BRANCH}; \
+    fi
 
 WORKDIR ${INSTALL_ROOT}/vllm
 

@@ -20,7 +20,7 @@ if [ "$VLLM_SOURCE" = "local" ]; then
         echo ""
         echo "   For local development, vLLM must be cloned into the ScalarLM directory:"
         echo "   cd /path/to/scalarlm"
-        echo "   git clone -b rschiavi/vllm-adapter https://github.com/funston/vllm.git vllm"
+        echo "   git clone -b main https://github.com/supermassive-intelligence/vllm-fork.git vllm"
         echo ""
         echo "   This will create: scalarlm/vllm/"
         exit 1
