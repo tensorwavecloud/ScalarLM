@@ -5,7 +5,6 @@ from cray_infra.api.fastapi.generate.finish_work import finish_work
 from cray_infra.api.fastapi.generate.get_results import get_results
 from cray_infra.api.fastapi.generate.metrics import metrics
 
-
 from cray_infra.api.fastapi.routers.request_types.generate_request import (
     GenerateRequest,
 )
@@ -52,7 +51,6 @@ async def finish_work_endpoint(requests: FinishWorkRequests):
 @generate_router.post("/get_adaptors")
 async def get_adaptors_endpoint(request: GetAdaptorsRequest):
     return await get_adaptors(request)
-
 
 
 @generate_router.get("/metrics")

@@ -2,7 +2,6 @@
 import os
 import torch
 
-
 from cray_infra.util.get_config import get_config
 from cray_infra.huggingface.get_hf_token import get_hf_token
 
@@ -10,12 +9,13 @@ from vllm.entrypoints.openai.api_server import build_app, decorate_logs, \
     init_app_state, maybe_register_tokenizer_info_endpoint, setup_server, \
     load_log_config, build_async_engine_client
 
+from vllm.entrypoints.openai.tool_parsers import ToolParserManager
+from vllm.entrypoints.launcher import serve_http
 
 from vllm.entrypoints.openai.cli_args import make_arg_parser
 from vllm.utils import FlexibleArgumentParser
-from vllm.entrypoints.launcher import serve_http
-from vllm.entrypoints.openai.tool_parsers import ToolParserManager
-from vllm.entrypoints.utils import log_non_default_args
+
+from vllm.entrypoints.utils import (log_non_default_args)
 import vllm.envs as envs
 
 import uvicorn
@@ -23,21 +23,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-def set_cpu():
-    # Set device target before vLLM imports for proper device inference
-    print("No CUDA available, forcing CPU platform")
-    os.environ["VLLM_TARGET_DEVICE"] = "cpu"
-    os.environ["VLLM_LOGGING_LEVEL"] = "DEBUG"  # Enable debug logging as suggested by error
-    # Set additional vLLM CPU environment variables
-    os.environ["VLLM_WORKER_MULTIPROC_METHOD"] = "spawn"
-    os.environ["VLLM_USE_MODELSCOPE"] = "False"
-    os.environ["VLLM_USE_V1"] = "1"
-
-    # Remove CUDA_VISIBLE_DEVICES for CPU mode to avoid device conflicts
-    if "CUDA_VISIBLE_DEVICES" in os.environ:
-        del os.environ["CUDA_VISIBLE_DEVICES"]
-
 async def create_vllm(server_status, port):
+
     print(f"DEBUG: BEFORE CONFIG - Environment variables:")
     print(f"  VLLM_TARGET_DEVICE: {os.environ.get('VLLM_TARGET_DEVICE', 'NOT SET')}")
     print(f"  CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'NOT SET')}")
@@ -63,7 +50,6 @@ async def create_vllm(server_status, port):
         else:
             print(f"DEBUG: Using default VLLM_BACKEND for sm_version {sm_version}")
 
-
     parser = FlexibleArgumentParser(
         description="vLLM OpenAI-Compatible RESTful API server."
     )
@@ -75,19 +61,19 @@ async def create_vllm(server_status, port):
         f"--max-seq-len-to-capture={config['max_model_length']}",
         f"--gpu-memory-utilization={config['gpu_memory_utilization']}",
         f"--max-log-len={config['max_log_length']}",
-        f"--swap-space=0",
         "--enable-lora",
+        "--trust-remote-code",
     ]
 
 
     if config['limit_mm_per_prompt'] is not None:
         args.append(f"--limit-mm-per-prompt={config['limit_mm_per_prompt']}")
 
-    if torch.cuda.is_available():
-        args.append("--device=cuda")
-    #else:
-    #    set_cpu()
-
+    print(f"DEBUG: About to parse args: {args}")
+    print(f"DEBUG: Environment variables:")
+    print(f"  VLLM_TARGET_DEVICE: {os.environ.get('VLLM_TARGET_DEVICE', 'NOT SET')}")
+    print(f"  CUDA_VISIBLE_DEVICES: {os.environ.get('CUDA_VISIBLE_DEVICES', 'NOT SET')}")
+    print(f"  torch.cuda.is_available(): {torch.cuda.is_available()}")
 
     args = parser.parse_args(args=args)
 
@@ -129,24 +115,12 @@ async def run_server_worker(server_status, listen_address,
             client_config=client_config,
     ) as engine_client:
 
-        logger.info("DEBUG: build_async_engine_client completed, engine_client created")
-        
         maybe_register_tokenizer_info_endpoint(args)
-        logger.info("DEBUG: maybe_register_tokenizer_info_endpoint completed")
-        
         app = build_app(args)
-        logger.info("DEBUG: build_app completed")
-        
         server_status.set_app(app)
-        logger.info("DEBUG: server_status.set_app completed - generate worker can now access app")
 
-        logger.info("DEBUG: About to call engine_client.get_vllm_config() - THIS IS WHERE IT MAY HANG")
         vllm_config = await engine_client.get_vllm_config()
-        logger.info("DEBUG: engine_client.get_vllm_config() completed successfully!")
-        
-        logger.info("DEBUG: About to call init_app_state")
         await init_app_state(engine_client, vllm_config, app.state, args)
-        logger.info("DEBUG: init_app_state completed")
 
         logger.info("Starting vLLM API server %d on %s", server_index,
                     listen_address)

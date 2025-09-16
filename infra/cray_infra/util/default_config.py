@@ -27,11 +27,11 @@ class Config(BaseModel):
     megatron_refresh_period: int = 30 # seconds
 
     vllm_api_url: str = "http://localhost:8001"
-    
+
     # vLLM Engine Configuration
     vllm_use_http: bool = True  # Use HTTP API (True) or direct engine calls (False)
     vllm_http_timeout: float = 30.0  # HTTP timeout in seconds
-    
+
     # Direct engine configuration (when vllm_use_http=False)
     enable_lora: bool = True
     max_lora_rank: int = 16
@@ -51,12 +51,11 @@ class Config(BaseModel):
 
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
 
-    gpu_memory_utilization: float = 0.95
-    max_model_length: int = 8192
-    # 0.10.0 vllm issue: https://github.com/vllm-project/vllm/issues/21615
-    limit_mm_per_prompt:str = '{"image":2}'
-    
+    gpu_memory_utilization: float = 0.50
+    max_model_length: int = 1024
+    default_max_output_tokens: int = 128
     dtype: str = "auto"
+    limit_mm_per_prompt:str = '{"image":2}'
 
     max_log_length: int = 100
 

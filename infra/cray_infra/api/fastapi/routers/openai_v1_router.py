@@ -26,13 +26,12 @@ async def list_models():
     """List available models - proxy to vLLM server."""
     session = get_global_session()
     config = get_config()
-    
     async with session.get(config["vllm_api_url"] + "/v1/models") as resp:
         if resp.status == 200:
             return await resp.json()
         else:
             return JSONResponse(
-                content={"error": f"Failed to fetch models: {resp.status}"}, 
+                content={"error": f"Failed to fetch models: {resp.status}"},
                 status_code=resp.status
             )
 
@@ -43,23 +42,23 @@ async def create_completions(request: CompletionRequest, raw_request: Request):
     """Create completions - proxy to vLLM server."""
     session = get_global_session()
     config = get_config()
-    
+
     logger.info(f"Received completions request: {request.dict()}")
-    
+
     allowed_keys = [
         "model",
-        "temperature", 
+        "temperature",
         "prompt",
         "max_tokens",
         "stream",
     ]
-    
+
     params = {
         key: value
         for key, value in request.dict().items()
         if value is not None and key in allowed_keys
     }
-    
+
     async def generator():
         async with session.post(
             config["vllm_api_url"] + "/v1/completions",
@@ -70,7 +69,7 @@ async def create_completions(request: CompletionRequest, raw_request: Request):
                 logger.error(f"vLLM completions error ({resp.status}): {error_text}")
                 yield f'data: {{"error": "Failed to create completion: {error_text}"}}\n\n'
                 return
-                
+
             async for chunk in resp.content.iter_any():
                 yield chunk
 
@@ -85,23 +84,23 @@ async def create_chat_completions(request: ChatCompletionRequest, raw_request: R
     """Create chat completions - proxy to vLLM server."""
     session = get_global_session()
     config = get_config()
-    
+
     logger.info(f"Received chat completions request: {request.dict()}")
-    
+
     allowed_keys = [
         "model",
         "temperature",
-        "messages", 
+        "messages",
         "max_tokens",
         "stream",
     ]
-    
+
     params = {
         key: value
         for key, value in request.dict().items()
         if value is not None and key in allowed_keys
     }
-    
+
     async def generator():
         async with session.post(
             config["vllm_api_url"] + "/v1/chat/completions",
@@ -112,7 +111,7 @@ async def create_chat_completions(request: ChatCompletionRequest, raw_request: R
                 logger.error(f"vLLM chat completions error ({resp.status}): {error_text}")
                 yield f'data: {{"error": "Failed to create chat completion: {error_text}"}}\n\n'
                 return
-                
+
             async for chunk in resp.content.iter_any():
                 yield chunk
 

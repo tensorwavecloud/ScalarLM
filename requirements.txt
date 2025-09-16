@@ -1,3 +1,5 @@
+# These are infra and sdk dependencies
+# Don't put vLLM or Megatron dependencies in here because they will bloat the client
 numpy<2.0.0
 jsonlines
 aiofiles

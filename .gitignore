@@ -1,44 +1,5 @@
 # ScalarLM .gitignore
 
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-build/
-develop-eggs/
-dist/
-downloads/
-eggs/
-.eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
-pip-wheel-metadata/
-share/python-wheels/
-*.egg-info/
-.installed.cfg
-*.egg
-MANIFEST
-
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.nox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-*.py,cover
-.hypothesis/
-.pytest_cache/
-
 # Environments
 .env
 .venv
@@ -48,37 +9,9 @@ ENV/
 env.bak/
 venv.bak/
 
-# mypy
-.mypy_cache/
-.dmypy.json
-dmypy.json
-
 # ScalarLM specific
-logs/
-*.log
-migration_backup/
-MIGRATION_REPORT.md
 models/*
-infra/slurm_configs/slurm.conf
 scripts/scalarlm
-
-# Model artifacts
-checkpoints/
-*.pt
-*.pth
-*.safetensors
-*.bin
-
-# Data
-data/
-datasets/
-*.jsonl
-*.parquet
-
-# Configuration
-config/local.yaml
-config/secrets.yaml
-.scalarlm/
 
 # IDE
 .vscode/
@@ -86,6 +19,9 @@ config/secrets.yaml
 *.swp
 *.swo
 *~
+
+# Python
+**/__pycache__/
 
 # OS
 .DS_Store
@@ -96,25 +32,5 @@ config/secrets.yaml
 ehthumbs.db
 Thumbs.db
 
-# CUDA compilation cache
-**/.nv_cache/
-**/__nv_cache__/
-
-# Tensorboard logs
-runs/
-tensorboard_logs/
-
-# MLflow
-mlruns/
-
-# Weights & Biases
-wandb/
-
-# Old embedded vLLM (after migration)
-# infra/cray_infra/vllm/
-
-
-tmp/
-patches/
 # Local vLLM clone for development
-vllm/
+vllm/***
