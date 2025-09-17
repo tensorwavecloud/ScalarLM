@@ -13,34 +13,50 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def plot(model_name, smooth):
-    logger.info(f"Plotting model {model_name}")
+def plot(models, smooth):
+
+    if len(models) == 0:
+        models = ["latest"]
+
+    logger.info(f"Plotting models {models}")
 
     try:
-        asyncio.run(plot_async(model_name=model_name, smooth=smooth))
+        asyncio.run(plot_async(models=models, smooth=smooth))
     except Exception as e:
         logger.error(f"Failed to plot model {model_name}")
         logger.error(e)
         logger.error(traceback.format_exc())
 
 
-async def plot_async(model_name, smooth):
-    status = await get_status(model_name)
+async def plot_async(models, smooth):
+    histories = []
+    model_names = []
 
-    history = status["job_status"]["history"]
-    model_name = clip_model_name(
-        os.path.basename(status["job_config"]["job_directory"])
-    )
+    for model_name in models:
+
+        status = await get_status(model_name)
+
+        history = status["job_status"]["history"]
+        model_name = clip_model_name(
+            os.path.basename(status["job_config"]["job_directory"])
+        )
+
+        histories.append(history)
+        model_names.append(model_name)
 
     # Plot loss against step
-    plot_loss(history, model_name, smooth)
+    plot_loss(histories, model_names, smooth)
 
 
-def plot_loss(history, model_name, smooth):
-    steps = [int(entry["step"]) for entry in history]
-    losses = [float(entry["loss"]) for entry in history]
+def plot_loss(histories, model_names, smooth):
 
-    losses = apply_smoothing(losses, smooth)
+    for history, model_name in zip(histories, model_names):
+        steps = [int(entry["step"]) for entry in history]
+        losses = [float(entry["loss"]) for entry in history]
+        losses = apply_smoothing(losses, smooth)
+        plt.plot(steps, losses, label=model_name)
+
+    model_name = model_names[0]
 
     plt.plot(steps, losses)
     plt.xlabel("Step")
@@ -92,4 +108,4 @@ async def get_status(model_name):
 
 
 def clip_model_name(model_name):
-    return model_name[-10:]
+    return model_name[0:10]
