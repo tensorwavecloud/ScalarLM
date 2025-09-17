@@ -1,6 +1,6 @@
 image:
   repository: gdiamos/scalarlm-amd
-  tag: v0.95
+  tag: v0.99
   pullPolicy: Always
 
 service:
@@ -21,11 +21,11 @@ slurm_config_pvc:
     storageClass: longhorn
     size: 10Gi
 
-model: meta-llama/Llama-3.3-3B-Instruct
+model: Qwen/Qwen3-4B-Instruct-2507
 max_model_length: 8192
-gpu_memory_utilization: 0.95
+gpu_memory_utilization: 0.80
 
 training_gpus: 2
-inference_gpus: 0
+inference_gpus: 1
 
 max_train_time: 86400

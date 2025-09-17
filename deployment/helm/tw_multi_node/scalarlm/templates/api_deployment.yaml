@@ -18,7 +18,7 @@ spec:
     {{- end }}
       hostname: {{ include "scalarlm.fullname" . }}
       nodeSelector:
-        zone: greg
+        zone: scalar
       dnsConfig:
         searches:
           - {{ include "scalarlm.megatronname" . }}-headless.scalarlm.svc.cluster.local

@@ -27,7 +27,7 @@ spec:
           - name: ndots
             value: "1"
       nodeSelector:
-        zone: greg
+        zone: scalar
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
@@ -159,4 +159,3 @@ spec:
           hostPath:
             path: {{ .hostPath }}
       {{- end }}
-
