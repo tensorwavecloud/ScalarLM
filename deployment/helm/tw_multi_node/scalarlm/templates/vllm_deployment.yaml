@@ -17,7 +17,7 @@ spec:
         {{- toYaml . | nindent 8 }}
     {{- end }}
       nodeSelector:
-        zone: greg
+        zone: scalar
       containers:
         - name: {{ .Chart.Name }}
           image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
