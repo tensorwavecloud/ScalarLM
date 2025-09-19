@@ -36,7 +36,7 @@ spec:
           env:
             # UCX configuration to use available RDMA devices and TCP fallback
             - name: UCX_TLS
-              value: "tcp,rc,ud"
+              value: "tcp,rc,ud,rocm"
             - name: UCX_NET_DEVICES
               value: "eth0,rdma-eth0,rdma-eth1,rdma-eth2,rdma-eth3,rdma-eth4,rdma-eth5,rdma-eth6,rdma-eth7"
             - name: UCX_LOG_LEVEL

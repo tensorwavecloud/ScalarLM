@@ -15,15 +15,16 @@ jobs_pvc:
 
 cache_pvc:
   storageClass: longhorn
-  size: 200Gi
+  size: 400Gi
 
 slurm_config_pvc:
     storageClass: longhorn
     size: 10Gi
 
-model: Qwen/Qwen3-4B-Instruct-2507
+model: Qwen/Qwen3-32B
 max_model_length: 8192
 gpu_memory_utilization: 0.80
+dtype: bfloat16
 
 training_gpus: 2
 inference_gpus: 1

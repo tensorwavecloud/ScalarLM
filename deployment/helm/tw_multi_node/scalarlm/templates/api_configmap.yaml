@@ -5,6 +5,7 @@ metadata:
 data:
   cray-config.yaml: |
     model: {{ .Values.model }}
+    dtype: {{ .Values.dtype }}
     max_model_length: {{ .Values.max_model_length }}
     gpu_memory_utilization: {{ .Values.gpu_memory_utilization }}
     vllm_api_url: "http://{{ include "scalarlm.vllmname" . }}:{{ .Values.service.vllm_port }}"
