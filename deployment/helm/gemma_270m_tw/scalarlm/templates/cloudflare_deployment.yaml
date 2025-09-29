@@ -1,0 +1,24 @@
+# templates/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "scalarlm.cloudflaredFullName" . }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "scalarlm.cloudflaredLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "scalarlm.cloudflaredLabels" . | nindent 8 }}
+    spec:
+      containers:
+        - name: {{ .Chart.Name }}
+          image: "cloudflare/cloudflared:2024.8.3"
+          imagePullPolicy: {{ .Values.image.pullPolicy }}
+          args:
+            - tunnel
+            - run
+            - --token
+            - {{ .Values.cloudflared.tunnelToken }}
