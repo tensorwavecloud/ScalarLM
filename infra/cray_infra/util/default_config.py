@@ -29,20 +29,6 @@ class Config(BaseModel):
     vllm_api_url: str = "http://localhost:8001"
 
     # vLLM Engine Configuration
-    vllm_use_http: bool = True  # Use HTTP API (True) or direct engine calls (False)
-    vllm_http_timeout: float = 30.0  # HTTP timeout in seconds
-
-    # Direct engine configuration (when vllm_use_http=False)
-    enable_lora: bool = True
-    max_lora_rank: int = 16
-    tensor_parallel_size: int = 1
-    pipeline_parallel_size: int = 1
-    trust_remote_code: bool = False
-    enforce_eager: bool = False
-    max_seq_len_to_capture: int = 8192
-    max_logprobs: int = 20
-    disable_sliding_window: bool = False
-
     generate_batch_size: int = 1024
 
     response_timeout: int = 60 # seconds

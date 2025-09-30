@@ -50,7 +50,7 @@ class TokenformerMLPAdapter(nn.Module):
     def forward(self, query: torch.Tensor):
         all_base_layer_results = self.layer(query)
 
-        tokenformer_results = self.tokenformer_op_1(query)
+        tokenformer_results = self.tokenformer_op(query)
 
         if isinstance(all_base_layer_results, tuple):
             base_layer_results = all_base_layer_results[0]
@@ -69,10 +69,6 @@ class TokenformerMLPAdapter(nn.Module):
 
 
     def tokenformer_op(self, query):
-
-        return query @ self.tokenformer_k.transpose(0, 1) @ self.tokenformer_v
-
-    def tokenformer_op_1(self, query):
 
         q = query.view(
             -1, self.num_heads, self.hidden_size // self.num_heads

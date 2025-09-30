@@ -39,12 +39,6 @@ cd scalarlm
 
 ScalarLM has been completely redesigned with a **clean architecture** that solves dependency management issues:
 
-### Before: Embedded vLLM (Problems)
-- ❌ Copied vLLM 0.6.0 directly into ScalarLM
-- ❌ Hard to update vLLM versions
-- ❌ Tight coupling between systems
-- ❌ Maintenance nightmare
-
 ### After: Clean Architecture (Solution)
 - ✅ **Zero coupling** - vLLM has no knowledge of ScalarLM
 - ✅ **External enhancement** - ScalarLM adapters enhance vLLM models
@@ -85,6 +79,7 @@ ScalarLM has been completely redesigned with a **clean architecture** that solve
 |--------|-----------|----------------|
 | NVIDIA BLACKWELL | `gdiamos/scalarlm-nvidia-12.0:latest` | `gdiamos/scalarlm-nvidia-12.0:v0.99` |
 | NVIDIA HOPPER    | `gdiamos/scalarlm-nvidia-8.0:latest`  | `gdiamos/scalarlm-nvidia-8.0:v0.99`  |
+| NVIDIA HOPPER    | `gdiamos/scalarlm-nvidia-8.6:latest`  | `gdiamos/scalarlm-nvidia-8.6:v0.99`  |
 | NVIDIA ADA       | `gdiamos/scalarlm-nvidia-7.5:latest`  | `gdiamos/scalarlm-nvidia-7.5:v0.99`  |
 | ARM              | `gdiamos/scalarlm-arm:latest`         | `gdiamos/scalarlm-arm:v0.99`         |
 | AMD              | `gdiamos/scalarlm-amd:latest`         | `gdiamos/scalarlm-amd:v0.99`         |
@@ -105,53 +100,31 @@ ScalarLM has been completely redesigned with a **clean architecture** that solve
 
 ```bash
 # Core Settings
-export SCALARLM_HOST="0.0.0.0"           # Server host (default: localhost)
-export SCALARLM_PORT="8000"              # Server port (default: 8000)
 export SCALARLM_MODEL="meta-llama/Llama-2-7b-hf"  # Default model
 
 # Performance Settings
-export SCALARLM_GPU_MEMORY_UTILIZATION="0.9"  # GPU memory usage
-export SCALARLM_MAX_MODEL_LEN="2048"          # Maximum model length
-export SCALARLM_TENSOR_PARALLEL_SIZE="1"      # Tensor parallelism
-
-# Tokenformer Settings
-export SCALARLM_ENABLE_TOKENFORMER="true"     # Enable Tokenformer
-export SCALARLM_TOKENFORMER_CACHE_CAPACITY="8" # Cache capacity
+export SCALARLM_GPU_MEMORY_UTILIZATION="0.9"     # GPU memory usage
+export SCALARLM_MAX_MODEL_LENGTH="2048"          # Maximum model length
 ```
 
 ### Configuration Files
 
 ScalarLM looks for configuration in these locations (in order):
-1. `./scalarlm.yaml` - Local project config
-2. `~/.scalarlm/config.yaml` - User config
-3. `/etc/scalarlm/config.yaml` - System config
+1. `/app/cray/cray-config.yaml` - Local project config (in the container)
 
-Example `scalarlm.yaml`:
+Example `cray-config.yaml`:
 ```yaml
-server:
-  host: 0.0.0.0
-  port: 8000
+model: meta-llama/Llama-2-7b-hf
+max_model_length: 2048
 
-model:
-  name: meta-llama/Llama-2-7b-hf
-  max_length: 2048
-
-tokenformer:
-  enabled: true
-  cache_capacity: 8
-
-performance:
-  gpu_memory_utilization: 0.9
-  tensor_parallel_size: 1
+gpu_memory_utilization: 0.9
 ```
 
 ## 📂 Project Structure
 
 ```
 scalarlm/
-├── tests/
-│   ├── test_clean_architecture.py   # Integration tests
-│   └── test_architecture_basic.py   # Basic tests
+├── tests/                          # Unit and integration tests
 ├── infra/                           # ScalarLM infrastructure
 ├── ml/                              # Training and ML components
 ├── deployment/                      # Deployment configurations
@@ -206,7 +179,7 @@ scalarlm/
 
 ## 📄 License
 
-ScalarLM is licensed under the Apache License 2.0. See [LICENSE](LICENSE) for details.
+ScalarLM is licensed under the CC-0 License. See [LICENSE](LICENSE) for details.
 
 ## 🙏 Acknowledgments
 
@@ -220,4 +193,4 @@ Built with:
 
 ---
 
-**Ready to get started?** Run `make setup-dev` to set up your development environment!
+**Ready to get started?** Run `./scalarlm up` to set up your development environment!
