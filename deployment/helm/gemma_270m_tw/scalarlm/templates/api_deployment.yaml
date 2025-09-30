@@ -21,8 +21,8 @@ spec:
         zone: scalar
       dnsConfig:
         searches:
-          - {{ include "scalarlm.megatronname" . }}-headless.scalarlm.svc.cluster.local
-          - "scalarlm.svc.cluster.local"
+          - {{ include "scalarlm.megatronname" . }}-headless.gemma.svc.cluster.local
+          - "gemma.svc.cluster.local"
           - "svc.cluster.local"
           - "cluster.local"
         options:

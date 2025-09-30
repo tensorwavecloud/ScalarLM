@@ -7,7 +7,7 @@ service:
   type: ClusterIP
   api_port: 8000
   vllm_port: 8001
-  externalIP: 64.139.222.101
+  externalIP: 64.139.222.102
 
 jobs_pvc:
   storageClass: longhorn
@@ -21,6 +21,9 @@ slurm_config_pvc:
     storageClass: longhorn
     size: 10Gi
 
+cloudflared:
+  tunnelToken: eyJhIjoiMDhmMjU0OGRjYWJmOGJhNDI0Y2M2ZTY0MDdkYmQzZDQiLCJ0IjoiNjFkNmVmYjYtOWZiZS00NmNjLWIyOWEtZDk1ODY4ZjE2NDE2IiwicyI6Ik5HWm1ORFZtWW1JdE5HWTBZeTAwWW1ObExXRTFaREl0WVRZek1qQXpNRGM1WWpBNCJ9
+
 model: google/gemma-3-270m
 max_model_length: 32768
 gpu_memory_utilization: 0.95
@@ -30,6 +33,3 @@ training_gpus: 2
 inference_gpus: 1
 
 max_train_time: 86400
-
-cloudflared:
-  tunnelToken: <YOUR_TOKEN_HERE>

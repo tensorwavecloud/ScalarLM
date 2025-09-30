@@ -19,8 +19,8 @@ spec:
     {{- end }}
       dnsConfig:
         searches:
-          - {{ include "scalarlm.megatronname" . }}-headless.scalarlm.svc.cluster.local
-          - "scalarlm.svc.cluster.local"
+          - {{ include "scalarlm.megatronname" . }}-headless.gemma.svc.cluster.local
+          - "gemma.svc.cluster.local"
           - "svc.cluster.local"
           - "cluster.local"
         options:
@@ -93,9 +93,8 @@ spec:
               readOnly: true
           resources:
             limits:
-              amd.com/gpu: 8
+              amd.com/gpu: 1
           securityContext:
-            privileged: true
             capabilities:
               add: ["NET_ADMIN", "SYS_ADMIN", "IPC_LOCK"]
       volumes:
