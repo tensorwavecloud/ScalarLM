@@ -79,7 +79,7 @@ def create_llama_tokenformer_model(model, device, train_lm_head=None):
 
     total_time = time.time() - overall_start
     logger.info(f"create_llama_tokenformer_model total time: {total_time:.2f}s ({total_time/60:.1f} minutes)")
-    logger.info(f"Breakdown: layer_replace={step1_time:.1f}s, adapter_insert={step2_time:.1f}s, param_count={step3_time:.1f}s, freeze={step4_time:.1f}s, unfreeze={step5_time:.1f}s, lm_head={step6_time:.1f}s, logging={step7_time:.1f}s")
+    logger.info(f"Breakdown: adapter_insert={step2_time:.1f}s, param_count={step3_time:.1f}s, freeze={step4_time:.1f}s, unfreeze={step5_time:.1f}s, lm_head={step6_time:.1f}s, logging={step7_time:.1f}s")
 
     return tokenformer_model
 
