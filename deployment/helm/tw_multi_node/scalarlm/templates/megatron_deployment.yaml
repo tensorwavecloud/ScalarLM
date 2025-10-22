@@ -93,9 +93,9 @@ spec:
               readOnly: true
           resources:
             limits:
-              amd.com/gpu: 8
+              amd.com/gpu: 1
           securityContext:
-            privileged: true
+            # privileged: true
             capabilities:
               add: ["NET_ADMIN", "SYS_ADMIN", "IPC_LOCK"]
       volumes:

@@ -21,12 +21,12 @@ slurm_config_pvc:
     storageClass: longhorn
     size: 10Gi
 
-model: Qwen/Qwen3-32B
+model: Qwen/Qwen3-4B
 max_model_length: 8192
 gpu_memory_utilization: 0.80
 dtype: bfloat16
 
-training_gpus: 2
-inference_gpus: 1
+training_gpus: 16
+inference_gpus: 0
 
 max_train_time: 86400
