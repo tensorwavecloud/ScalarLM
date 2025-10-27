@@ -21,6 +21,7 @@ except Exception as e:
 import signal
 import logging
 
+logger = logging.getLogger(__name__)
 
 def main():
 
@@ -53,7 +54,7 @@ def setup_logging():
 
 def setup_signal_handler(harness):
     def signal_handler(sig, frame):
-        logger.warn("Received signal: ", sig)
+        logger.warning("Received signal: ", sig)
         harness.update_status(status=TrainingJobStatus.QUEUED)
 
         sys.exit(0)

@@ -1,7 +1,6 @@
 
 import logging
 import time
-import torch
 from tokenformer.transformers_tokenformer import TransformersTokenformerSurgeon
 
 def log_param_gradients(model, logger=logging.getLogger(__name__)):
@@ -10,7 +9,7 @@ def log_param_gradients(model, logger=logging.getLogger(__name__)):
     logger.info(f"Parameter summary: {trainable_count:,} trainable out of {total_count:,} total")
 
 
-def create_llama_tokenformer_model(model, device, train_lm_head=None):
+def create_tokenformer_model(model, device, train_lm_head=None):
     logger = logging.getLogger(__name__)
     overall_start = time.time()
 
@@ -78,7 +77,7 @@ def create_llama_tokenformer_model(model, device, train_lm_head=None):
     logger.info(f"Parameter gradient logging completed: {step7_time:.2f}s")
 
     total_time = time.time() - overall_start
-    logger.info(f"create_llama_tokenformer_model total time: {total_time:.2f}s ({total_time/60:.1f} minutes)")
+    logger.info(f"create_tokenformer_model total time: {total_time:.2f}s ({total_time/60:.1f} minutes)")
     logger.info(f"Breakdown: adapter_insert={step2_time:.1f}s, param_count={step3_time:.1f}s, freeze={step4_time:.1f}s, unfreeze={step5_time:.1f}s, lm_head={step6_time:.1f}s, logging={step7_time:.1f}s")
 
     return tokenformer_model

@@ -3,7 +3,7 @@ from cray_megatron.megatron.distribution.apply_distribution_strategy import (
     apply_distribution_strategy,
 )
 
-from tokenformer.llama_tokenformer_model import create_llama_tokenformer_model
+from ml.tokenformer.tokenformer_model import create_tokenformer_model
 
 from cray_infra.util.get_job_config import get_job_config
 from cray_infra.util.get_config import get_config
@@ -75,12 +75,12 @@ def materialize_model(model_info):
     logger.info(f"from_pretrained latency: {total_time:.2f}s ({total_time/60:.1f} minutes)")
 
     start_time = time.time()
-    model_info["model"] = create_llama_tokenformer_model(
+    model_info["model"] = create_tokenformer_model(
         model_info["model"], model_info["distribution_strategy"]["device"]
     )
     total_time = time.time() - start_time
 
-    logger.info(f"create_llama_tokenformer_model latency: {total_time:.2f}s ({total_time/60:.1f} minutes)")
+    logger.info(f"create_tokenformer_model latency: {total_time:.2f}s ({total_time/60:.1f} minutes)")
     start_time = time.time()
     config = get_config()
     config_dtype = config["dtype"]
