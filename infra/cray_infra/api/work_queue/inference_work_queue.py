@@ -119,6 +119,18 @@ class InferenceWorkQueue:
         async with self.lock:
             return self.queue.unack_count()
 
+    async def clear_queue(self):
+        async with self.lock:
+            while not self.queue.empty():
+                try:
+                    raw_item = self.queue.get(block=False, raw=True)
+                    request_id = raw_item["pqid"]
+                    self.queue.ack(id=request_id)
+                except persistqueue.Empty:
+                    break
+
+        await self.clear_acked_data()
+
     def __len__(self):
         return len(self.queue)
 

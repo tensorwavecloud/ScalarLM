@@ -19,7 +19,7 @@ dataset = get_dataset()
 
 status = llm.train(
     dataset,
-    train_args={"max_steps": 10, "learning_rate": 3e-3, "gpus": 1,
+    train_args={"max_steps": 10, "learning_rate": 3e-3, "gpus": 1},
             "max_token_block_size": 4096,
             "steps_per_checkpoint": 10000},
 )

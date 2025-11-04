@@ -59,3 +59,9 @@ class AsyncSupermassiveIntelligence:
 
     async def get_node_count(self):
         return await self.engine.get_node_count()
+
+    async def cancel(self, model_name):
+        return await self.engine.cancel(model_name=model_name)
+
+    async def clear_queue(self):
+        return await self.engine.clear_queue()

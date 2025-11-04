@@ -9,7 +9,7 @@ PromptType = Union[str, dict[str, Union[str, list[str]]]]
 
 class GetWorkResponse(BaseModel):
     prompt: PromptType
-    request_id: int
+    request_id: str
     request_type: str
     model: Optional[str] = None
     max_tokens: Optional[int] = None

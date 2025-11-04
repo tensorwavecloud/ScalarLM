@@ -31,6 +31,8 @@ else
     fi
 fi
 
+mkdir -p vllm
+
 echo "SM arch is ${sm_arch}"
 
 BASE_NAME=${target} VLLM_TARGET_DEVICE=${vllm_target_device} \

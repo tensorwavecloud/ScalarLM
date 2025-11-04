@@ -82,11 +82,13 @@ async def create_generate_worker(server_status):
                 )
 
             except asyncio.TimeoutError:
-                logger.debug("Timeout waiting for kv cache space")
+                logger.debug("Timeout waiting for work, retrying...")
                 await asyncio.sleep(0.1)
+                continue
             except Exception as e:
                 logger.error(f"Worker error: {e}")
                 await asyncio.sleep(1)
+                continue
 
             if get_work_response.status != 200:
                 logger.error(f"Failed to get work: {get_work_response.status}")

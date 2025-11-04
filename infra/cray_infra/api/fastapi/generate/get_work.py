@@ -1,5 +1,9 @@
 from cray_infra.api.work_queue.inference_work_queue import get_inference_work_queue
+from cray_infra.api.work_queue.get_work_item import get_work_item, get_work_item_no_wait
+
+
 from cray_infra.api.fastapi.generate.get_adaptors import get_adaptors
+from cray_infra.generate.clear_acked_requests_from_queue import worker_ready, worker_not_ready
 
 from cray_infra.api.fastapi.routers.request_types.get_work_request import GetWorkRequest
 from cray_infra.api.fastapi.routers.request_types.get_work_response import (
@@ -22,7 +26,9 @@ async def get_work(request: GetWorkRequest):
     requests = []
 
     try:
-        first_request, request_id = await inference_work_queue.get()
+        await worker_ready()
+        first_request, request_id = await get_work_item(inference_work_queue)
+        await worker_not_ready()
 
         if first_request is None:
             return GetWorkResponses(requests=[], new_adaptors=await get_adaptors(request))
@@ -39,7 +45,7 @@ async def get_work(request: GetWorkRequest):
 
         for i in range(batch_size - 1):
 
-            next_request, request_id = await inference_work_queue.get_nowait()
+            next_request, request_id = await get_work_item_no_wait(inference_work_queue)
 
             if next_request is None:
                 break

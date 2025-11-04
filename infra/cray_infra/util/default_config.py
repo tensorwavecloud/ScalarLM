@@ -18,7 +18,7 @@ class Config(BaseModel):
     train_job_entrypoint: str = "/app/cray/scripts/train_job_entrypoint.sh"
     training_job_directory: str = "/app/cray/jobs"
 
-    max_train_time: int = 15 * 60
+    max_train_time: int = 24 * 60 * 60
     extra_training_seconds: int = 300  # 5 minutes buffer before slurm kills the job
 
     slurm_wait_time: int = 30 # seconds
@@ -33,12 +33,14 @@ class Config(BaseModel):
 
     response_timeout: int = 60 # seconds
     inference_work_queue_timeout: int = 30 # seconds
+    inference_work_queue_idle_time: int = 5 # seconds
     inference_work_queue_ack_timeout: int = 300 # seconds
 
     inference_work_queue_path: str = "/app/cray/inference_work_queue.sqlite"
+    upload_base_path: str = "/app/cray/inference_requests"
 
     gpu_memory_utilization: float = 0.50
-    max_model_length: int = 1024
+    max_model_length: int = 256
     default_max_output_tokens: int = 128
     dtype: str = "auto"
     limit_mm_per_prompt:str = '{"image":2}'

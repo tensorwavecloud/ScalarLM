@@ -16,7 +16,7 @@ if [ "$VLLM_SOURCE" = "local" ]; then
     echo "📁 Using local vLLM from: $LOCAL_PATH"
 
     if [ ! -d "$LOCAL_PATH" ]; then
-        echo "❌ Error: Local vLLM directory not found at $LOCAL_PATH"
+        echo "❌ Error: Local    vLLM directory not found at $LOCAL_PATH"
         echo ""
         echo "   For local development, vLLM must be cloned into the ScalarLM directory:"
         echo "   cd /path/to/scalarlm"
