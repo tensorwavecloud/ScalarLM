@@ -3,6 +3,8 @@ from masint.cli.plot import plot
 from masint.cli.ls import ls
 from masint.cli.squeue import squeue
 from masint.cli.stats import stats
+from masint.cli.clear_queue import clear_queue
+from masint.cli.cancel import cancel
 
 import masint
 
@@ -38,6 +40,12 @@ def main():
     elif argumments.command == "stats":
         stats()
 
+    elif argumments.command == "clear_queue":
+        clear_queue()
+
+    elif argumments.command == "cancel":
+        cancel(model_name=argumments.model)
+
     else:
         logger.error(f"Unknown command {argumments.command}")
         parser.print_help()
@@ -62,6 +70,8 @@ def parse_arguments():
     add_ls_parser(subparsers)
     add_squeue_parser(subparsers)
     add_stats_parser(subparsers)
+    add_clear_queue_parser(subparsers)
+    add_cancel_parser(subparsers)
 
     args = parser.parse_args()
 
@@ -108,6 +118,13 @@ def add_squeue_parser(subparsers):
 
 def add_stats_parser(subparsers):
     stats_parser = subparsers.add_parser("stats", help="View the stats of the models")
+
+def add_clear_queue_parser(subparsers):
+    clear_queue_parser = subparsers.add_parser("clear_queue", help="Clear the inference queue")
+
+def add_cancel_parser(subparsers):
+    cancel_parser = subparsers.add_parser("cancel", help="Cancel a running model")
+    cancel_parser.add_argument("--model", help="The model to cancel", required=True)
 
 
 if __name__ == "__main__":

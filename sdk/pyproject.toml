@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "scalarlm"
-version = "0.99"
+version = "0.992"
 authors = [
   { name="Greg Diamos", email="gregory.diamos@gmail.com" },
 ]
