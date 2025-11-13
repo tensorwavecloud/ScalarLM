@@ -1,7 +1,7 @@
 
 import logging
 import time
-from tokenformer.transformers_tokenformer import TransformersTokenformerSurgeon
+from tokenformer.tokenformer_surgeon import TokenformerSurgeon
 
 def log_param_gradients(model, logger=logging.getLogger(__name__)):
     trainable_count = sum(1 for p in model.parameters() if p.requires_grad)
@@ -16,7 +16,7 @@ def create_tokenformer_model(model, device, train_lm_head=None):
     # Step 1: Insert adapter modules
     logger.info("Starting adapter module insertion...")
     step2_start = time.time()
-    tokenformer_model = TransformersTokenformerSurgeon(model, device).insert_adapter_modules()
+    tokenformer_model = TokenformerSurgeon(model, device).insert_adapter_modules()
 
     step2_time = time.time() - step2_start
     logger.info(f"Adapter module insertion completed: {step2_time:.2f}s ({step2_time/60:.1f} minutes)")

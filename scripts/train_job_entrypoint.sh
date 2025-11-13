@@ -17,4 +17,4 @@ LOCAL_DIRECTORY="$( cd "$( dirname "${CRAY_TRAINING_JOB_CONFIG_PATH}" )" >/dev/n
 # Put the current ml directory in the python path so that the modules can be imported
 export PYTHONPATH=$LOCAL_DIRECTORY/ml:$PYTHONPATH
 
-mpirun --allow-run-as-root --oversubscribe python $LOCAL_DIRECTORY/ml/cray_megatron/main.py $*
+mpirun --allow-run-as-root python $LOCAL_DIRECTORY/ml/cray_megatron/main.py $*
