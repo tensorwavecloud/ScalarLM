@@ -59,7 +59,7 @@ ENV BASE_NAME=cpu
 
 ###############################################################################
 # AMD BASE IMAGE
-FROM gdiamos/rocm-base:v0.99 AS amd
+FROM gdiamos/rocm-base:v0.997 AS amd
 
 ENV BASE_NAME=amd
 
@@ -160,6 +160,8 @@ COPY ./infra/requirements-megatron.txt ${INSTALL_ROOT}/requirements-megatron.txt
 RUN if [ "$VLLM_TARGET_DEVICE" != "cpu" ]; then \
         uv pip install --no-compile --no-cache-dir -r ${INSTALL_ROOT}/requirements-megatron.txt; \
     fi
+
+RUN uv pip install sentence-transformers
 
 # SDK and Infra dependencies
 COPY ./requirements.txt ${INSTALL_ROOT}/requirements.txt
