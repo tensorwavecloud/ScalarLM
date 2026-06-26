@@ -14,6 +14,9 @@ from cray_infra.util.get_config import get_config
 from transformers import AutoConfig
 from transformers import AutoTokenizer
 from transformers import AutoModelForCausalLM
+from transformers import AutoModelForImageTextToText
+
+from cray_megatron.megatron.doc_mask import is_multimodal
 
 import torch
 
@@ -68,11 +71,28 @@ def materialize_model(model_info):
     # attn_implementation; "auto" (the default) means SDPA.
     override = job_config.get("attn_implementation", "auto")
     attn_impl = override if (override and override != "auto") else "sdpa"
-    logger.info("Loading model with attn_implementation=%s", attn_impl)
+
+    # Multimodal wrappers (vision_config present) need the image-text-to-text
+    # AutoModel: AutoModelForCausalLM rejects e.g. Qwen2VLConfig at load
+    # ("Unrecognized configuration class ... for AutoModelForCausalLM"), which
+    # is the Qwen2-VL TRAIN_FAILED in the cuda-spark sweep. AutoModelForImage-
+    # TextToText loads both Qwen2-VL and Gemma3 conditional-generation models;
+    # the text-only training forward works on them (LoRA is confined to the
+    # language tower by resolve_target_modules).
+    model_cls = (
+        AutoModelForImageTextToText
+        if is_multimodal(model_info["model_config"])
+        else AutoModelForCausalLM
+    )
+    logger.info(
+        "Loading model with %s, attn_implementation=%s",
+        model_cls.__name__,
+        attn_impl,
+    )
 
     start_time = time.time()
     try:
-        model_info["model"] = AutoModelForCausalLM.from_pretrained(
+        model_info["model"] = model_cls.from_pretrained(
             model_info["model_name"],
             torch_dtype="auto",  # Use model's native dtype
             attn_implementation=attn_impl,
@@ -93,7 +113,7 @@ def materialize_model(model_info):
                 e,
             )
             attn_impl = "eager"
-            model_info["model"] = AutoModelForCausalLM.from_pretrained(
+            model_info["model"] = model_cls.from_pretrained(
                 model_info["model_name"],
                 torch_dtype="auto",
                 attn_implementation="eager",

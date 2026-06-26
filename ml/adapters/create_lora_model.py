@@ -5,6 +5,8 @@ import logging
 
 from peft import get_peft_model, LoraConfig, TaskType
 
+from adapters.resolve_target_modules import resolve_target_modules
+
 logger = logging.getLogger(__name__)
 
 
@@ -15,7 +17,15 @@ def create_lora_model(model, device, train_lm_head=False):
     logger.info("Starting LoRA adapter module insertion...")
     step2_start = time.time()
     job_config = get_job_config()
-    lora_config = job_config["lora_config"]
+    lora_config = dict(job_config["lora_config"])
+
+    # Resolve PEFT's "all-linear" shorthand ourselves: its expansion silently
+    # fails for some architectures (Qwen3MoE under peft 0.19 + transformers 5.x)
+    # and raises "Target modules {char-set} not found" — the qwen3-moe sweep
+    # TRAIN_FAILED. For dense models this is identical to PEFT's expansion.
+    lora_config["target_modules"] = resolve_target_modules(
+        model, lora_config.get("target_modules", "all-linear")
+    )
 
     logger.info(f"LoRA config: {lora_config}")
 

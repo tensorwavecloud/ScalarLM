@@ -10,6 +10,13 @@ from cray_megatron.models.get_latest_checkpoint_path import (
 from cray_megatron.collectives.main_rank_only import main_rank_only, is_main_rank
 from cray_megatron.megatron.training_harness import TrainingHarness
 from cray_megatron.megatron import stop_flag
+from cray_megatron.megatron.doc_mask import (
+    doc_mask_decision,
+    is_multimodal,
+    BUILD,
+    SKIP_SEQLEN,
+    SKIP_MULTIMODAL,
+)
 
 from cray_infra.training.training_job_status import TrainingJobStatus
 from cray_infra.util.get_job_config import get_job_config
@@ -38,6 +45,7 @@ logger = logging.getLogger(__name__)
 # cap: the flex path uses a BlockMask that is O(S/128), not O(S²).
 _MAX_4D_MASK_SEQ_LEN = 16384
 _doc_mask_skip_warned = False
+_doc_mask_multimodal_warned = False
 
 
 def _warn_doc_mask_skipped(seq_len: int) -> None:
@@ -50,6 +58,19 @@ def _warn_doc_mask_skipped(seq_len: int) -> None:
         "Packed documents will attend across each other in this run. "
         "Set attn_implementation='flex_attention' in train_args to lift this limit.",
         seq_len, _MAX_4D_MASK_SEQ_LEN,
+    )
+
+
+def _warn_doc_mask_skipped_multimodal() -> None:
+    global _doc_mask_multimodal_warned
+    if _doc_mask_multimodal_warned:
+        return
+    _doc_mask_multimodal_warned = True
+    logger.warning(
+        "Skipping 4D document mask: multimodal wrapper masks its loss by a 2D "
+        "attention_mask (e.g. Gemma3ForConditionalGeneration indexes shift_logits "
+        "by it), so a 4D mask raises IndexError. Falling back to the 2D mask; "
+        "packed documents will attend across each other in this run."
     )
 
 
@@ -435,35 +456,43 @@ class TrainingLoop:
         # Capped at _MAX_4D_MASK_SEQ_LEN to keep memory bounded — above
         # that the mask is skipped and we fall back to legacy behavior
         # (a flash-attn varlen path is the right long-term fix).
-        if "document_ids" in batch:
-            seq_len = forward_kwargs["input_ids"].shape[-1]
-            if _use_flex_attention() and _FLEX_ATTENTION_AVAILABLE:
+        seq_len = forward_kwargs["input_ids"].shape[-1]
+        model_config = self.training_state.model_info.get("model_config")
+        decision = doc_mask_decision(batch, seq_len, model_config, _MAX_4D_MASK_SEQ_LEN)
+        use_flex = _use_flex_attention() and _FLEX_ATTENTION_AVAILABLE
+        if decision == SKIP_MULTIMODAL:
+            # A ...ForConditionalGeneration wrapper whose internal loss indexes
+            # the logits by a 2D attention_mask (gemma-3-4b-it). Keep the 2D mask
+            # from the batch — a 4D mask (SDPA or flex BlockMask) would IndexError.
+            _warn_doc_mask_skipped_multimodal()
+        elif decision == BUILD or (decision == SKIP_SEQLEN and use_flex):
+            # BUILD, or a sequence past the SDPA cap when flex_attention is on —
+            # the flex BlockMask is O(S/128), so _MAX_4D_MASK_SEQ_LEN doesn't apply.
+            doc_ids = batch["document_ids"].to(device)
+            if use_flex:
                 # flex_attention path: O(S/128) BlockMask, no sequence-length cap.
                 # Requires attn_implementation="flex_attention" in train_args so the
                 # model kernel and the mask format match.
-                doc_ids = batch["document_ids"].to(device)
                 forward_kwargs["attention_mask"] = _build_document_block_mask(doc_ids, device)
-                forward_kwargs["position_ids"] = batch["position_ids"].to(device)
-            elif seq_len <= _MAX_4D_MASK_SEQ_LEN:
-                # SDPA path: materialize the full causal block-diagonal bool mask.
-                # [B, 1, S, S] — 1 byte/cell. Capped at _MAX_4D_MASK_SEQ_LEN to
-                # keep memory bounded (128K² would be 16 GB).
-                doc_ids = batch["document_ids"].to(device)
+            else:
+                # SDPA path: materialize the [B, 1, S, S] causal block-diagonal
+                # bool mask (1 byte/cell, capped at _MAX_4D_MASK_SEQ_LEN).
                 same_doc = doc_ids.unsqueeze(2) == doc_ids.unsqueeze(1)
                 causal = torch.ones(
                     seq_len, seq_len, device=device, dtype=torch.bool
                 ).tril()
                 forward_kwargs["attention_mask"] = (same_doc & causal).unsqueeze(1)
-                forward_kwargs["position_ids"] = batch["position_ids"].to(device)
-            else:
-                _warn_doc_mask_skipped(seq_len)
+            forward_kwargs["position_ids"] = batch["position_ids"].to(device)
+        elif decision == SKIP_SEQLEN:
+            _warn_doc_mask_skipped(seq_len)
+        # decision == NONE: batch isn't packed; leave the 2D mask as-is.
 
         # Multimodal wrappers (Gemma4ForConditionalGeneration, …) require an
         # mm_token_type_ids tensor on every training forward, even when the
         # batch is pure text. The data loader produces text-only batches; pass
         # zeros so non-image tokens are tagged correctly. Detected by the
         # presence of a vision_config on the underlying model config.
-        if _is_multimodal(self.training_state.model_info.get("model_config")):
+        if is_multimodal(model_config):
             forward_kwargs["mm_token_type_ids"] = torch.zeros_like(
                 forward_kwargs["input_ids"]
             )
@@ -799,15 +828,6 @@ def get_gradient_clip_value():
     job_config = get_job_config()
     return job_config.get("gradient_clip_value", 1.0)
 
-
-def _is_multimodal(model_config) -> bool:
-    """True for HF multimodal wrapper configs (Gemma4, etc.) — they nest a
-    `vision_config` and require mm_token_type_ids on every training forward."""
-    if model_config is None:
-        return False
-    return hasattr(model_config, "vision_config") and getattr(
-        model_config, "vision_config"
-    ) is not None
 
 def get_warmup_steps():
     job_config = get_job_config()
